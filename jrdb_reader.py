@@ -25,6 +25,12 @@ def main():
         raise Exception("horse_result directory doesn't exist")
     files = os.listdir(result_path)
     files = filter(lambda s:s.startswith("SED"),files)
+    for f in files:
+        path = os.path.join(result_path,f)
+        with open(path,"r") as fp:
+            rd = reader.ResultDatabase()
+            rd.insert_file(fp)
+        break
 
 
     "process about payback"
