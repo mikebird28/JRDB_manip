@@ -13,37 +13,59 @@ def to_integer(x,illegal_value = None):
 
     """
     try:
-        return int(x)
+        return Maybe(int,int(x))
     except ValueError:
-        return illegal_value
+        return Maybe(int,None)
 
 def to_float(x,illegal_value = None):
     try:
-        return float(x)
+        return Maybe(float,float(x))
     except ValueError:
-        return illegal_value
+        return Maybe(float,illegal_value)
 
 def to_string(x,illegal_value = None):
     text = x.strip()
     if text == "":
-        return illegal_value
+        return Maybe(str,None)
     else:
-        return text
+        return Maybe(str,text)
 
 def to_unicode(x,illegal_value = None):
-    text = x.decode("shift-jis").strip()
+    text = x.decode("cp932").strip()
     if text == u"":
-        return illegal_value
+        return Maybe(unicode,None)
     else:
-        return text
+        return Maybe(unicode,text)
+
+class Maybe():
+    def __init__(self,typ,value):
+        self.typ = typ
+        self.value = value
+
+    def string(self):
+        str_op = lambda x : u"'"+ x + u"'"
+        func_dict = {str:str_op,unicode:str_op,int:str,float:str}
+        if self.value != None:
+            string = func_dict[self.typ](self.value)
+        else:
+            string = ""
+        return string
 
 #utility functions for database access
 def table_exists(con,table_name):
+    """check if the table has already existed
+    Args:
+        con       : database connection
+        tabe_name      : table name
+    Returns:
+        return True if transaction was successed
+        return False if transaction was failed
+    """
+ 
     c = con.cursor()
     sql = """select count(*) from sqlite_master where type='table' and name='{0}'""".format(table_name)
     c.execute(sql)
-    result = c.fetchone()
-    print(result)
+    result = c.fetchone()[0]
     if result == 1:
         return True
     else:
@@ -59,7 +81,41 @@ def create_table(con,name,type_dict):
         return True if transaction was successed
         return False if transaction was failed
     """
-    pass
+    type_to_str = {str:"TEXT",unicode:"TEXT",int:"INTEGER",float:"REAL"}
+    type_tuples = []
+    keys = type_dict.keys()
+    keys.sort()
+    for k in keys:
+        ctype = type_dict[k]
+        type_str = type_to_str[ctype]
+        type_tuples.append((k,type_str))
+    columns = ",".join(["{0} {1}".format(k,v) for k,v in type_tuples])
+    sql = """CREATE TABLE {name}({columns});""".format(name = name,columns = columns)
+    c = con.cursor()
+    c.execute(sql)
+
+def insert_container(con,name,containers):
+    """insert container to the table
+    Args:
+        con       : database connection
+        name      : table name
+        container : container whish has horse race records
+    Returns:
+        return True if transaction was successed
+        return False if transaction was failed
+    """
+    keys = []
+    values = []
+    for k,v in containers.items():
+        if v.value == None:
+            continue
+        keys.append(k)
+        values.append(v.string())
+
+    keys_text = u",".join(keys)
+    values_text = u",".join(values)
+    sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
+    con.execute(sql)
 
 def inference_type(containers):
     """ inference container's attribute type
@@ -70,29 +126,18 @@ def inference_type(containers):
     """
     type_dict = {}
     is_first = True
+    bef_c = None
     for c in containers:
-        keys = c.keys()
-        items = c.items()
         if is_first:
-            for k,v in items:
-                type_dict[k] = type(v)
-            is_first = False
-        else:
-            for k in keys:
-                try:
-                    tdv = type_dict[k]
-                except KeyError:
-                    raise Exception("containers key is something wrong")
-                v = type(c.get(k))
-                if tdv is type(None):
-                    type_dict[k] = v
-                elif (v != type(None)) and (tdv != v):
-                    print(tdv)
-                    print(v)
-                    raise Exception("containers key is something wrong")
+            bef_c = c
+            type_dict = {k:bef_c.get(k).typ for k in bef_c.keys()}
+            continue
+        for k in c.keys():
+            if c.get(k).typ != bef_c.get(k).typ:
+                raise Exception("Container attribute's type is something wrong")
+    return type_dict
 
-    print(type_dict["race_name"])
-    print(type_dict["payback_place"])
+
 
 class PaybackDatabase():
     def __init__(self,con):
@@ -103,17 +148,16 @@ class PaybackDatabase():
             containers = []
 
             c.race_id = line[0:8]
-            c = Container()
             c.win = line[8:10]
             c.win_payback = line[10:17]
             
             c.n1 = line[17:19]
             c.n2 = line[19:26]
             c.n3 = line[28:35]
-            print(line)
-            print(c)
 
     def __parse_line(self):
+        c = Container()
+        c.race_id = line[0:8]
         pass
 
 class HorseInfoDatabase():
@@ -127,6 +171,15 @@ class HorseInfoDatabase():
             c.horse_number = line[8:10]
             c.pedigree_id = line[10:18]
             c.registered_id = line[18:26]
+
+    def parse_line(self):
+        c = Container()
+        c.race_id              = to_string(line[0:8])    #レースキー
+        c.horse_number         = to_integer(line[8:10])  #馬番
+        c.pedigree_id          = to_string(line[10:18])  #血統登録番号
+        c.horse_name           = to_unicode(line[19:55]) #名前
+        
+ 
 
 class ResultDatabase():
     """
@@ -143,7 +196,11 @@ class ResultDatabase():
             containers.append(c)
         if not table_exists(self.con,self.table_name):
             type_dict = inference_type(containers)
-            print("OK")
+            create_table(self.con,self.table_name,type_dict)
+        for c in containers:
+            insert_container(self.con,self.table_name,c)
+        self.con.commit()
+        
             
     def parse_line(self,line):
         c = Container()

@@ -36,7 +36,6 @@ def main():
         with open(path,"r") as fp:
             rd.insert_file(fp)
         counter += 1
-        break
 
     "process about payback"
     for f in files:
