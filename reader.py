@@ -138,55 +138,9 @@ def inference_type(containers):
     return type_dict
 
 
-
-class PaybackDatabase():
-    def __init__(self,con):
-        self.con = con
-
-    def insert_file(self,fp):
-        for line in fp.readlines():
-            containers = []
-
-            c.race_id = line[0:8]
-            c.win = line[8:10]
-            c.win_payback = line[10:17]
-            
-            c.n1 = line[17:19]
-            c.n2 = line[19:26]
-            c.n3 = line[28:35]
-
-    def __parse_line(self):
-        c = Container()
-        c.race_id = line[0:8]
-        pass
-
-class HorseInfoDatabase():
-    def __init__(self):
-        pass
-
-    def insert_file(self,fp):
-        for line in fp.readlines():
-            c = Container()
-            c.race_id = line[0:8]
-            c.horse_number = line[8:10]
-            c.pedigree_id = line[10:18]
-            c.registered_id = line[18:26]
-
-    def parse_line(self):
-        c = Container()
-        c.race_id              = to_string(line[0:8])    #レースキー
-        c.horse_number         = to_integer(line[8:10])  #馬番
-        c.pedigree_id          = to_string(line[10:18])  #血統登録番号
-        c.horse_name           = to_unicode(line[19:55]) #名前
-        
- 
-
-class ResultDatabase():
-    """
-    provide parser of raw results files and accessor for the database
-    """
-    def __init__(self,con):
-        self.table_name = "result"
+class BaseORM(object):
+    def __init__(self,con,table_name):
+        self.table_name = table_name
         self.con = con
 
     def insert_file(self,fp):
@@ -200,8 +154,97 @@ class ResultDatabase():
         for c in containers:
             insert_container(self.con,self.table_name,c)
         self.con.commit()
+ 
+
+class PaybackDatabase(BaseORM):
+    def __init__(self,con):
+        super(PaybackDatabase,self).__init__(con,"payback")
+
+    def __parse_line(self):
+        c = Container()
+        c.race_id = line[0:8]
+
+class HorseInfoDatabase(BaseORM):
+    def __init__(self,con):
+        super(HorseInfoDatabase,self).__init__(con,"horse_info")
+
+    def parse_line(self,line):
+        c = Container()
+        c.race_id              = to_string(line[0:8])    #レースキー
+        c.horse_number         = to_integer(line[8:10])  #馬番
+        c.pedigree_id          = to_string(line[10:18])  #血統登録番号
+        c.horse_name           = to_unicode(line[18:54]) #名前
+
+        c.idm                  = to_float(line[54:59])   #IDM
+        c.jockey_score         = to_float(line[59:64])   #騎手指数
+        c.info_score           = to_float(line[64:69])   #情報指数
+        c.yobi_1               = to_float(line[69:74])   #予備
+        c.yobi_2               = to_float(line[74:79])   #予備
+        c.yobi_3               = to_float(line[79:84])   #予備
+        c.composite_score      = to_float(line[84:89])   #総合指数
+
+        c.running_style        = to_integer(line[89])    #脚質
+        c.distance_fitness     = to_integer(line[90])    #距離適性
+        c.condiction_score     = to_integer(line[91])    #上昇度
+        c.rotation             = to_integer(line[92:95]) #ローテーション
+
+        c.base_odds            = to_float(line[95:100])  #基準オッズ
+        c.base_popularity      = to_integer(line[100:102]) #基準人気順位
+        c.base_place_odds      = to_float(line[102:107])   #基準複勝オッズ
+        c.base_place_popularity = to_integer(line[107:109])#基準複勝人気順位
+        c.specific_info_5      = to_integer(line[109:112]) #特定情報◎
+        c.specific_info_4      = to_integer(line[112:115]) #特定情報○
+        c.specific_info_3      = to_integer(line[115:118]) #特定情報▲
+        c.specific_info_2      = to_integer(line[118:121]) #特定情報△
+        c.specific_info_1      = to_integer(line[121:124]) #特定情報×
+        c.general_info_5       = to_integer(line[124:127]) #総合情報◎
+        c.general_info_4       = to_integer(line[127:130]) #総合指数○
+        c.general_info_3       = to_integer(line[130:133]) #総合指数▲
+        c.general_info_2       = to_integer(line[133:136]) #総合指数△
+        c.general_info_1       = to_integer(line[136:139]) #総合指数×
+        c.popurality_score     = to_integer(line[139:144]) #人気指数
+        c.training_score       = to_integer(line[144:149]) #調教師数
+        c.stable_score         = to_integer(line[149:154]) #厩舎指数
+
+        c.training_sign_code   = to_integer(line[154])     #調教矢印コード
+        c.stable_eval_code     = to_integer(line[155])     #厩舎評価コード
+        c.jockey_quinella      = to_float(line[156:160])   #騎手期待値連対率
+        c.running_score        = to_integer(line[160:163]) #激走指数
+        c.hoof_code            = to_integer(line[163:165]) #蹄コード
+        c.heavy_fitness_code   = to_integer(line[165])     #重適正コード
+        c.class_code           = to_integer(line[166:168]) #クラスコード
+        c.yobi_4               = to_integer(line[168:170])     #予備
+
+        c.brinker              = to_integer(line[170])     #ブリンカー
+        c.jockey_name          = to_unicode(line[171:183]) #騎手名
+        c.basis_weight         = to_integer(line[183:186]) #負担重量
+        c.apprentice_class     = to_integer(line[186])     #見習い区分
+        c.trainer_name         = to_unicode(line[187:199]) #調教師名
+        c.trainer_division     = to_unicode(line[199:203]) #調教師所属
+
+        c.pre1_result_id       = to_string(line[203:219])  #前走1競争成績キー
+        c.pre2_result_id       = to_string(line[219:235])  #前走2競争成績キー
+        c.pre3_result_id       = to_string(line[235:251])  #前走3競争成績キー
+        c.pre4_result_id       = to_string(line[251:267])  #前走4競争成績キー
+        c.pre5_result_id       = to_string(line[267:283])  #前走5競争成績キー
+        c.pre1_race_id         = to_string(line[283:291])  #前走1レースキー
+        c.pre2_race_id         = to_string(line[291:299])  #前走2レースキー
+        c.pre3_race_id         = to_string(line[299:307])  #前走3レースキー
+        c.pre4_race_id         = to_string(line[307:315])  #前走4レースキー
+        c.pre5_race_id         = to_string(line[315:323])  #前走5レースキー
+        c.frame_number         = to_integer(line[323])     #枠番
+        c.yobi_5               = to_integer(line[324:326]) #予備
+        c.show()
+        return c
         
-            
+ 
+class ResultDatabase(BaseORM):
+    """
+    provide parser of raw results files and accessor for the database
+    """
+    def __init__(self,con):
+        super(ResultDatabase,self).__init__(con,"result")
+
     def parse_line(self,line):
         c = Container()
         c.race_id              = to_string(line[0:8])    #レースキー
@@ -298,7 +341,7 @@ class Container():
         return text
 
     def show(self):
-        text = u",\n".join([u"{0:<20}:{1}".format(k,v) for k,v in self.__dict__.items()])
+        text = u",\n".join([u"{0:<20}:{1}".format(k,v.value) for k,v in self.__dict__.items()])
         print(text)
 
     def keys(self):

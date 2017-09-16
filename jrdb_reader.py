@@ -21,6 +21,15 @@ def main():
         raise Exception("horse_info directory doesn't exist")
     files = os.listdir(info_path)
     files = filter(lambda s:s.startswith("KYI"),files)
+    counter = 1
+    hfd = reader.HorseInfoDatabase(db_con)
+    for f in files:
+        print("processing : {0}/{1}".format(counter,len(files)))
+        path = os.path.join(info_path,f)
+        with open(path,"r") as fp:
+            hfd.insert_file(fp)
+        counter += 1
+        break
 
     "process about race result"
     result_path = os.path.join(args.directory,"horse_result")
@@ -36,6 +45,7 @@ def main():
         with open(path,"r") as fp:
             rd.insert_file(fp)
         counter += 1
+        break
 
     "process about payback"
     for f in files:
