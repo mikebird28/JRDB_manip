@@ -92,7 +92,6 @@ def create_table(con,name,type_dict):
     columns = ",".join(["{0} {1}".format(k,v) for k,v in type_tuples])
     sql = """CREATE TABLE {name}({columns});""".format(name = name,columns = columns)
     c = con.cursor()
-    print(sql)
     c.execute(sql)
 
 def insert_container(con,name,containers):
@@ -149,14 +148,11 @@ class BaseORM(object):
         for line in fp.readlines():
             c = self.parse_line(line)
             containers.append(c)
-
         if not table_exists(self.con,self.table_name):
             type_dict = inference_type(containers)
             create_table(self.con,self.table_name,type_dict)
-
         for c in containers:
-            if self.check_container(c):
-                insert_container(self.con,self.table_name,c)
+            insert_container(self.con,self.table_name,c)
         self.con.commit()
  
 
@@ -239,93 +235,79 @@ class HorseInfoDatabase(BaseORM):
         c.frame_number         = to_integer(line[323])     #枠番
         c.yobi_5               = to_integer(line[324:326]) #予備
 
-        c.composite_sign       = to_integer(line[326])     #総合印
-        c.idm_sign             = to_integer(line[327])     #IDM印
-        c.info_sign            = to_integer(line[328])     #情報印
-        c.jockey_sign          = to_integer(line[329])     #騎手印
-        c.stable_sign          = to_integer(line[330])     #厩舎印
-        c.training_sign        = to_integer(line[331])     #調教印
-        c.hard_running_sign    = to_integer(line[332])     #激走印
-        c.turf_fitness         = to_integer(line[333])     #芝適正コード
-        c.dirt_fitness         = to_integer(line[334])     #ダ適正コード
-        c.jockey_code          = to_integer(line[335:340]) #騎手コード
-        c.trainer_code         = to_integer(line[340:345]) #調教師コード
-        c.yobi_6               = to_integer(line[345])     #予備
+        c.composite_sign       = to_integer(line[326])
+        c.idm_sign             = to_integer(line[327])
+        c.info_sign            = to_integer(line[328])
+        c.jockey_sign          = to_integer(line[329])
+        c.stable_sign          = to_integer(line[330])
+        c.training_sign        = to_integer(line[331])
+        c.running_sign         = to_integer(line[332])
+        c.turf_fitness         = to_integer(line[333])
+        c.dirt_fitness         = to_integer(line[334])
+        c.jockey_code          = to_integer(line[335:340])
+        c.trainer_code         = to_integer(line[340:345])
+        c.yobi_6               = to_integer(line[345])
 
-        c.prize                = to_integer(line[346:352]) #獲得賞金
-        c.class_prize          = to_integer(line[352:357]) #収得賞金
-        c.condition_class      = to_integer(line[357])     #条件クラス
+        c.prize                = to_integer(line[346:352])
+        c.class_prize          = to_integer(line[352:357])
+        c.condition_class      = to_integer(line[357])
 
-        c.firstphase_score     = to_float(line[358:363])   #テン指数
-        c.pace_score           = to_float(line[363:368])   #ペース指数
-        c.lastphase_score      = to_float(line[368:373])   #上がり指数
-        c.position_score       = to_float(line[373:378])   #位置指数
-        c.pace_prediction      = to_integer(line[378])     #ペース予想
-        c.middlephase_order    = to_integer(line[379:381]) #道中順位
-        c.middlephase_delta    = to_integer(line[381:383]) #道中差
-        c.middlephase_in_out   = to_integer(line[383])     #道中内外
-        c.lastphase_order      = to_integer(line[384:386]) #後3F順位
-        c.lastphase_delta      = to_integer(line[386:388]) #後3F差
-        c.lastphase_in_out     = to_integer(line[388])     #後3F内外
-        c.oof_prediction       = to_integer(line[389:391]) #ゴール順位
-        c.oof_delta            = to_integer(line[391:393]) #ゴール差
-        c.oof_in_out           = to_integer(line[393])     #ゴール内外
-        c.development_sign     = to_integer(line[394])     #展開記号
+        c.firstphase_score     = to_float(line[358:363])
+        c.pace_score           = to_float(line[363:368])
+        c.lastphase_score      = to_float(line[368:373])
+        c.position_score       = to_float(line[373:378])
+        c.pace_prediction      = to_integer(line[378])
+        c.middlephase_order    = to_integer(line[379:381])
+        c.middlephase_delta    = to_integer(line[381:383])
+        c.middlephase_in_out   = to_integer(line[383])
+        c.lastphase_order      = to_integer(line[384:386])
+        c.lastphase_delta      = to_integer(line[386:388])
+        c.lastphase_in_out     = to_integer(line[388])
+        c.oof_prediction       = to_integer(line[389:391])
+        c.oof_delta            = to_integer(line[391:393])
+        c.oof_in_out           = to_integer(line[393])
+        c.development_sign     = to_integer(line[394])
 
-        c.distance_fitness2    = to_integer(line[395])     #距離適性2
-        c.weight_afd           = to_integer(line[396:399]) #枠確定後馬体重
-        c.weight_delta_afd     = to_integer(line[399:402]) #枠確定馬体重増減
+        c.distance_fitness2    = to_integer(line[395])
+        c.weight_afd           = to_integer(line[396:399])
+        c.weight_delta_afd     = to_integer(line[399:402])
 
-        c.cancel_flag          = to_integer(line[402])     #取り消しフラグ
-        c.sex_code             = to_integer(line[403])     #性別コード
-        c.owner_name           = to_unicode(line[404:444]) #馬主名
-        c.owner_code           = to_integer(line[444:446]) #馬主会コード
+        c.cancel_flag          = to_integer(line[402])
+        c.sex_code             = to_integer(line[403])
+        c.owner_name           = to_unicode(line[404:444])
+        c.owner_code           = to_integer(line[444:446])
 
-        c.horse_sign_code        = to_integer(line[446:448]) #馬記号コード
-        c.hard_runnning_order    = to_integer(line[448:450]) #激走順位
-        c.ls_score_order         = to_integer(line[450:452]) #LS指数順位
-        c.firstphase_score_order = to_integer(line[452:454]) #テン指数順位
-        c.pace_score_order       = to_integer(line[454:456]) #ペース指数順位
-        c.lastphase_score_order  = to_integer(line[456:458]) #上がり指数順位
-        c.position_score_order   = to_integer(line[458:460]) #位置指数順位
+        c.horse_sign_code        = to_integer(line[446:448])
+        c.hard_runnning_order    = to_integer(line[448:450])
+        c.ls_score_order         = to_integer(line[450:452])
+        c.firstphase_score_order = to_integer(line[452:454])
+        c.pace_score_order       = to_integer(line[454:456])
+        c.lastphase_score_order  = to_integer(line[456:458])
+        c.position_score_order   = to_integer(line[458:460])
 
-        c.jockey_win           = to_float(line[460:464])     #騎手期待値勝率
-        c.jockey_place         = to_float(line[464:468])     #騎手期待３着内率
-        c.transport_class      = to_integer(line[468])       #輸送区分
+        c.jockey_win           = to_float(line[460:464])
+        c.jockey_place         = to_float(line[464:468])
+        c.transport_class      = to_integer(line[468])
 
-        c.running_style        = to_integer(line[469:477])   #走法
-        c.body_shape           = to_unicode(line[477:501])   #体型
-        c.body_composite_1     = to_integer(line[501:504])   #体型総合1
-        c.body_composite_2     = to_integer(line[504:507])   #体型総合2
-        c.body_composite_3     = to_integer(line[507:510])   #体型総合3
-        c.horse_remarks_1      = to_integer(line[510:513])   #馬特記1
-        c.horse_remarks_2      = to_integer(line[513:516])   #馬特記2
-        c.horse_remarks_3      = to_integer(line[516:519])   #馬特記3
+        c.running_style        = to_integer(line[469:477])
+        c.body_shape           = to_unicode(line[477:501])
+        c.body_composite_1     = to_integer(line[501:504])
+        c.body_composite_2     = to_integer(line[504:507])
+        c.body_composite_3     = to_integer(line[507:510])
+        c.horse_remarks_1      = to_integer(line[510:513])
+        c.horse_remarks_2      = to_integer(line[513:516])
+        c.horse_remarks_3      = to_integer(line[516:519])
 
-        c.start_score           = to_float(line[519:523])    #馬スタート指数
-        c.late_start_per        = to_float(line[523:527])    #馬出遅れ率
-        c.last_run_reference    = to_integer(line[527:529])  #参考前走
-        c.last_run_jockey_code  = to_integer(line[529:534])  #参考前走騎手コード
-        c.precious_ticket_score = to_integer(line[534:537])  #万馬券指数
-        c.precious_ticket_sign  = to_integer(line[537])      #万馬券印
-
-        c.downgrading_flag     = to_integer(line[538])       #降級フラグ
-        c.hard_running_type    = to_unicode(line[539:541])   #激走タイプ
-        c.recuperation_type    = to_integer(line[541:543])   #休養理由分類コード
-        c.remarks_flag         = to_unicode(line[543:559])   #フラグ
-
-        c.stabling_race_count    = to_integer(line[559:561]) #入厩何走目
-        c.stabling_date          = to_string(line[561:569])  #入厩年月日
-        c.stabling_elapsed_dates = to_integer(line[569:572]) #入厩何日目
+        c.start_score = to_float(line[519:523])
+        c.late_start_per = to_float(line[523:527])
+        c.last_run_reference = to_integer(line[527:529])
+        c.last_run_jockey_code = to_integer(line[529:534])
+        c.precious_ticket_score = to_integer(line[534:537])
+        c.precious_ticket_sign = to_integer(line[537])
+        
 
 
-        c.paddock              = to_unicode(line[572:622])  #放牧先
-        c.paddock_rank         = to_string(line[622])       #放牧先ランク
-        c.stable_rank          = to_string(line[623])       #厩舎ランク
         return c
-
-    def check_container(self,container):
-        return True
         
  
 class ResultDatabase(BaseORM):
@@ -339,11 +321,8 @@ class ResultDatabase(BaseORM):
         c = Container()
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
-
-        c.result_id            = to_string(line[10:26])
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
         c.registered_date      = to_string(line[18:26])  #登録日
-
         c.horse_name           = to_unicode(line[26:62]) #名前
         c.distance             = to_integer(line[62:66]) #距離
         c.discipline           = to_integer(line[66])    #芝ダ障害コード
@@ -421,10 +400,6 @@ class ResultDatabase(BaseORM):
         c.position_at_corner   = to_integer(line[369])     #4角コース取り
         return c
 
-    def check_container(self,container):
-        if container.irregular_category.value != 0:
-            return False
-        return True
 
 class Container():
     def __getattr__(self,key):

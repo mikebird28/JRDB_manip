@@ -14,47 +14,33 @@ def main():
     print(args.directory)
 
     db_con = sqlite3.connect(args.output)
+    IS_TEST = True
 
     "process about horse information"
-    info_path = os.path.join(args.directory,"horse_info")
-    if not os.path.exists(info_path):
-        raise Exception("horse_info directory doesn't exist")
-    files = os.listdir(info_path)
-    files = filter(lambda s:s.startswith("KYI"),files)
-    counter = 1
-    hfd = reader.HorseInfoDatabase(db_con)
-    for f in files:
-        print("processing : {0}/{1}".format(counter,len(files)))
-        path = os.path.join(info_path,f)
-        with open(path,"r") as fp:
-            hfd.insert_file(fp)
-        counter += 1
-        break
+    hid_orm = reader.HorseInfoDatabase(db_con)
+    csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = IS_TEST)
 
     "process about race result"
-    result_path = os.path.join(args.directory,"horse_result")
-    if not os.path.exists(result_path):
-        raise Exception("horse_result directory doesn't exist")
-    files = os.listdir(result_path)
-    files = filter(lambda s:s.startswith("SED"),files)
-    counter = 1
-    rd = reader.ResultDatabase(db_con)
-    for f in files:
-        print("processing : {0}/{1}".format(counter,len(files)))
-        path = os.path.join(result_path,f)
-        with open(path,"r") as fp:
-            rd.insert_file(fp)
-        counter += 1
-        break
+    rd_orm = reader.ResultDatabase(db_con)
+    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = IS_TEST)
 
-    "process about payback"
-    for f in files:
-        break
-        path = os.path.join(args.directory,f)
-        with open(path,"r") as fp:
-            pr = reader.PaybackDatabase()
-            pr.insert_file(fp)
     db_con.close()
+
+def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False):
+    path = os.path.join(args.directory,dir_name)
+    if not os.path.exists(path):
+        raise Exception("{0} directory doesn't exist".format(dir_name))
+    files = os.listdir(path)
+    files = filter(lambda s:s.startswith(file_prefix),files)
+    counter = 1
+    for f in files:
+        if test_mode and counter > 10:
+            break
+        print("processing : {0}/{1}".format(counter,len(files)))
+        file_path = os.path.join(path,f)
+        with open(file_path,"r") as fp:
+            orm.insert_file(fp)
+        counter += 1
 
 
 if __name__=="__main__":
