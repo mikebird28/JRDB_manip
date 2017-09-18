@@ -4,6 +4,7 @@ import argparse
 import os
 import sqlite3
 import reader
+import feature
 
 def main():
     parser = argparse.ArgumentParser(description="generating JRDB horse race information database")
@@ -18,11 +19,12 @@ def main():
 
     "process about horse information"
     hid_orm = reader.HorseInfoDatabase(db_con)
-    csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = IS_TEST)
+    #csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = IS_TEST)
 
     "process about race result"
     rd_orm = reader.ResultDatabase(db_con)
-    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = IS_TEST)
+    #csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = IS_TEST)
+    feature.create_feature(db_con)
 
     db_con.close()
 
@@ -34,7 +36,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False):
     files = filter(lambda s:s.startswith(file_prefix),files)
     counter = 1
     for f in files:
-        if test_mode and counter > 10:
+        if test_mode and counter > 100:
             break
         print("processing : {0}/{1}".format(counter,len(files)))
         file_path = os.path.join(path,f)

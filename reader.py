@@ -91,9 +91,7 @@ def create_table(con,name,type_dict):
         type_tuples.append((k,type_str))
     columns = ",".join(["{0} {1}".format(k,v) for k,v in type_tuples])
     sql = """CREATE TABLE {name}({columns});""".format(name = name,columns = columns)
-    c = con.cursor()
-    print(sql)
-    c.execute(sql)
+    con.execute(sql)
 
 def insert_container(con,name,containers):
     """insert container to the table
@@ -117,6 +115,12 @@ def insert_container(con,name,containers):
     values_text = u",".join(values)
     sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
     con.execute(sql)
+
+def set_index(con,index_name,table_name,columns):
+    columns_txt = ",".join(columns)
+    sql = "CREATE INDEX {0} ON {1}({2});".format(index_name,table_name,columns_txt)
+    con.execute(sql)
+
 
 def inference_type(containers):
     """ inference container's attribute type
@@ -153,6 +157,7 @@ class BaseORM(object):
         if not table_exists(self.con,self.table_name):
             type_dict = inference_type(containers)
             create_table(self.con,self.table_name,type_dict)
+            self.set_indexes()
 
         for c in containers:
             if self.check_container(c):
@@ -327,7 +332,11 @@ class HorseInfoDatabase(BaseORM):
     def check_container(self,container):
         return True
         
- 
+    def set_indexes(self):
+        set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
+
+
+
 class ResultDatabase(BaseORM):
     """
     provide parser of raw results files and accessor for the database
@@ -425,6 +434,10 @@ class ResultDatabase(BaseORM):
         if container.irregular_category.value != 0:
             return False
         return True
+
+    def set_indexes(self):
+       set_index(self.con,"rd_race_id_idx",self.table_name,["race_id"])
+       set_index(self.con,"rd_result_id_idx",self.table_name,["result_id"])
 
 class Container():
     def __getattr__(self,key):
