@@ -1,0 +1,9 @@
+{
+    "config" : {
+    },
+
+    "features" : [
+        "is_win",
+        "payoff_win_horse_2"
+    ]
+}

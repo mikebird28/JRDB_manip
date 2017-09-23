@@ -2,43 +2,41 @@
 
 import sqlite3
 
-def create_feature(con):
-    target_columns = []
+class Feature(object):
+    def __init__(self,con):
+        self.con = con
 
-    info_columns = ",".join(["hi.{0} as 'info_{0}'".format(c) for c in column_list(con,"horse_info")])
-    target_columns.append(info_columns)
+    def fetch_horse(self,target_columns):
+        target_columns.append("is_win")
+        columns_query = ",".join(target_columns)
+        sql = "SELECT {0} FROM feature".format(columns_query)
+        cur = self.con.execute(sql)
+        for row in cur:
+            yield row[:-1],row[-1]
 
-    result_columns = column_list(con,"result")
-    for i in range(5):
-        rn_query = ",".join(["r{1}.{0} as 'pre{1}_{0}'".format(c,i+1) for c in result_columns])
-        target_columns.append(rn_query)
+    def fetch_race(self,target_columns):
+        fixed_target_columns = ["info_race_id"]
+        fixed_target_columns.extend(target_columns)
 
-    columns_query = ",".join(target_columns)
-    sql = """SELECT {0} FROM horse_info as hi
-             LEFT JOIN result as r1 ON hi.pre1_result_id = r1.result_id
-             LEFT JOIN result as r2 ON hi.pre2_result_id = r2.result_id
-             LEFT JOIN result as r3 ON hi.pre3_result_id = r3.result_id
-             LEFT JOIN result as r4 ON hi.pre4_result_id = r4.result_id
-             LEFT JOIN result as r5 ON hi.pre5_result_id = r5.result_id;""".format(columns_query)
+        columns_query = ",".join(fixed_target_columns)
+        sql = "SELECT {0} FROM feature ORDER BY info_race_id".format(columns_query)
+        cur = self.con.execute(sql)
 
-    print(sql)
-    cur = con.execute(sql)
-    
-    for count,row in enumerate(cur):
-        print(count)
+        is_fisrt = True
+        bef_race_id = ""
+        features = []
 
+        for row in cur:
+            race_id = row[0]
+            if is_fisrt:
+                is_fisrt = False
+                bef_race_id = race_id
+            features.append(row[1:])
 
-def select_past_race(con,race_id):
-    sql = "SELECT * FROM result WHERE race_id = '{0}'".format(race_id)
-    cur = con.execute(sql)
-    row = cur.fetchone()
+            if bef_race_id != race_id:
+                bef_race_id = race_id
+                yield features
+                features = []
 
-
-def column_list(con,table_name):
-    columns = []
-    sql = "SELECT * FROM {0}".format(table_name)
-    cur = con.execute(sql)
-    for column in cur.description:
-        name = column[0]
-        columns.append(name)
-    return columns
+def targets_for_test():
+    pass

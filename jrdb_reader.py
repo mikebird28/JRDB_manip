@@ -3,29 +3,57 @@
 import argparse
 import os
 import sqlite3
+import sys
 import reader
 import feature
+import util
 
 def main():
     parser = argparse.ArgumentParser(description="generating JRDB horse race information database")
     parser.add_argument("output",nargs="?",default = "output.db")
     parser.add_argument("-d","--directory",default="raw_text")
+    parser.add_argument("-c","--config",default="config.json")
     args = parser.parse_args()
     print(args.output)
     print(args.directory)
+    print(args.config)
 
+    conf = util.get_config(args.config)
+
+    #create_db(args,is_test = False)
+    generate_dataset(args,conf)
+
+def create_db(args,is_test = False):
     db_con = sqlite3.connect(args.output)
-    IS_TEST = True
 
-    "process about horse information"
+    #process about payoff
+    pd_orm = reader.PayoffDatabase(db_con)
+    csv_to_db(args,"payoff", "HJC",pd_orm,test_mode = is_test)
+
+
+    #process about horse information
     hid_orm = reader.HorseInfoDatabase(db_con)
-    #csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = IS_TEST)
+    csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = is_test)
 
-    "process about race result"
+    #process about past race result
     rd_orm = reader.ResultDatabase(db_con)
-    #csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = IS_TEST)
-    feature.create_feature(db_con)
+    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
 
+
+    #create feature table
+    reader.create_feature_table(db_con)
+    db_con.close()
+
+def generate_dataset(args,config):
+    db_con = sqlite3.connect(args.output)
+    f_orm = feature.Feature(db_con)
+    target_columns = config.features
+    ls = [0 for i in range(18)]
+    for x,y in f_orm.fetch_horse(target_columns):
+        win_horse = int(x[0][0])
+        ls[win_horse-1] += 1
+    print(ls)
+        
     db_con.close()
 
 def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False):
@@ -36,9 +64,10 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False):
     files = filter(lambda s:s.startswith(file_prefix),files)
     counter = 1
     for f in files:
-        if test_mode and counter > 100:
+        if test_mode and counter > 10:
             break
-        print("processing : {0}/{1}".format(counter,len(files)))
+        sys.stdout.write("processing : {0}/{1}\r".format(counter,len(files)))
+        sys.stdout.flush()
         file_path = os.path.join(path,f)
         with open(file_path,"r") as fp:
             orm.insert_file(fp)
