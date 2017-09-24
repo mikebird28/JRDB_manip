@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
-import util
+from util import *
+import nominal
 
 #functions which convert data to appropriate type
 def to_integer(x,illegal_value = None):
@@ -14,42 +15,46 @@ def to_integer(x,illegal_value = None):
 
     """
     try:
-        return util.Maybe(int,int(x))
+        return Maybe(INT_SYNBOL,int(x))
     except ValueError:
-        return util.Maybe(int,None)
+        return Maybe(INT_SYNBOL,None)
 
 def to_float(x,illegal_value = None):
     try:
-        return util.Maybe(float,float(x))
+        return Maybe(FLO_SYNBOL,float(x))
     except ValueError:
-        return util.Maybe(float,illegal_value)
+        return Maybe(FLO_SYNBOL,illegal_value)
 
 def to_string(x,illegal_value = None):
     text = x.strip()
     if text == "":
-        return util.Maybe(str,None)
+        return Maybe(STR_SYNBOL,None)
     else:
-        return util.Maybe(str,text)
+        return Maybe(STR_SYNBOL,text)
 
 def to_unicode(x,illegal_value = None):
     text = x.decode("cp932").strip()
     if text == u"":
-        return util.Maybe(unicode,None)
+        return Maybe(UNI_SYNBOL,None)
     else:
-        return util.Maybe(unicode,text)
+        return Maybe(UNI_SYNBOL,text)
+
+def to_nominal(x,converter = nominal.nominal_int, n = 1):
+    x = x.strip()
+    value = converter(x)
+    return Maybe("NOM",(value,n))
 
 class ColumnInfo(object):
-    def __init__(self,column_name,table_name,typ):
+    def __init__(self,column_name,table_name,typ,n = None):
         self.column_name = column_name
         self.table_name = table_name
         self.typ = typ
+        self.n = n
 
     def __repr__(self):
         return "{0} {1} {2}".format(self.column_name,self.table_name,self.typ)
 
 class ColumnInfoORM(object):
-    TYPE_TO_STR = {str:"STR",unicode:"UNI",int:"INT",float:"FLO"}
-    STR_TO_TYPE = {"STR":str,"UNI":unicode,"INT":int,"FLO":float}
 
     def __init__(self,con):
         self.con = con
@@ -58,32 +63,31 @@ class ColumnInfoORM(object):
 
     def __create_table(self):
         sql = """CREATE TABLE column_info (
-                 id integer primary key,
-                 column_name text,
-                 table_name text,
-                 type text
+                 id INTEGER primary key,
+                 column_name TEXT,
+                 table_name TEXT,
+                 type TEXT,
+                 n INTEGER
                  );"""
         self.con.execute(sql)
         self.con.commit()
 
-    def insert(self,column_name,table_name,typ):
-        type_text = ColumnInfoORM.TYPE_TO_STR[typ]
-        keys_text = "column_name,table_name,type"
-        values_text = ",".join(["'"+var+"'" for var in [column_name,table_name,type_text]])
-        sql = u"insert into {0}({1}) values({2});".format("column_info",keys_text,values_text)
-        self.con.execute(sql)
+    def insert(self,column_name,table_name,typ,n=None):
+        keys_text = "column_name,table_name,type,n"
+        sql = u"insert into {0}({1}) values(?,?,?,?);".format("column_info",keys_text)
+        self.con.execute(sql,[column_name,table_name,typ,n])
         self.con.commit()
 
     def column_dict(self,table_name):
         dic = {}
-        sql = "SELECT column_name,table_name,type FROM column_info WHERE table_name = '{0}'".format(table_name)
+        sql = "SELECT column_name,table_name,type,n FROM column_info WHERE table_name = '{0}'".format(table_name)
         cur = self.con.execute(sql)
         for row in cur:
             column_name = row[0]
             table_name = row[1]
-            t = row[2]
-            typ = ColumnInfoORM.STR_TO_TYPE[t]
-            ci = ColumnInfo(column_name,table_name,typ)
+            typ = row[2]
+            n = row[3]
+            ci = ColumnInfo(column_name,table_name,typ,n)
             dic[column_name] = ci
         return dic
 
@@ -106,7 +110,7 @@ def table_exists(con,table_name):
     else:
         return False
 
-def create_table(con,name,type_dict):
+def create_table(con,name,type_dict,nominal_dict):
     """create new tables in the given connectio
     Args:
         con       : database connection
@@ -117,12 +121,12 @@ def create_table(con,name,type_dict):
         return False if transaction was failed
     """
     ci_orm = ColumnInfoORM(con)
-    type_to_str = {str:"TEXT",unicode:"TEXT",int:"INTEGER",float:"REAL"}
+    type_to_str = {STR_SYNBOL:"TEXT",UNI_SYNBOL:"TEXT",INT_SYNBOL:"INTEGER",FLO_SYNBOL:"REAL",NOM_SYNBOL:"TEXT"}
     type_tuples = []
     keys = type_dict.keys()
     keys.sort()
     for k in keys:
-        ci_orm.insert(k,name,type_dict[k])
+        ci_orm.insert(k,name,type_dict[k],nominal_dict[k])
         ctype = type_dict[k]
         type_str = type_to_str[ctype]
         type_tuples.append((k,type_str))
@@ -179,6 +183,17 @@ def inference_type(containers):
                 raise Exception("Container attribute's type is something wrong")
     return type_dict
 
+def inference_nominal(containers):
+    nominal_dict = {}
+    is_fisrt = True
+    bef_c = None
+    for col in containers[0].keys():
+        if containers[0][col].typ == NOM_SYNBOL:
+            nominal_dict[col] = containers[0][col].value[1]
+        else:
+            nominal_dict[col] = None
+    return nominal_dict
+
 class BaseORM(object):
     def __init__(self,con,table_name):
         self.table_name = table_name
@@ -193,7 +208,9 @@ class BaseORM(object):
 
         if not self.table_exists:
             type_dict = inference_type(containers)
-            create_table(self.con,self.table_name,type_dict)
+            nom_dict = inference_nominal(containers)
+            nominal_dict = inference_nominal(containers)
+            create_table(self.con,self.table_name,type_dict,nominal_dict)
             self.set_indexes()
             self.table_exists = True
 
@@ -209,7 +226,7 @@ class PayoffDatabase(BaseORM):
 
 
     def parse_line(self,line):
-        c = util.Container()
+        c = Container()
         c.race_id = to_string(line[0:8])
 
         c.win_horse_1  = to_integer(line[8:10])
@@ -242,9 +259,10 @@ class HorseInfoDatabase(BaseORM):
         super(HorseInfoDatabase,self).__init__(con,"horse_info")
 
     def parse_line(self,line):
-        c = util.Container()
+        c = Container()
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
+        c.horse_id             = to_integer(line[0:10])  #馬キー
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
         c.horse_name           = to_unicode(line[18:54]) #名前
 
@@ -409,7 +427,7 @@ class ResultDatabase(BaseORM):
         super(ResultDatabase,self).__init__(con,"result")
 
     def parse_line(self,line):
-        c = util.Container()
+        c = Container()
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
 
@@ -419,9 +437,9 @@ class ResultDatabase(BaseORM):
 
         c.horse_name           = to_unicode(line[26:62]) #名前
         c.distance             = to_integer(line[62:66]) #距離
-        c.discipline           = to_integer(line[66])    #芝ダ障害コード
-        c.left_or_right        = to_integer(line[67])    #右左
-        c.in_or_out            = to_integer(line[68])    #内外
+        c.discipline           = to_nominal(line[66],n = 3)    #芝ダ障害コード
+        c.left_or_right        = to_nominal(line[67],n = 3)    #右左
+        c.in_or_out            = to_nominal(line[68],n = 3)    #内外
         c.field_status         = to_integer(line[69:71]) #馬場状態
 
         c.race_category        = to_integer(line[71:73])   #種別
@@ -503,63 +521,115 @@ class ResultDatabase(BaseORM):
        set_index(self.con,"rd_race_id_idx",self.table_name,["race_id"])
        set_index(self.con,"rd_result_id_idx",self.table_name,["result_id"])
 
-       
+class ExpandedInfoDatabase(BaseORM):
+    def __init__(self,con):
+        super(ResultDatabase,self).__init__(con,"exinfo")
 
+    def parse_line(self,line):
+        c = Container()
+        c.race_id      = to_string(line[0:8])
+        c.horse_number = to_integer(line[8:10])
+        c.horse_id     = to_string(line[0:10])
+
+        c.jra_fisrt_count           = to_integer(line[10:13])
+        c.jra_second_count          = to_integer(line[13:16])
+        c.jra_third_count           = to_integer(line[16:19])
+        c.jra_lose_count            = to_integer(line[19:22])
+        c.ineterleague_first_count  = to_integer(line[22:25])
+        c.ineterleague_second_count = to_integer(line[25:28])
+        c.ineterleague_third_count  = to_integer(line[28:31])
+        c.ineterleague_lose_count   = to_integer(line[31:34])
+        c.others_first_coun         = to_integer(line[34:37])
+        c.others_second_count       = to_integer(line[37:40])
+        c.others_third_count        = to_integer(line[40:43])
+        c.others_lose_count         = to_integer(line[43:46])
+        return c
+ 
 def create_feature_table(con):
-    columns_query = []
-    columns_dict = {}
-    ci_orm = ColumnInfoORM(con)
+    raw_columns,columns_dict,columns_query = fetch_columns_info(con)
 
-    hi_raw_col = column_list(con,"horse_info")
-    hi_query = ",".join(["hi.{0} as 'info_{0}'".format(c) for c in hi_raw_col])
-    hi_fixed = fixed_column_dict(con,"horse_info","info")
-    columns_query.append(hi_query)
-    columns_dict.update(hi_fixed)
-
-    po_raw_col = column_list(con,"payoff")
-    po_query = ",".join(["payoff.{0} as 'payoff_{0}'".format(c) for c in po_raw_col])
-    po_fixed = fixed_column_dict(con,"payoff","payoff")
-    columns_query.append(po_query)
-    columns_dict.update(po_fixed)
-
-    res_raw_col = column_list(con,"result")
-    for i in range(5):
-        rn_query = ",".join(["p{1}.{0} as 'pre{1}_{0}'".format(c,i+1) for c in res_raw_col])
-        res_fixed = fixed_column_dict(con,"result","pre{0}".format(i+1))
-        columns_query.append(rn_query)
-        columns_dict.update(res_fixed)
+    fixed_columns = raw_columns
+    fixed_columns.append("is_win")
+    fixed_columns.append("is_place_win")
+    columns_dict["is_win"] = ColumnInfo("is_win","feature",INT_SYNBOL)
+    columns_dict["is_place_win"] = ColumnInfo("is_place_win","feature",INT_SYNBOL)
     columns_txt = ",".join(columns_query)
+
+    # check if feature table exist
+    if not table_exists(con,"feature"):
+        sql_create = "CREATE TABLE feature({0})".format(",".join(fixed_columns))
+        con.execute(sql_create)
+        con.commit()
+        ci_orm = ColumnInfoORM(con)
+        for v in columns_dict.values():
+            ci_orm.insert(v.column_name,v.table_name,v.typ,v.n)
+    columns = fixed_columns
+
+    # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
              LEFT JOIN payoff on hi.race_id = payoff.race_id
+             LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
              LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
              LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
              LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
              LEFT JOIN result as p4 ON hi.pre4_result_id = p4.result_id
              LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
-
     cur = con.execute(sql)
-    columns = []
-    for c in cur.description:
-        columns.append(c[0])
-    columns.append("is_win")
-
-    if not table_exists(con,"feature"):
-        sql = "CREATE TABLE feature({0})".format(",".join(columns))
-        con.execute(sql)
-        con.commit()
-
     for count,row in enumerate(cur):
         if count % 1000 == 0:
             print(count)
-        container = util.Container()
+        container = Container()
         for col_name,value in zip(columns,row):
             typ = columns_dict[col_name].typ
-            maybe = util.Maybe(typ,value)
+            maybe = Maybe(typ,value)
             container[col_name] = maybe
         container["is_win"] = to_integer(container.payoff_win_horse_1.value == container.info_horse_number.value)
-        #container["is_place_win"] = (container["info_order_of_finish"] <=3 )
+        is_place_1 = container.payoff_place_horse_1.value == container.info_horse_number.value
+        is_place_2 = container.payoff_place_horse_2.value == container.info_horse_number.value
+        is_place_3 = container.payoff_place_horse_3.value == container.info_horse_number.value
+        container["is_place_win"] = to_integer(is_place_1 or is_place_2 or is_place_3)
         insert_container(con,"feature",container)
     con.commit()
+
+
+def fetch_columns_info(con):
+    columns_list = []
+    columns_dict = {}
+    columns_query = []
+    ci_orm = ColumnInfoORM(con)
+
+    #create target columns list and dictionary
+    hi_raw_col = column_list(con,"horse_info")
+    for c in hi_raw_col:
+        columns_list.append("info_{0}".format(c))
+        columns_query.append("hi.{0} as 'info_{0}'".format(c))
+    hi_fixed = fixed_column_dict(con,"horse_info","info")
+    columns_dict.update(hi_fixed)
+
+    po_raw_col = column_list(con,"payoff")
+    for c in po_raw_col:
+        columns_list.append("payoff_{0}".format(c))
+        columns_query.append("payoff.{0} as 'payoff_{0}'".format(c))
+    po_fixed = fixed_column_dict(con,"payoff","payoff")
+    columns_dict.update(po_fixed)
+
+    res_raw_col = column_list(con,"result")
+    for i in range(5):
+        for c in res_raw_col:
+            columns_list.append("pre{0}_{1}".format(i+1,c))
+            columns_query.append("p{0}.{1} as 'pre{0}_{1}'".format(i+1,c))
+        res_fixed = fixed_column_dict(con,"result","pre{0}".format(i+1))
+        columns_dict.update(res_fixed)
+
+    ex_raw_col = column_list(con,"exinfo")
+    for c in po_raw_col:
+        columns_list.append("exinfo_{0}".format(c))
+        columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
+    ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
+    columns_dict.update(ex_fixed)
+
+    return (columns_list,columns_dict,columns_query)
+
 
 def fixed_column_dict(con,table_name,prefix):
     ci_orm = ColumnInfoORM(con)
@@ -569,7 +639,8 @@ def fixed_column_dict(con,table_name,prefix):
         cn = "{0}_{1}".format(prefix,col)
         tn = "feature"
         typ = raw_columns_dict[col].typ
-        ci = ColumnInfo(cn,tn,typ)
+        n = raw_columns_dict[col].n
+        ci = ColumnInfo(cn,tn,typ,n)
         fixed_columns_dict[cn] = ci
     return fixed_columns_dict
 

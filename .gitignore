@@ -1,3 +1,5 @@
 raw_text/
 output.db
+new_output.db
+test.db
 *.pyc

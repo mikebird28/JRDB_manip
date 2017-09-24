@@ -2,6 +2,12 @@
 
 import json
 
+STR_SYNBOL = "STR"
+UNI_SYNBOL = "UNI"
+INT_SYNBOL = "INT"
+FLO_SYNBOL = "FLO"
+NOM_SYNBOL = "NOM"
+
 class Container(dict):
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
@@ -22,12 +28,16 @@ class Maybe():
 
     def string(self):
         str_op = lambda x : u"'"+ x + u"'"
-        func_dict = {str:str_op,unicode:str_op,int:str,float:str}
+        nominal_op = lambda x : u"'" + unicode(x[0]) + u"'"
+        func_dict = {STR_SYNBOL:str_op,UNI_SYNBOL:str_op,INT_SYNBOL:str,FLO_SYNBOL:str,NOM_SYNBOL:nominal_op}
         if self.value != None:
             string = func_dict[self.typ](self.value)
         else:
             string = ""
         return string
+
+class Nominal:
+    pass
 
 
 class Config(object):

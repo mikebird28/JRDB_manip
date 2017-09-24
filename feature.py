@@ -6,8 +6,14 @@ class Feature(object):
     def __init__(self,con):
         self.con = con
 
-    def fetch_horse(self,target_columns):
-        target_columns.append("is_win")
+    def fetch_horse(self,target_columns,race_type = "win"):
+        if race_type == "win":
+            rt_col = "is_win"
+        elif race_type == "place":
+            rt_col = "is_place_win"
+        else:
+            rt_col = "is_win"
+        target_columns.append(rt_col)
         columns_query = ",".join(target_columns)
         sql = "SELECT {0} FROM feature".format(columns_query)
         cur = self.con.execute(sql)
@@ -15,7 +21,7 @@ class Feature(object):
             yield row[:-1],row[-1]
 
     def fetch_race(self,target_columns):
-        fixed_target_columns = ["info_race_id"]
+        fixed_target_columns = ["info_race_id","is_win"]
         fixed_target_columns.extend(target_columns)
 
         columns_query = ",".join(fixed_target_columns)
@@ -24,19 +30,22 @@ class Feature(object):
 
         is_fisrt = True
         bef_race_id = ""
-        features = []
+        dataset_x = []
+        dataset_y = []
 
         for row in cur:
             race_id = row[0]
             if is_fisrt:
                 is_fisrt = False
                 bef_race_id = race_id
-            features.append(row[1:])
+            dataset_x.append(row[2:])
+            dataset_y.append(row[1])
 
             if bef_race_id != race_id:
                 bef_race_id = race_id
-                yield features
-                features = []
+                yield dataset_x,dataset_y
+                dataset_x = []
+                dataset_y = []
 
 def targets_for_test():
     pass

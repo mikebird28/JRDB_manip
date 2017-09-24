@@ -3,7 +3,51 @@
     },
 
     "features" : [
-        "is_win",
-        "payoff_win_horse_2"
+        "info_jockey_score",
+        "info_info_score",
+        "info_composite_score",
+        "info_jockey_win",
+        "info_jockey_place",
+        "info_oof_in_out",
+        "info_oof_prediction",
+        "info_late_start_per",
+        "info_prize",
+        "info_class_prize",
+        "info_basis_weight",
+        "info_distance_fitness",
+        "info_training_score",
+        "info_stable_score",
+
+        "pre1_order_of_finish",
+        "pre2_order_of_finish",
+        "pre3_order_of_finish",
+
+        "pre1_first_3f_time",
+        "pre1_first_3f_time",
+        "pre2_first_3f_time",
+
+        "pre1_first_3f_delta",
+        "pre2_first_3f_delta",
+        "pre3_first_3f_delta",
+
+        "pre1_last_3f_time",
+        "pre2_last_3f_time",
+        "pre3_last_3f_time",
+
+        "pre1_last_3f_delta",
+        "pre2_last_3f_delta",
+        "pre3_last_3f_delta",
+
+        "pre1_time_delta",
+        "pre2_time_delta",
+        "pre3_time_delta",
+
+        "pre1_prize",
+        "pre2_prize",
+        "pre3_prize",
+
+        "pre1_jrdb_idm",
+        "pre2_jrdb_idm",
+        "pre3_jrdb_idm"
     ]
 }

@@ -20,8 +20,8 @@ def main():
 
     conf = util.get_config(args.config)
 
-    #create_db(args,is_test = False)
-    generate_dataset(args,conf)
+    create_db(args,is_test = True)
+    #generate_dataset(args,conf)
 
 def create_db(args,is_test = False):
     db_con = sqlite3.connect(args.output)
@@ -38,6 +38,9 @@ def create_db(args,is_test = False):
     #process about past race result
     rd_orm = reader.ResultDatabase(db_con)
     csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
+
+    ex_orm = reader.ExpandedInfoDatabase(db_cno)
+    csv_to_db(args,"expand_info","",ex_orm,test_mode = is_test)
 
 
     #create feature table
@@ -72,6 +75,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False):
         with open(file_path,"r") as fp:
             orm.insert_file(fp)
         counter += 1
+    print("")
 
 
 if __name__=="__main__":
