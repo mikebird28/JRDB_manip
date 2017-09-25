@@ -21,7 +21,13 @@ class Feature(object):
             yield row[:-1],row[-1]
 
     def fetch_race(self,target_columns):
-        fixed_target_columns = ["info_race_id","is_win"]
+        if race_type == "win":
+            rt_col = "is_win"
+        elif race_type == "place":
+            rt_col = "is_place_win"
+        else:
+            rt_col = "is_win"
+        fixed_target_columns = ["info_race_id",rt_col]
         fixed_target_columns.extend(target_columns)
 
         columns_query = ",".join(fixed_target_columns)
