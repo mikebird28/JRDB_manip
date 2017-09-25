@@ -415,8 +415,8 @@ class HorseInfoDatabase(BaseORM):
         return True
         
     def set_indexes(self):
-        set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
-
+        set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
 
 
 class ResultDatabase(BaseORM):
@@ -518,12 +518,11 @@ class ResultDatabase(BaseORM):
         return True
 
     def set_indexes(self):
-       set_index(self.con,"rd_race_id_idx",self.table_name,["race_id"])
-       set_index(self.con,"rd_result_id_idx",self.table_name,["result_id"])
+       set_index(self.con,"rd_result_id_idx",self.table_name,["race_id","result_id"])
 
 class ExpandedInfoDatabase(BaseORM):
     def __init__(self,con):
-        super(ResultDatabase,self).__init__(con,"exinfo")
+        super(ExpandedInfoDatabase,self).__init__(con,"exinfo")
 
     def parse_line(self,line):
         c = Container()
@@ -544,7 +543,15 @@ class ExpandedInfoDatabase(BaseORM):
         c.others_third_count        = to_integer(line[40:43])
         c.others_lose_count         = to_integer(line[43:46])
         return c
- 
+    def set_indexes(self):
+        #set_index(self.con,"ex_race_id_idx",self.table_name,["race_id"])
+        set_index(self.con,"ex_horse_id_idx",self.table_name,["horse_id"])
+
+    def check_container(self,container):
+        return True
+
+
+
 def create_feature_table(con):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con)
 
@@ -622,11 +629,12 @@ def fetch_columns_info(con):
         columns_dict.update(res_fixed)
 
     ex_raw_col = column_list(con,"exinfo")
-    for c in po_raw_col:
+    for c in ex_raw_col:
         columns_list.append("exinfo_{0}".format(c))
         columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
     ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
     columns_dict.update(ex_fixed)
+    print(columns_list)
 
     return (columns_list,columns_dict,columns_query)
 

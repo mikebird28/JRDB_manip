@@ -30,7 +30,6 @@ def create_db(args,is_test = False):
     pd_orm = reader.PayoffDatabase(db_con)
     csv_to_db(args,"payoff", "HJC",pd_orm,test_mode = is_test)
 
-
     #process about horse information
     hid_orm = reader.HorseInfoDatabase(db_con)
     csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = is_test)
@@ -39,8 +38,8 @@ def create_db(args,is_test = False):
     rd_orm = reader.ResultDatabase(db_con)
     csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
 
-    ex_orm = reader.ExpandedInfoDatabase(db_cno)
-    csv_to_db(args,"expand_info","",ex_orm,test_mode = is_test)
+    ex_orm = reader.ExpandedInfoDatabase(db_con)
+    csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test)
 
 
     #create feature table
