@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import sqlite3
 import feature
+import reader
 import util
 
 
@@ -42,16 +43,35 @@ def generate_dataset(features):
     dataset_x = []
     dataset_y = []
 
-    db_con = sqlite3.connect("output.db")
+    #db_con = sqlite3.connect("output.db")
+    db_con = sqlite3.connect("test.db")
 
     f_orm = feature.Feature(db_con)
     target_columns = features
+    print(target_columns)
     for x,y in f_orm.fetch_horse(target_columns):
         dataset_x.append(x)
         dataset_y.append(y)
     dataset_x = pd.DataFrame(dataset_x)
     dataset_y = pd.DataFrame(dataset_y)
+
+    dataset_x.columns = target_columns
+
+    ci_orm = reader.ColumnInfoORM(db_con)
+    column_dict = ci_orm.column_dict("feature")
+    get_dummies(dataset_x,target_columns,column_dict)
+
     return dataset_x,dataset_y
+
+def get_dummies(df,column_dict):
+    nominal_columns = []
+    for info in column_dict.values():
+        if info.typ == util.NOM_SYNBOL:
+            nominal_columns.append(info)
+    for info in nominal_columns:
+        print(info.column_name)
+        target_column = df[info.column_name]
+        print(target_column)
 
 def generate_dataset_races():
     dataset_x = []

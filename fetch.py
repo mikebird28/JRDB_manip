@@ -1,29 +1,33 @@
 #-*- coding:utf-8 -*-
 
 import os
-import urllib
+import sys
 import time
 import zipfile
 import requests
+import subprocess
 from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
 
 
 def fetch_expanded_info(dir_path,username,password):
     create_directory(dir_path)
-    target_url = "http://www.jrdb.com/member/datazip/Paci/index.html"
-    ls = fetch_zip_list(target_url,username,password)
+    target_url = "http://www.jrdb.com/member/data/Paci/index.html"
+    ls = fetch_list(target_url,username,password)
     print("Downloading expanded info to dir")
-    for url in ls:
-        print(url)
-        fetch_zip(url,username,password,dir_path)
-        time.sleep(0.1)
+    length = len(ls)
+    for count,url in enumerate(ls):
+        sys.stdout.write("({0}/{1}) {2} ...".format(count+1,length,url))
+        sys.stdout.flush()
+        status = fetch_zip(url,username,password,dir_path)
+        sys.stdout.write("{0}\n".format(status))
+        sys.stdout.flush()
+        time.sleep(1.0)
 
-def fetch_zip_list(url,username,passoword):
+def fetch_list(url,username,passoword):
     url_list = []
     r = requests.get(url,auth = HTTPBasicAuth(username,password))
     status = r.status_code
-    print(status)
     html = r.text
     soup = BeautifulSoup(html,"html.parser")
     links = soup.select("li a")
@@ -38,10 +42,10 @@ def fetch_zip(url,username,password,directory):
     file_name = parse_filename(url)
     file_path = os.path.join(directory,file_name)
     r = requests.get(url,auth = HTTPBasicAuth(username,password))
-    print(r.status_code)
     content = r.content
     with open(file_path,"wb") as fp:
         fp.write(content)
+    return r.status_code
 
 def parse_filename(url):
     filename = url.split("/")[-1]
@@ -51,21 +55,31 @@ def create_directory(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def unzip(dir_path,unzipped_path):
+def extract(dir_path,unzipped_path):
     ls = os.listdir(dir_path)
     ls = [os.path.join(dir_path,name) for name in ls]
     create_directory(unzipped_path)
 
-    for zip_path in ls:
-        with zipfile.ZipFile(zip_path,"r") as zf:
-            print(zip_path)
-            zf.extractall(path = unzipped_path)
+    for path in ls:
+        print(path)
+        if path.endswith("zip"):
+            unzip(path,unzipped_path)
+        elif path.endswith("lzh"):
+            unlzh(path,unzipped_path)
+ 
+def unzip(file_path,unzipped_path):
+    with zipfile.ZipFile(zip_path,"r") as zf:
+        zf.extractall(path = unzipped_path)
+
+def unlzh(file_path,unzipped_path):
+    command = "lhasa xqw={0} {1}".format(unzipped_path,file_path)
+    subprocess.call(command,shell=True)
 
 if __name__=="__main__":
-    username = input("Enter your username : ")
-    password = input("Enter your password : ")
+    username = raw_input("Enter your username : ")
+    password = raw_input("Enter your password : ")
 
     download_path = "raw_text/zipped"
     unzipped_path = "raw_text/unzipped"
     fetch_expanded_info(download_path,username,password)
-    unzip(download_path,unzipped_path)
+    extract(download_path,unzipped_path)
