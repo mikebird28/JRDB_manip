@@ -52,6 +52,3 @@ class Feature(object):
                 yield dataset_x,dataset_y
                 dataset_x = []
                 dataset_y = []
-
-def targets_for_test():
-    pass
