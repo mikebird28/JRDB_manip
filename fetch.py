@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 def fetch_expanded_info(dir_path,username,password):
     create_directory(dir_path)
-    target_url = "http://www.jrdb.com/member/data/Paci/index.html"
+    target_url = "http://www.jrdb.com/member/data/Jrdb/index.html"
     ls = fetch_list(target_url,username,password)
     print("Downloading expanded info to dir")
     length = len(ls)

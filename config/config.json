@@ -1,0 +1,60 @@
+{
+    "config" : {
+    },
+
+    "features" : [
+        "info_jockey_win",
+        "info_jockey_place",
+        "info_late_start_per",
+        "info_prize",
+        "info_class_prize",
+        "info_basis_weight",
+        "info_training_score",
+        "info_stable_score",
+
+        "exinfo_jra_win_per",
+        "exinfo_jra_place_per",
+        "exinfo_jra_total",
+
+        "exinfo_season_win_per",
+        "exinfo_season_place_per",
+        "exinfo_season_total",
+
+        "exinfo_surf_win_per",
+        "exinfo_surf_place_per",
+        "exinfo_surf_total",
+
+        "pre1_order_of_finish",
+        "pre2_order_of_finish",
+        "pre3_order_of_finish",
+
+        "pre1_first_3f_time",
+        "pre2_first_3f_time",
+        "pre3_first_3f_time",
+
+        "pre1_first_3f_delta",
+        "pre2_first_3f_delta",
+        "pre3_first_3f_delta",
+
+        "pre1_last_3f_time",
+        "pre2_last_3f_time",
+        "pre3_last_3f_time",
+
+        "pre1_last_3f_delta",
+        "pre2_last_3f_delta",
+        "pre3_last_3f_delta",
+
+        "pre1_time_delta",
+        "pre2_time_delta",
+        "pre3_time_delta",
+
+        "pre1_prize",
+        "pre2_prize",
+        "pre3_prize",
+
+        "pre1_jrdb_idm",
+        "pre2_jrdb_idm",
+        "pre3_jrdb_idm"
+
+    ]
+}

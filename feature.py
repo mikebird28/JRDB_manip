@@ -7,6 +7,9 @@ class Feature(object):
         self.con = con
 
     def fetch_horse(self,target_columns,race_type = "win"):
+        #copy target_columns
+        target_columns = [v for v in target_columns]
+    
         if race_type == "win":
             rt_col = "is_win"
         elif race_type == "place":

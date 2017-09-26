@@ -14,10 +14,11 @@ def to_integer(x,illegal_value = None):
         illegal_value : value which use when x is not convetable
 
     """
+    #x = x.strip()
     try:
         return Maybe(INT_SYNBOL,int(x))
     except ValueError:
-        return Maybe(INT_SYNBOL,None)
+        return Maybe(INT_SYNBOL,illegal_value)
 
 def to_float(x,illegal_value = None):
     try:
@@ -42,6 +43,8 @@ def to_unicode(x,illegal_value = None):
 def to_nominal(x,converter = nominal.nominal_int, n = 1):
     x = x.strip()
     value = converter(x)
+    if value > x:
+        raise Exception("nominal convert error")
     return Maybe("NOM",(value,n))
 
 class ColumnInfo(object):
@@ -110,7 +113,7 @@ def table_exists(con,table_name):
     else:
         return False
 
-def create_table(con,name,type_dict,nominal_dict):
+def create_table(con,name,type_dict,nominal_dict,unique_ls = []):
     """create new tables in the given connectio
     Args:
         con       : database connection
@@ -129,8 +132,9 @@ def create_table(con,name,type_dict,nominal_dict):
         ci_orm.insert(k,name,type_dict[k],nominal_dict[k])
         ctype = type_dict[k]
         type_str = type_to_str[ctype]
-        type_tuples.append((k,type_str))
-    columns = ",".join(["{0} {1}".format(k,v) for k,v in type_tuples])
+        is_unique = " primary key" if k in unique_ls else ""
+        type_tuples.append((k,type_str,is_unique))
+    columns = ",".join(["{0} {1}{2}".format(k,v,u) for k,v,u in type_tuples])
     sql = """CREATE TABLE {name}({columns});""".format(name = name,columns = columns)
     con.execute(sql)
 
@@ -154,8 +158,12 @@ def insert_container(con,name,container):
 
     keys_text = u",".join(keys)
     values_text = u",".join(values)
-    sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
-    con.execute(sql)
+    try:
+        sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
+        con.execute(sql)
+    except Exception as e:
+        print(e)
+        print("")
 
 def set_index(con,index_name,table_name,columns):
     columns_txt = ",".join(columns)
@@ -210,7 +218,8 @@ class BaseORM(object):
             type_dict = inference_type(containers)
             nom_dict = inference_nominal(containers)
             nominal_dict = inference_nominal(containers)
-            create_table(self.con,self.table_name,type_dict,nominal_dict)
+            unique_ls = self.set_unique()
+            create_table(self.con,self.table_name,type_dict,nominal_dict,unique_ls)
             self.set_indexes()
             self.table_exists = True
 
@@ -218,6 +227,12 @@ class BaseORM(object):
             if self.check_container(c):
                 insert_container(self.con,self.table_name,c)
         self.con.commit()
+
+    def check_container(self,c):
+        return True
+
+    def set_unique(self):
+        return []
  
 
 class PayoffDatabase(BaseORM):
@@ -251,9 +266,9 @@ class PayoffDatabase(BaseORM):
     def set_indexes(self):
         set_index(self.con,"pd_race_id_idx",self.table_name,["race_id"])
 
-    def check_container(self,container):
-        return True
- 
+    def set_unique(self):
+        return ["race_id"]
+
 class HorseInfoDatabase(BaseORM):
     def __init__(self,con):
         super(HorseInfoDatabase,self).__init__(con,"horse_info")
@@ -262,20 +277,17 @@ class HorseInfoDatabase(BaseORM):
         c = Container()
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
-        c.horse_id             = to_integer(line[0:10])  #馬キー
-        c.pedigree_id          = to_string(line[10:18])  #血統登録番号
-        c.horse_name           = to_unicode(line[18:54]) #名前
+        c.horse_id             = to_string(line[0:10])  #馬キー
+        c.pedigree_id          = to_integer(line[10:18])  #血統登録番号
+        #c.horse_name           = to_unicode(line[18:54]) #名前
 
         c.idm                  = to_float(line[54:59])   #IDM
         c.jockey_score         = to_float(line[59:64])   #騎手指数
         c.info_score           = to_float(line[64:69])   #情報指数
-        c.yobi_1               = to_float(line[69:74])   #予備
-        c.yobi_2               = to_float(line[74:79])   #予備
-        c.yobi_3               = to_float(line[79:84])   #予備
         c.composite_score      = to_float(line[84:89])   #総合指数
 
         c.running_style        = to_integer(line[89])    #脚質
-        c.distance_fitness     = to_integer(line[90])    #距離適性
+        c.distance_fitness     = to_nominal(line[90],n=6)    #距離適性
         c.condiction_score     = to_integer(line[91])    #上昇度
         c.rotation             = to_integer(line[92:95]) #ローテーション
 
@@ -283,19 +295,19 @@ class HorseInfoDatabase(BaseORM):
         c.base_popularity      = to_integer(line[100:102]) #基準人気順位
         c.base_place_odds      = to_float(line[102:107])   #基準複勝オッズ
         c.base_place_popularity = to_integer(line[107:109])#基準複勝人気順位
-        c.specific_info_5      = to_integer(line[109:112]) #特定情報◎
-        c.specific_info_4      = to_integer(line[112:115]) #特定情報○
-        c.specific_info_3      = to_integer(line[115:118]) #特定情報▲
-        c.specific_info_2      = to_integer(line[118:121]) #特定情報△
-        c.specific_info_1      = to_integer(line[121:124]) #特定情報×
-        c.general_info_5       = to_integer(line[124:127]) #総合情報◎
-        c.general_info_4       = to_integer(line[127:130]) #総合指数○
-        c.general_info_3       = to_integer(line[130:133]) #総合指数▲
-        c.general_info_2       = to_integer(line[133:136]) #総合指数△
-        c.general_info_1       = to_integer(line[136:139]) #総合指数×
+        c.specific_info_5      = to_integer(line[109:112],0) #特定情報◎
+        c.specific_info_4      = to_integer(line[112:115],0) #特定情報○
+        c.specific_info_3      = to_integer(line[115:118],0) #特定情報▲
+        c.specific_info_2      = to_integer(line[118:121],0) #特定情報△
+        c.specific_info_1      = to_integer(line[121:124],0) #特定情報×
+        c.general_info_5       = to_integer(line[124:127],0) #総合情報◎
+        c.general_info_4       = to_integer(line[127:130],0) #総合指数○
+        c.general_info_3       = to_integer(line[130:133],0) #総合指数▲
+        c.general_info_2       = to_integer(line[133:136],0) #総合指数△
+        c.general_info_1       = to_integer(line[136:139],0) #総合指数×
         c.popurality_score     = to_integer(line[139:144]) #人気指数
-        c.training_score       = to_integer(line[144:149]) #調教師数
-        c.stable_score         = to_integer(line[149:154]) #厩舎指数
+        c.training_score       = to_float(line[144:149]) #調教師数
+        c.stable_score         = to_float(line[149:154]) #厩舎指数
 
         c.training_sign_code   = to_integer(line[154])     #調教矢印コード
         c.stable_eval_code     = to_integer(line[155])     #厩舎評価コード
@@ -304,14 +316,13 @@ class HorseInfoDatabase(BaseORM):
         c.hoof_code            = to_integer(line[163:165]) #蹄コード
         c.heavy_fitness_code   = to_integer(line[165])     #重適正コード
         c.class_code           = to_integer(line[166:168]) #クラスコード
-        c.yobi_4               = to_integer(line[168:170])     #予備
 
-        c.brinker              = to_integer(line[170])     #ブリンカー
-        c.jockey_name          = to_unicode(line[171:183]) #騎手名
+        c.brinker              = to_nominal(line[170],n=3)     #ブリンカー
+        #c.jockey_name          = to_unicode(line[171:183]) #騎手名
         c.basis_weight         = to_integer(line[183:186]) #負担重量
-        c.apprentice_class     = to_integer(line[186])     #見習い区分
-        c.trainer_name         = to_unicode(line[187:199]) #調教師名
-        c.trainer_division     = to_unicode(line[199:203]) #調教師所属
+        c.apprentice_class     = to_nominal(line[186],n=3) #見習い区分
+        #c.trainer_name         = to_unicode(line[187:199]) #調教師名
+        #c.trainer_division     = to_unicode(line[199:203]) #調教師所属
 
         c.pre1_result_id       = to_string(line[203:219])  #前走1競争成績キー
         c.pre2_result_id       = to_string(line[219:235])  #前走2競争成績キー
@@ -324,20 +335,18 @@ class HorseInfoDatabase(BaseORM):
         c.pre4_race_id         = to_string(line[307:315])  #前走4レースキー
         c.pre5_race_id         = to_string(line[315:323])  #前走5レースキー
         c.frame_number         = to_integer(line[323])     #枠番
-        c.yobi_5               = to_integer(line[324:326]) #予備
 
-        c.composite_sign       = to_integer(line[326])     #総合印
-        c.idm_sign             = to_integer(line[327])     #IDM印
-        c.info_sign            = to_integer(line[328])     #情報印
-        c.jockey_sign          = to_integer(line[329])     #騎手印
-        c.stable_sign          = to_integer(line[330])     #厩舎印
-        c.training_sign        = to_integer(line[331])     #調教印
-        c.hard_running_sign    = to_integer(line[332])     #激走印
-        c.turf_fitness         = to_integer(line[333])     #芝適正コード
-        c.dirt_fitness         = to_integer(line[334])     #ダ適正コード
+        c.composite_sign       = to_nominal(line[326],n=6)     #総合印
+        c.idm_sign             = to_nominal(line[327],n=6)     #IDM印
+        c.info_sign            = to_nominal(line[328],n=6)     #情報印
+        c.jockey_sign          = to_nominal(line[329],n=6)     #騎手印
+        c.stable_sign          = to_nominal(line[330],n=6)     #厩舎印
+        c.training_sign        = to_nominal(line[331],n=6)     #調教印
+        c.hard_running_sign    = to_nominal(line[332],n=6)     #激走印
+        c.turf_fitness         = to_nominal(line[333],n=3)     #芝適正コード
+        c.dirt_fitness         = to_nominal(line[334],n=3)     #ダ適正コード
         c.jockey_code          = to_integer(line[335:340]) #騎手コード
         c.trainer_code         = to_integer(line[340:345]) #調教師コード
-        c.yobi_6               = to_integer(line[345])     #予備
 
         c.prize                = to_integer(line[346:352]) #獲得賞金
         c.class_prize          = to_integer(line[352:357]) #収得賞金
@@ -347,7 +356,7 @@ class HorseInfoDatabase(BaseORM):
         c.pace_score           = to_float(line[363:368])   #ペース指数
         c.lastphase_score      = to_float(line[368:373])   #上がり指数
         c.position_score       = to_float(line[373:378])   #位置指数
-        c.pace_prediction      = to_integer(line[378])     #ペース予想
+        c.pace_prediction      = to_nominal(line[378], n=3, converter=nominal.nominal_pace)  #ペース予想
         c.middlephase_order    = to_integer(line[379:381]) #道中順位
         c.middlephase_delta    = to_integer(line[381:383]) #道中差
         c.middlephase_in_out   = to_integer(line[383])     #道中内外
@@ -359,13 +368,13 @@ class HorseInfoDatabase(BaseORM):
         c.oof_in_out           = to_integer(line[393])     #ゴール内外
         c.development_sign     = to_integer(line[394])     #展開記号
 
-        c.distance_fitness2    = to_integer(line[395])     #距離適性2
+        c.distance_fitness2    = to_nominal(line[395],n=6)     #距離適性2
         c.weight_afd           = to_integer(line[396:399]) #枠確定後馬体重
         c.weight_delta_afd     = to_integer(line[399:402]) #枠確定馬体重増減
 
-        c.cancel_flag          = to_integer(line[402])     #取り消しフラグ
+        c.cancel_flag          = to_nominal(line[402],n=1) #取り消しフラグ
         c.sex_code             = to_integer(line[403])     #性別コード
-        c.owner_name           = to_unicode(line[404:444]) #馬主名
+        #c.owner_name           = to_unicode(line[404:444]) #馬主名
         c.owner_code           = to_integer(line[444:446]) #馬主会コード
 
         c.horse_sign_code        = to_integer(line[446:448]) #馬記号コード
@@ -382,31 +391,31 @@ class HorseInfoDatabase(BaseORM):
 
         c.running_style        = to_integer(line[469:477])   #走法
         c.body_shape           = to_unicode(line[477:501])   #体型
-        c.body_composite_1     = to_integer(line[501:504])   #体型総合1
-        c.body_composite_2     = to_integer(line[504:507])   #体型総合2
-        c.body_composite_3     = to_integer(line[507:510])   #体型総合3
+        #c.body_composite_1     = to_integer(line[501:504])   #体型総合1
+        #c.body_composite_2     = to_integer(line[504:507])   #体型総合2
+        #c.body_composite_3     = to_integer(line[507:510])   #体型総合3
         c.horse_remarks_1      = to_integer(line[510:513])   #馬特記1
         c.horse_remarks_2      = to_integer(line[513:516])   #馬特記2
         c.horse_remarks_3      = to_integer(line[516:519])   #馬特記3
 
-        c.start_score           = to_float(line[519:523])    #馬スタート指数
-        c.late_start_per        = to_float(line[523:527])    #馬出遅れ率
-        c.last_run_reference    = to_integer(line[527:529])  #参考前走
+        c.start_score           = to_float(line[519:523],0.0)    #馬スタート指数
+        c.late_start_per        = to_float(line[523:527],0.0)    #馬出遅れ率
+        #c.last_run_reference    = to_integer(line[527:529])  #参考前走
         c.last_run_jockey_code  = to_integer(line[529:534])  #参考前走騎手コード
         c.precious_ticket_score = to_integer(line[534:537])  #万馬券指数
         c.precious_ticket_sign  = to_integer(line[537])      #万馬券印
 
-        c.downgrading_flag     = to_integer(line[538])       #降級フラグ
-        c.hard_running_type    = to_unicode(line[539:541])   #激走タイプ
-        c.recuperation_type    = to_integer(line[541:543])   #休養理由分類コード
+        c.downgrading_flag     = to_nominal(line[538],n=2)       #降級フラグ
+        #c.hard_running_type    = to_unicode(line[539:541])   #激走タイプ
+        #c.recuperation_type    = to_integer(line[541:543])   #休養理由分類コード
         c.remarks_flag         = to_unicode(line[543:559])   #フラグ
 
         c.stabling_race_count    = to_integer(line[559:561]) #入厩何走目
-        c.stabling_date          = to_string(line[561:569])  #入厩年月日
-        c.stabling_elapsed_dates = to_integer(line[569:572]) #入厩何日目
+        #c.stabling_date          = to_string(line[561:569])  #入厩年月日
+        c.stabling_elapsed_dates = to_integer(line[569:572],0) #入厩何日目
 
 
-        c.paddock              = to_unicode(line[572:622])  #放牧先
+        #c.paddock              = to_unicode(line[572:622])  #放牧先
         c.paddock_rank         = to_string(line[622])       #放牧先ランク
         c.stable_rank          = to_string(line[623])       #厩舎ランク
         return c
@@ -416,7 +425,12 @@ class HorseInfoDatabase(BaseORM):
         
     def set_indexes(self):
         set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
-        #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
+
+    def set_unique(self):
+        return ["horse_id"]
+
 
 
 class ResultDatabase(BaseORM):
@@ -435,7 +449,7 @@ class ResultDatabase(BaseORM):
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
         c.registered_date      = to_string(line[18:26])  #登録日
 
-        c.horse_name           = to_unicode(line[26:62]) #名前
+        #c.horse_name           = to_unicode(line[26:62]) #名前
         c.distance             = to_integer(line[62:66]) #距離
         c.discipline           = to_nominal(line[66],n = 3)    #芝ダ障害コード
         c.left_or_right        = to_nominal(line[67],n = 3)    #右左
@@ -447,16 +461,16 @@ class ResultDatabase(BaseORM):
         c.race_remarks         = to_integer(line[75:78])   #記号
         c.race_weights         = to_integer(line[78])      #重量
         c.race_grade           = to_integer(line[79])      #グレード
-        c.race_name            = to_unicode(line[80:130])  #レース名
+        #c.race_name            = to_unicode(line[80:130])  #レース名
         c.race_headcount       = to_integer(line[130:132]) #頭数
-        c.race_alias           = to_unicode(line[132:140]) #レース名略称
+        #c.race_alias           = to_unicode(line[132:140]) #レース名略称
 
         c.order_of_finish      = to_integer(line[140:142]) #着順
         c.irregular_category   = to_integer(line[142])     #異常区分
         c.finishing_time       = to_float(line[143:147])   #タイム
         c.basis_weight         = to_float(line[147:150])   #斤量
-        c.jockey_name          = to_unicode(line[150:162]) #騎手名
-        c.trainer_name         = to_unicode(line[162:174]) #調教師名
+        #c.jockey_name          = to_unicode(line[150:162]) #騎手名
+        #c.trainer_name         = to_unicode(line[162:174]) #調教師名
         c.odds                 = to_float(line[174:180])   #確定オッズ
         c.popularity           = to_integer(line[180:182]) #人気順位
 
@@ -482,7 +496,7 @@ class ResultDatabase(BaseORM):
         c.lastphase_score      = to_float(line[228:233])   #上がり指数
         c.pace_score           = to_float(line[233:238])   #ペース指数
         c.race_pace_score      = to_float(line[238:243])   #レースＰ指数
-        c.first_horse_name     = to_unicode(line[243:255]) #一着馬名
+        #c.first_horse_name     = to_unicode(line[243:255]) #一着馬名
         c.time_delta           = to_float(line[255:258])   #一着とのタイム差
         c.first_3f_time        = to_float(line[258:261])   #前3Fタイム
         c.last_3f_time         = to_float(line[261:264])   #後3Fタイム
@@ -505,10 +519,10 @@ class ResultDatabase(BaseORM):
         c.course_info          = to_integer(line[339])     #コース
         c.race_running_style   = to_integer(line[340])     #レース脚質
 
-        c.payback_win          = to_float(line[341:348])   #単勝払い戻し
-        c.payback_place        = to_float(line[348:355])   #複勝払い戻し
-        c.prize                = to_float(line[355:360])   #本賞金
-        c.class_prize          = to_float(line[360:365])   #収得賞金
+        c.payback_win          = to_float(line[341:348],0.0)   #単勝払い戻し
+        c.payback_place        = to_float(line[348:355],0.0)   #複勝払い戻し
+        c.prize                = to_float(line[355:360],0.0)   #本賞金
+        c.class_prize          = to_float(line[360:365],0.0)   #収得賞金
         c.position_at_corner   = to_integer(line[369])     #4角コース取り
         return c
 
@@ -520,6 +534,9 @@ class ResultDatabase(BaseORM):
     def set_indexes(self):
        set_index(self.con,"rd_result_id_idx",self.table_name,["race_id","result_id"])
 
+    def set_unique(self):
+        return ["result_id"]
+ 
 class ExpandedInfoDatabase(BaseORM):
     def __init__(self,con):
         super(ExpandedInfoDatabase,self).__init__(con,"exinfo")
@@ -530,19 +547,120 @@ class ExpandedInfoDatabase(BaseORM):
         c.horse_number = to_integer(line[8:10])
         c.horse_id     = to_string(line[0:10])
 
-        c.jra_fisrt_count           = to_integer(line[10:13])
-        c.jra_second_count          = to_integer(line[13:16])
-        c.jra_third_count           = to_integer(line[16:19])
-        c.jra_lose_count            = to_integer(line[19:22])
-        c.ineterleague_first_count  = to_integer(line[22:25])
-        c.ineterleague_second_count = to_integer(line[25:28])
-        c.ineterleague_third_count  = to_integer(line[28:31])
-        c.ineterleague_lose_count   = to_integer(line[31:34])
-        c.others_first_coun         = to_integer(line[34:37])
-        c.others_second_count       = to_integer(line[37:40])
-        c.others_third_count        = to_integer(line[40:43])
-        c.others_lose_count         = to_integer(line[43:46])
+        c.jra_win             = to_integer(line[10:13],0)
+        c.jra_second          = to_integer(line[13:16],0)
+        c.jra_third           = to_integer(line[16:19],0)
+        c.jra_lose            = to_integer(line[19:22],0)
+        c.jra_place           = to_integer(c.jra_win.value + c.jra_second.value + c.jra_third.value)
+        c.jra_total           = to_integer(c.jra_place.value + c.jra_lose.value)
+        c.jra_win_per         = to_float(divide(c.jra_win.value,c.jra_total.value))
+        c.jra_place_per       = to_float(divide(c.jra_place.value,c.jra_total.value))
+
+        c.interleague_win       = to_integer(line[22:25],0)
+        c.interleague_second    = to_integer(line[25:28],0)
+        c.interleague_third     = to_integer(line[28:31],0)
+        c.interleague_lose      = to_integer(line[31:34],0)
+        c.interleague_place     = to_integer(c.interleague_win.value + c.interleague_second.value + c.interleague_third.value)
+        c.interleague_total     = to_integer(c.interleague_place.value + c.interleague_lose.value)
+        c.interleague_win_per   = to_float(divide(c.interleague_win.value,c.interleague_total.value))
+        c.interleague_place_per = to_float(divide(c.interleague_place.value,c.interleague_total.value))
+
+        c.others_win          = to_integer(line[34:37],0)
+        c.others_second       = to_integer(line[37:40],0)
+        c.others_third        = to_integer(line[40:43],0)
+        c.others_lose         = to_integer(line[43:46],0)
+        c.others_place        = to_integer(c.others_win.value + c.others_second.value + c.others_third.value)
+        c.others_total        = to_integer(c.others_place.value + c.others_lose.value)
+        c.others_win_per      = to_float(divide(c.others_win.value,c.others_total.value))
+        c.others_place_per    = to_float(divide(c.others_place.value,c.others_total.value))
+
+        c.surf_win            = to_integer(line[46:49],0)
+        c.surf_second         = to_integer(line[49:52],0)
+        c.surf_third          = to_integer(line[52:55],0)
+        c.surf_lose           = to_integer(line[55:58],0)
+        c.surf_place          = to_integer(c.surf_win.value + c.surf_second.value + c.surf_third.value)
+        c.surf_total          = to_integer(c.surf_place.value + c.surf_lose.value)
+        c.surf_win_per        = to_float(divide(c.surf_win.value,c.surf_total.value))
+        c.surf_place_per      = to_float(divide(c.surf_place.value,c.surf_total.value))
+
+        c.surf_dist_win       = to_integer(line[58:61],0)
+        c.surf_dist_second    = to_integer(line[61:64],0)
+        c.surf_dist_third     = to_integer(line[64:67],0)
+        c.surf_dist_lose      = to_integer(line[67:70],0)
+        c.surf_dist_place          = to_integer(c.surf_dist_win.value + c.surf_dist_second.value + c.surf_dist_third.value)
+        c.surf_dist_total          = to_integer(c.surf_dist_place.value + c.surf_dist_lose.value)
+        c.surf_dist_win_per        = to_float(divide(c.surf_dist_win.value,c.surf_dist_total.value))
+        c.surf_dist_place_per      = to_float(divide(c.surf_dist_place.value,c.surf_dist_total.value))
+
+        c.dist_win            = to_integer(line[70:73],0)
+        c.dist_second         = to_integer(line[73:76],0)
+        c.dist_third          = to_integer(line[76:79],0)
+        c.dist_lose           = to_integer(line[79:82],0)
+        c.dist_place          = to_integer(c.dist_win.value + c.dist_second.value + c.dist_third.value)
+        c.dist_total          = to_integer(c.dist_place.value + c.dist_lose.value)
+        c.dist_win_per        = to_float(divide(c.dist_win.value,c.dist_total.value))
+        c.dist_place_per      = to_float(divide(c.dist_place.value,c.dist_total.value))
+
+        c.rotation_first      = to_integer(line[82:85],0)
+        c.rotation_second     = to_integer(line[85:88],0)
+        c.rotation_third      = to_integer(line[88:91],0)
+        c.rotation_lose       = to_integer(line[91:94],0)
+
+        c.course_first        = to_integer(line[94:97],0)
+        c.course_second       = to_integer(line[97:100],0)
+        c.course_third        = to_integer(line[100:103],0)
+        c.course_lose         = to_integer(line[103:106],0)
+
+        c.jockey_first        = to_integer(line[106:109],0)
+        c.jockey_second       = to_integer(line[109:112],0)
+        c.jockey_third        = to_integer(line[112:115],0)
+        c.jockey_lose         = to_integer(line[115:118],0)
+
+        c.surf_good_first        = to_integer(line[118:121],0)
+        c.surf_good_second       = to_integer(line[121:124],0)
+        c.surf_good_third        = to_integer(line[124:127],0)
+        c.surf_good_lose         = to_integer(line[127:130],0)
+
+        c.surf_middle_first        = to_integer(line[130:133],0)
+        c.surf_middle_second       = to_integer(line[133:136],0)
+        c.surf_middle_third        = to_integer(line[136:139],0)
+        c.surf_middle_lose         = to_integer(line[139:142],0)
+
+        c.surf_bad_first        = to_integer(line[142:145],0)
+        c.surf_bad_second       = to_integer(line[145:148],0)
+        c.surf_bad_third        = to_integer(line[148:151],0)
+        c.surf_bad_lose         = to_integer(line[151:154],0)
+
+        c.pace_slow_first        = to_integer(line[142:145],0)
+        c.pace_slow_second       = to_integer(line[145:148],0)
+        c.pace_slow_third        = to_integer(line[148:151],0)
+        c.pace_slow_lose         = to_integer(line[151:154],0)
+
+        c.pace_middle_first        = to_integer(line[154:157],0)
+        c.pace_middle_second       = to_integer(line[157:160],0)
+        c.pace_middle_third        = to_integer(line[160:163],0)
+        c.pace_middle_lose         = to_integer(line[163:166],0)
+
+        c.pace_high_first        = to_integer(line[166:169],0)
+        c.pace_high_second       = to_integer(line[169:172],0)
+        c.pace_high_third        = to_integer(line[172:175],0)
+        c.pace_high_lose         = to_integer(line[175:178],0)
+
+        c.season_win          = to_integer(line[178:181],0)
+        c.season_second       = to_integer(line[181:184],0)
+        c.season_third        = to_integer(line[184:187],0)
+        c.season_lose         = to_integer(line[187:190],0)
+        c.season_place          = to_integer(c.season_win.value + c.season_second.value + c.season_third.value)
+        c.season_total          = to_integer(c.season_place.value + c.season_lose.value)
+        c.season_win_per        = to_float(divide(c.season_win.value,c.season_total.value))
+        c.season_place_per      = to_float(divide(c.season_place.value,c.season_total.value))
+
+        c.frame_first        = to_integer(line[190:193],0)
+        c.frame_second       = to_integer(line[193:196],0)
+        c.frame_third        = to_integer(line[196:199],0)
+        c.frame_lose         = to_integer(line[199:202],0)
         return c
+
     def set_indexes(self):
         #set_index(self.con,"ex_race_id_idx",self.table_name,["race_id"])
         set_index(self.con,"ex_horse_id_idx",self.table_name,["horse_id"])
@@ -550,7 +668,9 @@ class ExpandedInfoDatabase(BaseORM):
     def check_container(self,container):
         return True
 
-
+    def set_unique(self):
+        return ["horse_id"]
+ 
 
 def create_feature_table(con):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con)
@@ -581,10 +701,12 @@ def create_feature_table(con):
              LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
              LEFT JOIN result as p4 ON hi.pre4_result_id = p4.result_id
              LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
+
     cur = con.execute(sql)
     for count,row in enumerate(cur):
-        if count % 1000 == 0:
+        if count % 100 == 0:
             print(count)
+            con.commit()
         container = Container()
         for col_name,value in zip(columns,row):
             typ = columns_dict[col_name].typ
@@ -634,7 +756,6 @@ def fetch_columns_info(con):
         columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
     ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
     columns_dict.update(ex_fixed)
-    print(columns_list)
 
     return (columns_list,columns_dict,columns_query)
 
@@ -661,3 +782,9 @@ def column_list(con,table_name):
         name = column[0]
         columns.append(name)
     return columns
+
+def divide(a,b):
+    try:
+        return float(a)/b
+    except ZeroDivisionError:
+        return 0.0

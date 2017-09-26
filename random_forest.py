@@ -10,24 +10,28 @@ import sqlite3
 import feature
 import reader
 import util
-
+import dataset
 
 def main():
-    config = util.get_config("config.json")
-    #preprocessing
-    x,y = generate_dataset(config.features)
+    config = util.get_config("config/config.json")
+    #generate dataset
+    db_path = "db/output_v3.db"
+    x,y = dataset.load_horses(db_path,config.features)
+    x = pd.DataFrame(x,columns = config.features)
+    y = pd.DataFrame(y)
+    #preprocess
     x,y = under_sampling(x,y)
-    x = x.fillna(x.mean())
-    y = y.fillna(y.mean())
+    x = dataset.fillna_mean(x)
+    #con = sqlite3.connect("analyze.db")
+    #x.to_sql("feature",con)
+    y = dataset.fillna_zero(y)
     train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 0.1)
 
     #grid search
     paramaters = [
-        {'max_depth' : [10,20]},
-        {"min_samples_split" : [3,10,20]},
-        {"max_features" : [10,20,30,50]}
+        {'max_depth' : [10]},
     ]
-    cv = GridSearchCV(RandomForestClassifier(),paramaters,cv = 2,scoring='accuracy')
+    cv = GridSearchCV(RandomForestClassifier(n_estimators = 150),paramaters,cv = 2,scoring='accuracy')
     cv.fit(train_x,train_y)
     best_forest = cv.best_estimator_
     pred = best_forest.predict(test_x)
@@ -48,12 +52,12 @@ def generate_dataset(features):
 
     f_orm = feature.Feature(db_con)
     target_columns = features
-    print(target_columns)
     for x,y in f_orm.fetch_horse(target_columns):
         dataset_x.append(x)
         dataset_y.append(y)
     dataset_x = pd.DataFrame(dataset_x)
     dataset_y = pd.DataFrame(dataset_y)
+    print(dataset_x)
 
     dataset_x.columns = target_columns
 

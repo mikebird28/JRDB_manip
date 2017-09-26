@@ -9,70 +9,49 @@ import numpy as np
 import pandas as pd
 import sqlite3
 import feature
+import dataset
 import util
 
 
 def main():
-    config = util.get_config("config.json")
-    #preprocessing
-    x,y = generate_dataset(config.features)
+    config = util.get_config("config/config.json")
+    #generate dataset
+    db_path = "db/output_v3.db"
+    x,y = dataset.load_horses(db_path,config.features,"place")
+    x = pd.DataFrame(x,columns = config.features)
+    y = pd.DataFrame(y)
+    #preprocess
     x,y = under_sampling(x,y)
-    x = x.fillna(x.mean())
-    y = y.fillna(y.mean())
+    x = dataset.fillna_mean(x)
+    #con = sqlite3.connect("analyze.db")
+    #x.to_sql("feature",con)
+    y = dataset.fillna_zero(y)
     train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 0.1)
 
     #grid search
-    xgbc = xgb.XGBClassifier()
+    cv = xgb.XGBClassifier()
+    """
     paramaters = [
-        {'max_depth' : [3,5,7]},
-        {'min_child_weight':[0.8,0.9,1.0]},
-        {'subsample':[0.8,0.9,1.0]},
-        {'colsample_bytree':[0.8,0.9,1.0]},
+        {'max_depth' : [7]},
+        {'min_child_weight':[0.9]},
+        {'subsample':[1.0]},
+        {'colsample_bytree':[0.9,1.0]},
     ]
     cv = GridSearchCV(xgbc,paramaters,cv = 2,scoring='accuracy',verbose = 2)
+    """
     cv.fit(train_x,train_y)
     #best_forest = cv.best_estimator_
     cv.fit(train_x,train_y)
     pred = cv.predict(test_x)
 
-    best = cv.best_estimator_
-    print(best)
+    #best = cv.best_estimator_
+    #print(best)
     print(accuracy_score(test_y,pred))
     print(classification_report(test_y,pred))
-    importances = best.feature_importances_
+    #importances = best.feature_importances_
+    importances = cv.feature_importances_
     for f,i in zip(config.features,importances):
-        print("{0:<20} : {1:.5f}".format(f,i))
-
-def generate_dataset(features):
-    dataset_x = []
-    dataset_y = []
-
-    db_con = sqlite3.connect("output.db")
-
-    f_orm = feature.Feature(db_con)
-    target_columns = features
-    for x,y in f_orm.fetch_horse(target_columns,race_type = "win"):
-        dataset_x.append(x)
-        dataset_y.append(y)
-    dataset_x = pd.DataFrame(dataset_x)
-    dataset_y = pd.DataFrame(dataset_y)
-    return dataset_x,dataset_y
-
-def generate_dataset_races():
-    dataset_x = []
-    dataset_y = []
-
-    config = util.get_config("config.json")
-    db_con = sqlite3.connect("output.db")
-
-    f_orm = feature.Feature(db_con)
-    target_columns = config.features
-    for x,y in f_orm.fetch_horse(target_columns):
-        dataset_x.append(x)
-        dataset_y.append(y)
-    dataset_x = pd.DataFrame(dataset_x)
-    dataset_y = pd.DataFrame(dataset_y)
-    return dataset_x,dataset_y
+        print("{0:<25} : {1:.5f}".format(f,i))
 
 
 def under_sampling(x,y):
