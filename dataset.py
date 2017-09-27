@@ -3,20 +3,17 @@
 import sqlite3
 import feature
 
-def load_races(db_path,features):
+def load_races(db_path,features,typ):
     dataset_x = []
     dataset_y = []
 
-    config = util.get_config(config_path)
     db_con = sqlite3.connect(db_path)
 
     f_orm = feature.Feature(db_con)
     target_columns = features
-    for x,y in f_orm.fetch_racse(target_columns):
+    for x,y in f_orm.fetch_race(target_columns,typ):
         dataset_x.append(x)
         dataset_y.append(y)
-    #dataset_x = pd.DataFrame(dataset_x)
-    #dataset_y = pd.DataFrame(dataset_y)
     return dataset_x,dataset_y
 
 def load_horses(db_path,features,typ):

@@ -23,7 +23,7 @@ class Feature(object):
         for row in cur:
             yield row[:-1],row[-1]
 
-    def fetch_race(self,target_columns):
+    def fetch_race(self,target_columns,race_type = "win"):
         if race_type == "win":
             rt_col = "is_win"
         elif race_type == "place":

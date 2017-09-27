@@ -11,22 +11,32 @@ import sqlite3
 import feature
 import dataset
 import util
+import evaluate
 
 
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
     db_path = "db/output_v3.db"
-    x,y = dataset.load_horses(db_path,config.features,"place")
-    x = pd.DataFrame(x,columns = config.features)
-    y = pd.DataFrame(y)
-    #preprocess
-    x,y = under_sampling(x,y)
-    x = dataset.fillna_mean(x)
-    #con = sqlite3.connect("analyze.db")
-    #x.to_sql("feature",con)
-    y = dataset.fillna_zero(y)
+    x,y = dataset.load_races(db_path,config.features,"win")
     train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 0.1)
+
+    #preprocess
+    train_x,train_y = dataset.races_to_horses(train_x,train_y)
+    train_x = pd.DataFrame(train_x,columns = config.features)
+    train_y = pd.DataFrame(train_y)
+    train_x = dataset.fillna_mean(train_x)
+    train_x = dataset.fillna_zero(train_x)
+    train_x,train_y = under_sampling(train_x,train_y)
+
+    test_rx = test_x
+    test_ry = test_y
+
+    test_hx,test_hy = dataset.races_to_horses(test_x,test_y)
+    test_hx = pd.DataFrame(test_hx,columns = config.features)
+    test_hy = pd.DataFrame(test_hy)
+    test_hx = dataset.fillna_mean(test_hx)
+    test_hx,test_hy = under_sampling(test_hx,test_hy)
 
     #grid search
     cv = xgb.XGBClassifier()
@@ -42,16 +52,17 @@ def main():
     cv.fit(train_x,train_y)
     #best_forest = cv.best_estimator_
     cv.fit(train_x,train_y)
-    pred = cv.predict(test_x)
+    evaluate.top_n_k(cv,config.features,test_rx,test_ry)
+    pred = cv.predict(test_hx)
 
     #best = cv.best_estimator_
     #print(best)
-    print(accuracy_score(test_y,pred))
-    print(classification_report(test_y,pred))
+    print(accuracy_score(test_hy,pred))
+    print(classification_report(test_hy,pred))
     #importances = best.feature_importances_
     importances = cv.feature_importances_
-    for f,i in zip(config.features,importances):
-        print("{0:<25} : {1:.5f}".format(f,i))
+    #evaluate.plot_importance(config.features,importances)
+    evaluate.show_importance(config.features,importances)
 
 
 def under_sampling(x,y):
