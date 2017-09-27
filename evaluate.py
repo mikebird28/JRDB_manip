@@ -35,14 +35,14 @@ def plot_importance(column,importance):
     plt.show()
     return
 
-def show_importance(column,importance,sort = True,top_n = 20):
+def show_importance(column,importance,sort = True,top_n = None):
     zipped = zip(column,importance)
     if sort:
         zipped = sorted(zipped,key = lambda x : x[1],reverse = True)
 
     counter = 0
     for f,i in zipped:
-        if not counter < 20:
+        if (top_n is not None) and (not counter < 20):
             break
         print("{0:<25} : {1:.5f}".format(f,i))
         counter += 1

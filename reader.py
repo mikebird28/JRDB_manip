@@ -124,7 +124,7 @@ def create_table(con,name,type_dict,nominal_dict,unique_ls = []):
         return False if transaction was failed
     """
     ci_orm = ColumnInfoORM(con)
-    type_to_str = {STR_SYNBOL:"TEXT",UNI_SYNBOL:"TEXT",INT_SYNBOL:"INTEGER",FLO_SYNBOL:"REAL",NOM_SYNBOL:"TEXT"}
+    type_to_str = {STR_SYNBOL:"TEXT",UNI_SYNBOL:"TEXT",INT_SYNBOL:"INTEGER",FLO_SYNBOL:"REAL",NOM_SYNBOL:"INTEGER"}
     type_tuples = []
     keys = type_dict.keys()
     keys.sort()
@@ -287,7 +287,7 @@ class HorseInfoDatabase(BaseORM):
         c.composite_score      = to_float(line[84:89])   #総合指数
 
         c.running_style        = to_integer(line[89])    #脚質
-        c.distance_fitness     = to_nominal(line[90],n=6)    #距離適性
+        c.distance_fitness     = to_nominal(line[90],n=6)#距離適性
         c.condiction_score     = to_integer(line[91])    #上昇度
         c.rotation             = to_integer(line[92:95]) #ローテーション
 
