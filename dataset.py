@@ -3,6 +3,7 @@
 import sqlite3
 import feature
 import pandas as pd
+import random
 import numpy as np
 
 def load_races(db_path,features,typ):
@@ -14,6 +15,8 @@ def load_races(db_path,features,typ):
     f_orm = feature.Feature(db_con)
     target_columns = features
     for x,y in f_orm.fetch_race(target_columns,typ):
+        x = pd.Dataframe(x)
+        y = pd.Dataframe(y)
         dataset_x.append(x)
         dataset_y.append(y)
     return dataset_x,dataset_y
@@ -23,7 +26,6 @@ def load_horses(db_path,features,typ):
     dataset_y = []
 
     db_con = sqlite3.connect(db_path)
-
     f_orm = feature.Feature(db_con)
     target_columns = features
     for x,y in f_orm.fetch_horse(target_columns,typ):
@@ -31,65 +33,122 @@ def load_horses(db_path,features,typ):
         dataset_y.append(y)
     return dataset_x,dataset_y
 
-def races_to_horses(x,y,race_info=None):
-    #x = x.values.to_list()
-    #y = y.values.to_list()
+def races_to_horses(x,y):
+    x = pd.concat(x)
+    y = pd.concat(y)
+    x = x.reset_index(drop = True)
+    y = y.reset_index(drop = True)
+    return(x,y)
+
+def add_race_info(x,race_info):
+    result = []
+    for i,row in enumerate(x):
+        hnum = len(row.index)
+        ri = race_info.iloc[i,:]
+        ri_df = pd.DataFrame([ri for n in range(hnum)],columns = race_info.columns).reset_index(drop = True)
+        con = pd.concat([row,ri_df],axis = 1)
+        result.append(con)
+    return result
+
+def pad_race(x,y,n=18):
     result_x = []
     result_y = []
-    if race_info is None:
-        for rx,ry in zip(x,y):
-            for hx,hy in zip(rx,ry):
-                result_x.append(hx)
-                result_y.append(hy)
-    else:
-        for rx,ry,ri in zip(x,y,race_info):
-            for hx,hy in zip(rx,ry):
-                result_x.append(np.append(hx,ri))
-                result_y.append(hy)
-    return (result_x,result_y)
-
-def pad_race(x,y,n = 18,columns_dict = {}):
-    hx,hy = races_to_horses(x,y)
-    pd_x = pd.DataFrame(hx)
-    mean = pd_x.mean().values.tolist()
-
-    result_x = []
-    result_y = []
-    count = 0
     for rx,ry in zip(x,y):
-        hnumber = len(rx)
-        new_x = []
-        new_y = []
-        for i in range(n):
-            try:
-                new_x.append(rx[i])
-                new_y.append(ry[i])
-            except IndexError:
-                new_x.append(mean)
-                new_y.append(0)
-        #new_x = pd.DataFrame(new_x)
-        #new_x = fillna_mean(new_x)
-        #new_x = fillna_zero(new_x)
-        #new_x = new_x.values.tolist()
-        result_x.append(new_x)
-        result_y.append(new_y)
-        if count%100 == 0:
-            print(count)
-        count += 1
-    panel = pd.Panel(result_x)
-    panel = panel.fillna(0)
-    result_x = panel.values.tolist()
-    return (result_x,result_y)
+        cx = rx.copy()
+        cy = ry.copy()
 
+        length = len(cx.index)
+        mean = cx.mean()
+        for i in range(n-length):
+            cx = cx.append(mean, ignore_index = True)
+            cy = cy.append([0],ignore_index = True)
+        result_x.append(cx)
+        result_y.append(cy)
+    return (result_x,result_y)
 
 def get_dummies(x,y):
     pass
 
-def fillna_mean(df):
+def fillna_mean(dataset):
+    if type(dataset) == list:
+        return __fillna_mean_race(dataset)
+    elif type(dataset) == pd.DataFrame:
+        return __fillna_mean_horse(dataset)
+    else:
+        raise Exception("dataset should be list or DataFrame")
+
+def __fillna_mean_race(ls):
+    result = []
+    for df in ls:
+        df = __fillna_mean_horse(df)
+        result.append(df)
+    return result
+
+def __fillna_mean_horse(df):
     for col in df.columns:
         df[col] = df[col].fillna(df[col].mean())
+    df = __fillna_zero_horse(df)
     return df
-    #return df.dropna(axis=1)
 
-def fillna_zero(df):
+def fillna_zero(dataset):
+    if type(dataset) == list:
+        return __fillna_mean_race(dataset)
+    elif type(dataset) == pd.DataFrame:
+        return __fillna_mean_horse(dataset)
+    else:
+        raise Exception("dataset should be list or DataFrame")
+
+def __fillna_zero_race(ls):
+    result = []
+    for df in ls:
+        df = __fillna_zero_horse(df)
+        result.append(df)
+    return result
+
+def __fillna_zero_horse(df):
     return df.fillna(0)
+
+def under_sampling(x,y):
+    con = pd.concat([y,x],axis = 1)
+    lowest_frequent_value = 1
+    low_frequent_records = con.ix[con.iloc[:,0] == lowest_frequent_value,:]
+    other_records = con.ix[con.iloc[:,0] != lowest_frequent_value,:]
+    under_sampled_records = other_records.sample(len(low_frequent_records))
+    con = pd.concat([low_frequent_records,under_sampled_records])
+    con.sample(frac=1.0).reset_index(drop=True)
+    con_x = con.iloc[:,1:]
+    con_y = con.iloc[:,0]
+    return con_x,con_y
+
+def over_sampling(x,y):
+    con = pd.concat([y,x],axis = 1)
+    highest_frequent_value = 1
+    high_frequent_records = con.ix[con.iloc[:,0] == highest_frequent_value,:]
+    other_records = con.ix[con.iloc[:,0] != highest_frequent_value,:]
+    under_sampled_records = other_records.sample(len(low_frequent_records))
+    con = pd.concat([low_frequent_records,under_sampled_records])
+    con.sample(frac=1.0).reset_index(drop=True)
+    con_x = con.iloc[:,1:]
+    con_y = con.iloc[:,0]
+    return con_x,con_y
+
+def normalize(dataset):
+    for df in dataset:
+        pass
+    mean = panel.mean()
+    std  = panel.std().clip(lower=1e-4)
+    panel = panel.subtract(mean,axis = 1).divide(std,axis = 1)
+    return panel
+
+if __name__ == "__main__":
+    df1 = pd.DataFrame([[1,2],[3,4],[5,6],[7,None]])
+    df2 = pd.DataFrame([[1,2],[3,4],[5,6]])
+    race_info = pd.DataFrame([[11,12],[13,14]])
+    df = [df1,df2]
+    df = add_race_info(df,race_info)
+
+    dy1 = pd.DataFrame([0,0,1])
+    dy2 = pd.DataFrame([0,0,1])
+    dy = [dy1,dy2]
+    x,y = pad_race(df,dy)
+    x,y = races_to_horses(x,y)
