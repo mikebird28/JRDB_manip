@@ -3,19 +3,16 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import dataset
+import dataset2
 
-def top_n_k(model,features,race_x,race_y):
+def top_n_k(model,race_x,race_y):
     counter = 0
     correct = 0
     for x,y in zip(race_x,race_y):
-        x = pd.DataFrame(x,columns = features)
-        x = dataset.fillna_zero(x)
-
-        pred = model.predict_proba(x)[:,1]
+        pred = model.predict_proba(x)[:,1].ravel()
         binary_pred = to_descrete(pred)
 
-        y = np.array(y)
+        y = np.array(y).ravel()
         c = np.dot(y,binary_pred)
         if c > 0:
             correct +=1
