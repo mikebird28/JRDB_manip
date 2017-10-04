@@ -18,7 +18,7 @@ def main():
     config = util.get_config("config/config.json")
     #generate dataset
     db_path = "db/output_v3.db"
-    pca = PCA(n_components = 1)
+    pca = PCA(n_components = 30)
 
     print(">> loading dataset")
     x,y = dataset2.load_dataset(db_path,config.features,"win")
@@ -28,6 +28,8 @@ def main():
     print(">> filling none value of train dataset")
     #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
+    mean = train_x.mean(numeric_only = True)
+    std = train_x.std(numeric_only = True)
 
     print(">> generating train pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
@@ -36,34 +38,32 @@ def main():
 
     print(">> fitting with pca")
     pca.fit(pca_x)
+    print(sum(pca.explained_variance_ratio_))
+    print(pca.explained_variance_ratio_)
     pca_df = pd.DataFrame(pca.transform(pca_x))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
-    train_y = dataset2.fillna_zero(train_y)
     train_x,train_y = dataset2.for_use(train_x,train_y)
 
     print(">> filling none value of test dataset")
     #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
     print(">> generating test pca dataset")
-    pca_x,pca_y = dataset_for_pca(test_x,test_y)
+    pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
     pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
     pca_df = pca.transform(pca_x)
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    test_x = test_x.merge(pca_df,on = "info_race_id",how = "left")
+    test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
     print(">> under sampling test dataset")
     test_rx,test_ry = dataset2.to_races(test_x,test_y)
-    #test_rx,test_ry = dataset2.for_use(test_rx,test_ry)
     test_x,test_y = dataset2.under_sampling(test_x,test_y)
-    test_y = dataset2.fillna_zero(test_y)
     test_x,test_y = dataset2.for_use(test_x,test_y)
 
-    xgbc(train_x,train_y,train_x,train_y,test_rx,test_ry)
-    #xgbc(train_x,train_y,test_x,test_y,test_rx,test_ry)
+    xgbc(train_x,train_y,test_x,test_y,test_rx,test_ry)
 
     """
     pca.fit(ptrain_x)
@@ -118,7 +118,8 @@ def xgbc(train_x,train_y,test_x,test_y,test_rx,test_ry):
     print(report)
 
 
-def dataset_for_pca(x,y):
+def dataset_for_pca(x,y,mean = None,std = None):
+    x = dataset2.normalize(x,mean = mean,std = std)
     x,y = dataset2.pad_race(x,y)
     x = dataset2.flatten_race(x)
     return (x,y)

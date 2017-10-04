@@ -46,11 +46,11 @@ def split_with_race(x,y):
     return train_x,test_x,train_y,test_y
 
 def add_race_info(x,y,race_info):
-    x_col = x.columns + race_info.columns
+    x_col = pd.Index(x.columns.tolist() + race_info.columns.tolist()).unique()
     y_col = y.columns
-    print(x_col)
     con = pd.concat([x,y],axis = 1)
     con = con.merge(race_info,on = "info_race_id",how = "left")
+    con = con.loc[:,~con.columns.duplicated()]
     ret_x = con.loc[:,x_col]
     ret_y = con.loc[:,y_col]
     return ret_x,ret_y
@@ -142,18 +142,27 @@ def fillna_zero(df):
             pass
     return df
 
-def normalize(df,typ):
+def normalize(dataset,typ="horse",mean = None,std = None):
     if typ == "horse":
-        return __normalize_horse(dataset)
+        return __normalize_horse(dataset,mean,std)
     elif typ == "race":
         return __normalize_race(dataset)
     else:
         raise Exception("unknown separate type")
 
-def __normalize_horse(dataset):
-    pass
+def __normalize_horse(dataset,mean = None,std = None):
+    if type(mean) == type(None):
+        mean = dataset.mean(numeric_only = True)
+    if type(std) == type(None):
+        std = dataset.std(numeric_only = True).clip(1e-4)
+    dataset = dataset.copy()
+    for col in mean.index:
+        m = mean[col]
+        s = std[col]
+        dataset[col] = (dataset[col] - m)/s
+    return dataset
 
-def __normalize_race(datast):
+def __normalize_race(dataset,mean = None,std = None):
     pass
 
 def under_sampling(x,y):
