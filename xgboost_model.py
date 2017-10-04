@@ -25,9 +25,6 @@ def main():
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
 
-    print(train_y.count())
-    print(train_x.count())
- 
     print(">> filling none value of train dataset")
     #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
@@ -41,14 +38,10 @@ def main():
     pca.fit(pca_x)
     pca_df = pd.DataFrame(pca.transform(pca_x))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    train_x = train_x.merge(pca_df,on = "info_race_id",how="left")
-    print(train_y.count())
-    print(train_x.count())
+    train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
-    print(train_x)
-    print(train_y)
     train_y = dataset2.fillna_zero(train_y)
     train_x,train_y = dataset2.for_use(train_x,train_y)
 

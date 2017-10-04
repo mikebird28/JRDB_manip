@@ -45,9 +45,15 @@ def split_with_race(x,y):
     train_y = train_con.loc[:,y_col]
     return train_x,test_x,train_y,test_y
 
-def add_race_info(x,race_info):
-    x = x.merge(race_info,on = "info_race_id")
-    return x
+def add_race_info(x,y,race_info):
+    x_col = x.columns + race_info.columns
+    y_col = y.columns
+    print(x_col)
+    con = pd.concat([x,y],axis = 1)
+    con = con.merge(race_info,on = "info_race_id",how = "left")
+    ret_x = con.loc[:,x_col]
+    ret_y = con.loc[:,y_col]
+    return ret_x,ret_y
 
 def pad_race(x,y,n=18):
     x_col = x.columns
@@ -73,9 +79,7 @@ def pad_race(x,y,n=18):
     pad_data = pd.DataFrame(ls,columns = target_columns)
     df = df.append(pad_data)
     df = df.sort_values(by = "info_race_id")
-
     size = df.groupby("info_race_id").size().reset_index(name="counts")
-
     dfx = df.loc[:,x_col]
     dfy = df.loc[:,y_col]
     return (dfx,dfy)
@@ -99,8 +103,6 @@ def flatten_race(df):
     dfid = pd.DataFrame(rids,columns=["info_race_id"])
     df = pd.concat([dfx,dfid],axis = 1)
     return df
-        
-
 
 def get_dummies(x,y):
     pass
@@ -209,5 +211,3 @@ if __name__=="__main__":
     dx,dy = pad_race(dx,dy)
     dx = flatten_race(dx)
     #fillna_mean(dx,"race")
- 
-
