@@ -286,10 +286,10 @@ class HorseInfoDatabase(BaseORM):
         c.info_score           = to_float(line[64:69])   #情報指数
         c.composite_score      = to_float(line[84:89])   #総合指数
 
-        c.running_style        = to_integer(line[89])    #脚質
-        c.distance_fitness     = to_nominal(line[90],n=6)#距離適性
-        c.condiction_score     = to_integer(line[91])    #上昇度
-        c.rotation             = to_integer(line[92:95]) #ローテーション
+        c.running_style        = to_nominal(line[89],n=6) #脚質
+        c.distance_fitness     = to_nominal(line[90],n=6) #距離適性
+        c.condiction_score     = to_nominal(line[91],converter = nominal.nominal_condiction_score)     #上昇度
+        c.rotation             = to_integer(line[92:95])  #ローテーション
 
         c.base_odds            = to_float(line[95:100])  #基準オッズ
         c.base_popularity      = to_integer(line[100:102]) #基準人気順位
@@ -431,6 +431,36 @@ class HorseInfoDatabase(BaseORM):
     def set_unique(self):
         return ["horse_id"]
 
+class RaceInfoDatabase(BaseORM):
+    def __init__(self,con):
+        super(RaceInfoDatabase,self).__init__(con,"race_info")
+
+    def parse_line(self,line):
+        c = Container()
+        c.race_id              = to_string(line[0:8])
+        c.date                 = to_string(line[8:16])
+        c.time                 = to_string(line[16:20])
+        c.distance             = to_integer(line[20:24])
+        c.discipline           = to_nominal(line[24])
+        c.left_or_right        = to_nominal(line[25])
+        c.in_or_out            = to_nominal(line[26])
+
+        c.head_count           = to_integer(line[94:96])
+
+        c.first_prize          = to_integer(line[125:130])
+        c.second_prize         = to_integer(line[130:135])
+        c.third_prize          = to_integer(line[135:140])
+        return c
+
+    def set_indexes(self):
+        #set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        #set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
+        pass
+
+    def set_unique(self):
+        return ["race_id"]
+
 
 
 class ResultDatabase(BaseORM):
@@ -490,8 +520,8 @@ class ResultDatabase(BaseORM):
         c.class_code           = to_integer(line[217:219]) #クラスコード
         c.body_code            = to_integer(line[219])     #馬体コード
         c.atmosphere_code      = to_integer(line[220])     #気配コード
-        c.race_pace            = to_string(line[221])      #レースペース
-        c.horse_pace           = to_string(line[222])      #馬ペース
+        c.race_pace            = to_nominal(line[221],converter = nominal.nominal_pace)      #レースペース
+        c.horse_pace           = to_string(line[222], converter = nominal.nominal_pace)      #馬ペース
         c.firstphase_score     = to_float(line[223:228])   #テン指数
         c.lastphase_score      = to_float(line[228:233])   #上がり指数
         c.pace_score           = to_float(line[233:238])   #ペース指数
@@ -516,8 +546,8 @@ class ResultDatabase(BaseORM):
         c.weight               = to_integer(line[332:335]) #馬重量
         c.weight_delta         = to_integer(line[335:338]) #馬体重増減
         c.weather_code         = to_integer(line[338:339]) #天候コード
-        c.course_info          = to_integer(line[339])     #コース
-        c.race_running_style   = to_integer(line[340])     #レース脚質
+        c.course_info          = to_integer(line[339],n=5)     #コース
+        c.race_running_style   = to_nominal(line[340],n=6)     #レース脚質
 
         c.payback_win          = to_float(line[341:348],0.0)   #単勝払い戻し
         c.payback_place        = to_float(line[348:355],0.0)   #複勝払い戻し
@@ -583,14 +613,14 @@ class ExpandedInfoDatabase(BaseORM):
         c.surf_win_per        = to_float(divide(c.surf_win.value,c.surf_total.value))
         c.surf_place_per      = to_float(divide(c.surf_place.value,c.surf_total.value))
 
-        c.surf_dist_win       = to_integer(line[58:61],0)
-        c.surf_dist_second    = to_integer(line[61:64],0)
-        c.surf_dist_third     = to_integer(line[64:67],0)
-        c.surf_dist_lose      = to_integer(line[67:70],0)
-        c.surf_dist_place          = to_integer(c.surf_dist_win.value + c.surf_dist_second.value + c.surf_dist_third.value)
-        c.surf_dist_total          = to_integer(c.surf_dist_place.value + c.surf_dist_lose.value)
-        c.surf_dist_win_per        = to_float(divide(c.surf_dist_win.value,c.surf_dist_total.value))
-        c.surf_dist_place_per      = to_float(divide(c.surf_dist_place.value,c.surf_dist_total.value))
+        c.surf_dist_win          = to_integer(line[58:61],0)
+        c.surf_dist_second       = to_integer(line[61:64],0)
+        c.surf_dist_third        = to_integer(line[64:67],0)
+        c.surf_dist_lose         = to_integer(line[67:70],0)
+        c.surf_dist_place        = to_integer(c.surf_dist_win.value + c.surf_dist_second.value + c.surf_dist_third.value)
+        c.surf_dist_total        = to_integer(c.surf_dist_place.value + c.surf_dist_lose.value)
+        c.surf_dist_win_per      = to_float(divide(c.surf_dist_win.value,c.surf_dist_total.value))
+        c.surf_dist_place_per    = to_float(divide(c.surf_dist_place.value,c.surf_dist_total.value))
 
         c.dist_win            = to_integer(line[70:73],0)
         c.dist_second         = to_integer(line[73:76],0)
@@ -601,52 +631,52 @@ class ExpandedInfoDatabase(BaseORM):
         c.dist_win_per        = to_float(divide(c.dist_win.value,c.dist_total.value))
         c.dist_place_per      = to_float(divide(c.dist_place.value,c.dist_total.value))
 
-        c.rotation_win      = to_integer(line[82:85],0)
+        c.rotation_win        = to_integer(line[82:85],0)
         c.rotation_second     = to_integer(line[85:88],0)
         c.rotation_third      = to_integer(line[88:91],0)
         c.rotation_lose       = to_integer(line[91:94],0)
-        c.rotation_place          = to_integer(c.rotation_win.value + c.rotation_second.value + c.rotation_third.value)
-        c.rotation_total          = to_integer(c.rotation_place.value + c.rotation_lose.value)
-        c.rotation_win_per        = to_float(divide(c.rotation_win.value,c.rotation_total.value))
-        c.rotation_place_per      = to_float(divide(c.rotation_place.value,c.rotation_total.value))
+        c.rotation_place      = to_integer(c.rotation_win.value + c.rotation_second.value + c.rotation_third.value)
+        c.rotation_total      = to_integer(c.rotation_place.value + c.rotation_lose.value)
+        c.rotation_win_per    = to_float(divide(c.rotation_win.value,c.rotation_total.value))
+        c.rotation_place_per  = to_float(divide(c.rotation_place.value,c.rotation_total.value))
 
-        c.course_win        = to_integer(line[94:97],0)
+        c.course_win          = to_integer(line[94:97],0)
         c.course_second       = to_integer(line[97:100],0)
         c.course_third        = to_integer(line[100:103],0)
         c.course_lose         = to_integer(line[103:106],0)
-        c.course_place          = to_integer(c.course_win.value + c.course_second.value + c.course_third.value)
-        c.course_total          = to_integer(c.course_place.value + c.course_lose.value)
-        c.course_win_per        = to_float(divide(c.course_win.value,c.course_total.value))
-        c.course_place_per      = to_float(divide(c.course_place.value,c.course_total.value))
+        c.course_place        = to_integer(c.course_win.value + c.course_second.value + c.course_third.value)
+        c.course_total        = to_integer(c.course_place.value + c.course_lose.value)
+        c.course_win_per      = to_float(divide(c.course_win.value,c.course_total.value))
+        c.course_place_per    = to_float(divide(c.course_place.value,c.course_total.value))
 
-        c.jockey_win        = to_integer(line[106:109],0)
+        c.jockey_win          = to_integer(line[106:109],0)
         c.jockey_second       = to_integer(line[109:112],0)
         c.jockey_third        = to_integer(line[112:115],0)
         c.jockey_lose         = to_integer(line[115:118],0)
-        c.jockey_place          = to_integer(c.jockey_win.value + c.jockey_second.value + c.jockey_third.value)
-        c.jockey_total          = to_integer(c.jockey_place.value + c.jockey_lose.value)
-        c.jockey_win_per        = to_float(divide(c.jockey_win.value,c.jockey_total.value))
-        c.jockey_place_per      = to_float(divide(c.jockey_place.value,c.jockey_total.value))
+        c.jockey_place        = to_integer(c.jockey_win.value + c.jockey_second.value + c.jockey_third.value)
+        c.jockey_total        = to_integer(c.jockey_place.value + c.jockey_lose.value)
+        c.jockey_win_per      = to_float(divide(c.jockey_win.value,c.jockey_total.value))
+        c.jockey_place_per    = to_float(divide(c.jockey_place.value,c.jockey_total.value))
 
         c.surf_good_win        = to_integer(line[118:121],0)
-        c.surf_good_second       = to_integer(line[121:124],0)
-        c.surf_good_third        = to_integer(line[124:127],0)
-        c.surf_good_lose         = to_integer(line[127:130],0)
-        c.surf_good_place          = to_integer(c.surf_good_win.value + c.surf_good_second.value + c.surf_good_third.value)
-        c.surf_good_total          = to_integer(c.surf_good_place.value + c.surf_good_lose.value)
-        c.surf_good_win_per        = to_float(divide(c.surf_good_win.value,c.surf_good_total.value))
-        c.surf_good_place_per      = to_float(divide(c.surf_good_place.value,c.surf_good_total.value))
+        c.surf_good_second     = to_integer(line[121:124],0)
+        c.surf_good_third      = to_integer(line[124:127],0)
+        c.surf_good_lose       = to_integer(line[127:130],0)
+        c.surf_good_place      = to_integer(c.surf_good_win.value + c.surf_good_second.value + c.surf_good_third.value)
+        c.surf_good_total      = to_integer(c.surf_good_place.value + c.surf_good_lose.value)
+        c.surf_good_win_per    = to_float(divide(c.surf_good_win.value,c.surf_good_total.value))
+        c.surf_good_place_per  = to_float(divide(c.surf_good_place.value,c.surf_good_total.value))
 
-        c.surf_middle_win        = to_integer(line[130:133],0)
+        c.surf_middle_win          = to_integer(line[130:133],0)
         c.surf_middle_second       = to_integer(line[133:136],0)
         c.surf_middle_third        = to_integer(line[136:139],0)
         c.surf_middle_lose         = to_integer(line[139:142],0)
-        c.surf_middle_place          = to_integer(c.surf_middle_win.value + c.surf_middle_second.value + c.surf_middle_third.value)
-        c.surf_middle_total          = to_integer(c.surf_middle_place.value + c.surf_middle_lose.value)
-        c.surf_middle_win_per        = to_float(divide(c.surf_middle_win.value,c.surf_middle_total.value))
-        c.surf_middle_place_per      = to_float(divide(c.surf_middle_place.value,c.surf_middle_total.value))
+        c.surf_middle_place        = to_integer(c.surf_middle_win.value + c.surf_middle_second.value + c.surf_middle_third.value)
+        c.surf_middle_total        = to_integer(c.surf_middle_place.value + c.surf_middle_lose.value)
+        c.surf_middle_win_per      = to_float(divide(c.surf_middle_win.value,c.surf_middle_total.value))
+        c.surf_middle_place_per    = to_float(divide(c.surf_middle_place.value,c.surf_middle_total.value))
 
-        c.surf_bad_win        = to_integer(line[142:145],0)
+        c.surf_bad_win          = to_integer(line[142:145],0)
         c.surf_bad_second       = to_integer(line[145:148],0)
         c.surf_bad_third        = to_integer(line[148:151],0)
         c.surf_bad_lose         = to_integer(line[151:154],0)
@@ -655,52 +685,50 @@ class ExpandedInfoDatabase(BaseORM):
         c.surf_bad_win_per      = to_float(divide(c.surf_bad_win.value,c.surf_bad_total.value))
         c.surf_bad_place_per    = to_float(divide(c.surf_bad_place.value,c.surf_bad_total.value))
 
-        c.pace_slow_win        = to_integer(line[142:145],0)
+        c.pace_slow_win          = to_integer(line[142:145],0)
         c.pace_slow_second       = to_integer(line[145:148],0)
         c.pace_slow_third        = to_integer(line[148:151],0)
         c.pace_slow_lose         = to_integer(line[151:154],0)
-        """
-        c.dist_place          = to_integer(c.dist_win.value + c.dist_second.value + c.dist_third.value)
-        c.dist_total          = to_integer(c.dist_place.value + c.dist_lose.value)
-        c.dist_win_per        = to_float(divide(c.dist_win.value,c.dist_total.value))
-        c.dist_place_per      = to_float(divide(c.dist_place.value,c.dist_total.value))
-        """
+        c.pace_slow_place        = to_integer(c.pace_slow_win.value + c.pace_slow_second.value + c.pace_slow_third.value)
+        c.pace_slow_total        = to_integer(c.pace_slow_place.value + c.pace_slow_lose.value)
+        c.pace_slow_win_per      = to_float(divide(c.pace_slow_win.value,c.pace_slow_total.value))
+        c.pace_slow_place_per    = to_float(divide(c.pace_slow_place.value,c.pace_slow_total.value))
 
         c.pace_middle_first        = to_integer(line[154:157],0)
         c.pace_middle_second       = to_integer(line[157:160],0)
         c.pace_middle_third        = to_integer(line[160:163],0)
         c.pace_middle_lose         = to_integer(line[163:166],0)
-        """
-        c.dist_place          = to_integer(c.dist_win.value + c.dist_second.value + c.dist_third.value)
-        c.dist_total          = to_integer(c.dist_place.value + c.dist_lose.value)
-        c.dist_win_per        = to_float(divide(c.dist_win.value,c.dist_total.value))
-        c.dist_place_per      = to_float(divide(c.dist_place.value,c.dist_total.value))
-        """
+        c.pace_middle_place        = to_integer(c.pace_middle_win.value + c.pace_middle_second.value + c.pace_middle_third.value)
+        c.pace_middle_total        = to_integer(c.pace_middle_place.value + c.pace_middle_lose.value)
+        c.pace_middle_win_per      = to_float(divide(c.pace_middle_win.value,c.pace_middle_total.value))
+        c.pace_middle_place_per    = to_float(divide(c.pace_middle_place.value,c.pace_middle_total.value))
 
-        c.pace_high_first        = to_integer(line[166:169],0)
-        c.pace_high_second       = to_integer(line[169:172],0)
-        c.pace_high_third        = to_integer(line[172:175],0)
-        c.pace_high_lose         = to_integer(line[175:178],0)
-        """
-        c.dist_place          = to_integer(c.dist_win.value + c.dist_second.value + c.dist_third.value)
-        c.dist_total          = to_integer(c.dist_place.value + c.dist_lose.value)
-        c.dist_win_per        = to_float(divide(c.dist_win.value,c.dist_total.value))
-        c.dist_place_per      = to_float(divide(c.dist_place.value,c.dist_total.value))
-        """
+        c.pace_high_win       = to_integer(line[166:169],0)
+        c.pace_high_second    = to_integer(line[169:172],0)
+        c.pace_high_third     = to_integer(line[172:175],0)
+        c.pace_high_lose      = to_integer(line[175:178],0)
+        c.pace_high_place     = to_integer(c.pace_high_win.value + c.pace_high_second.value + c.pace_high_third.value)
+        c.pace_high_total     = to_integer(c.pace_high_place.value + c.pace_high_lose.value)
+        c.pace_high_win_per   = to_float(divide(c.pace_high_win.value,c.pace_high_total.value))
+        c.pace_high_place_per = to_float(divide(c.pace_high_place.value,c.pace_high_total.value))
 
         c.season_win          = to_integer(line[178:181],0)
         c.season_second       = to_integer(line[181:184],0)
         c.season_third        = to_integer(line[184:187],0)
         c.season_lose         = to_integer(line[187:190],0)
-        c.season_place          = to_integer(c.season_win.value + c.season_second.value + c.season_third.value)
-        c.season_total          = to_integer(c.season_place.value + c.season_lose.value)
-        c.season_win_per        = to_float(divide(c.season_win.value,c.season_total.value))
-        c.season_place_per      = to_float(divide(c.season_place.value,c.season_total.value))
+        c.season_place        = to_integer(c.season_win.value + c.season_second.value + c.season_third.value)
+        c.season_total        = to_integer(c.season_place.value + c.season_lose.value)
+        c.season_win_per      = to_float(divide(c.season_win.value,c.season_total.value))
+        c.season_place_per    = to_float(divide(c.season_place.value,c.season_total.value))
 
         c.frame_first        = to_integer(line[190:193],0)
         c.frame_second       = to_integer(line[193:196],0)
         c.frame_third        = to_integer(line[196:199],0)
         c.frame_lose         = to_integer(line[199:202],0)
+        c.frame_place        = to_integer(c.frame_win.value + c.frame_second.value + c.frame_third.value)
+        c.frame_total        = to_integer(c.frame_place.value + c.frame_lose.value)
+        c.frame_win_per      = to_float(divide(c.frame_win.value,c.frame_total.value))
+        c.frame_place_per    = to_float(divide(c.frame_place.value,c.frame_total.value))
         return c
 
     def set_indexes(self):
@@ -713,6 +741,45 @@ class ExpandedInfoDatabase(BaseORM):
     def set_unique(self):
         return ["horse_id"]
 
+class LastInfoDatabase(BaseORM):
+    def __init__(self,con):
+        super(LastInfoDatabase,self).__init__(con,"last_info")
+
+    def parse_line(self,line):
+        c = Container()
+        c.race_id              = to_string(line[0:8])
+        c.horse_number         = to_integer(line[8:10])
+        c.horse_id             = to_string(line[0:10])
+
+        c.idm                  = to_float(line[10:15])
+        c.jockey_score         = to_float(line[15:20])
+        c.info_score           = to_float(line[20:25])
+        c.odds_score           = to_float(line[25:30])
+        c.paddock_score        = to_float(line[30:35])
+        c.composite_score      = to_float(line[40:45])
+
+        c.equipment_change     = to_nominal(line[45],n=2)
+        c.leg_info             = to_nominal(line[46],n=3)
+        c.basis_weight         = to_integer(line[65:68])
+        c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
+        c.weather_code         = to_nominal(line[71], n=6)
+        c.win_odds             = to_float(line[72:78])
+        c.place_odds           = to_float(line[78:84])
+        c.horse_weight         = to_integer(line[88:91])
+        c.weight_delta         = to_integer(line[91:94])
+        c.odds_sign            = to_integer(line[94])
+        c.paddok_sign          = to_integer(line[95])
+        c.composite_sign       = to_integer(line[96])
+        return c
+
+    def set_indexes(self):
+        #set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        #set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
+        pass
+
+    def set_unique(self):
+        return ["horse_id"]
 
 def create_feature_table(con):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con)
@@ -803,9 +870,7 @@ def fetch_columns_info(con):
         columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
     ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
     columns_dict.update(ex_fixed)
-
     return (columns_list,columns_dict,columns_query)
-
 
 def fixed_column_dict(con,table_name,prefix):
     ci_orm = ColumnInfoORM(con)
