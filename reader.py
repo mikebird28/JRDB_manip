@@ -278,7 +278,7 @@ class HorseInfoDatabase(BaseORM):
         c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code) #場コード
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
-        c.horse_id             = to_string(line[0:10])  #馬キー
+        c.horse_id             = to_string(line[0:10])   #馬キー
         c.pedigree_id          = to_integer(line[10:18])  #血統登録番号
         #c.horse_name           = to_unicode(line[18:54]) #名前
 
@@ -374,7 +374,7 @@ class HorseInfoDatabase(BaseORM):
         c.weight_delta_afd     = to_integer(line[399:402]) #枠確定馬体重増減
 
         c.cancel_flag          = to_nominal(line[402],n=1) #取り消しフラグ
-        c.sex_code             = to_nominal(to_integer(line[403],2))     #性別コード
+        c.sex_code             = to_nominal(line[403],n=2)     #性別コード
         #c.owner_name           = to_unicode(line[404:444]) #馬主名
         c.owner_code           = to_integer(line[444:446]) #馬主会コード
 
@@ -522,7 +522,7 @@ class ResultDatabase(BaseORM):
         c.body_code            = to_integer(line[219])     #馬体コード
         c.atmosphere_code      = to_integer(line[220])     #気配コード
         c.race_pace            = to_nominal(line[221],converter = nominal.nominal_pace)      #レースペース
-        c.horse_pace           = to_string(line[222], converter = nominal.nominal_pace)      #馬ペース
+        c.horse_pace           = to_nominal(line[222],converter = nominal.nominal_pace)      #馬ペース
         c.firstphase_score     = to_float(line[223:228])   #テン指数
         c.lastphase_score      = to_float(line[228:233])   #上がり指数
         c.pace_score           = to_float(line[233:238])   #ペース指数
@@ -547,8 +547,8 @@ class ResultDatabase(BaseORM):
         c.weight               = to_integer(line[332:335]) #馬重量
         c.weight_delta         = to_integer(line[335:338]) #馬体重増減
         c.weather_code         = to_integer(line[338:339]) #天候コード
-        c.course_info          = to_integer(line[339],n=5)     #コース
-        c.race_running_style   = to_nominal(line[340],n=6)     #レース脚質
+        c.course_info          = to_nominal(line[339],n=5) #コース
+        c.race_running_style   = to_nominal(line[340],n=6) #レース脚質
 
         c.payback_win          = to_float(line[341:348],0.0)   #単勝払い戻し
         c.payback_place        = to_float(line[348:355],0.0)   #複勝払い戻し
@@ -701,7 +701,7 @@ class ExpandedInfoDatabase(BaseORM):
         c.pace_slow_win_per      = to_float(divide(c.pace_slow_win.value,c.pace_slow_total.value))
         c.pace_slow_place_per    = to_float(divide(c.pace_slow_place.value,c.pace_slow_total.value))
 
-        c.pace_middle_first        = to_integer(line[154:157],0)
+        c.pace_middle_win          = to_integer(line[154:157],0)
         c.pace_middle_second       = to_integer(line[157:160],0)
         c.pace_middle_third        = to_integer(line[160:163],0)
         c.pace_middle_lose         = to_integer(line[163:166],0)
@@ -728,7 +728,7 @@ class ExpandedInfoDatabase(BaseORM):
         c.season_win_per      = to_float(divide(c.season_win.value,c.season_total.value))
         c.season_place_per    = to_float(divide(c.season_place.value,c.season_total.value))
 
-        c.frame_first        = to_integer(line[190:193],0)
+        c.frame_win        = to_integer(line[190:193],0)
         c.frame_second       = to_integer(line[193:196],0)
         c.frame_third        = to_integer(line[196:199],0)
         c.frame_lose         = to_integer(line[199:202],0)
@@ -793,9 +793,13 @@ def create_feature_table(con):
 
     fixed_columns = raw_columns
     fixed_columns.append("is_win")
-    fixed_columns.append("is_place_win")
+    fixed_columns.append("is_place")
+    fixed_columns.append("win_payoff")
+    fixed_columns.append("place_payoff")
     columns_dict["is_win"] = ColumnInfo("is_win","feature",INT_SYNBOL)
-    columns_dict["is_place_win"] = ColumnInfo("is_place_win","feature",INT_SYNBOL)
+    columns_dict["is_place"] = ColumnInfo("is_place","feature",INT_SYNBOL)
+    columns_dict["win_payoff"] = ColumnInfo("win_payoff","feature",INT_SYNBOL)
+    columns_dict["place_payoff"] = ColumnInfo("place_payoff","feature",INT_SYNBOL)
     columns_txt = ",".join(columns_query)
 
     # check if feature table exist
@@ -810,7 +814,7 @@ def create_feature_table(con):
 
     # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
-             LEFT JOIN payoff on hi.race_id = payoff.race_id
+             INNER JOIN payoff on hi.race_id = payoff.race_id
              LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
              LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
              LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
@@ -831,14 +835,13 @@ def create_feature_table(con):
             else:
                 maybe = Maybe(typ,value)
             container[col_name] = maybe
-        if container["info_race_id"] == 06101501:
-            print("OK")
+
         container["is_win"] = to_integer(container.payoff_win_horse_1.value == container.info_horse_number.value)
 
         is_place_1 = container.payoff_place_horse_1.value == container.info_horse_number.value
         is_place_2 = container.payoff_place_horse_2.value == container.info_horse_number.value
         is_place_3 = container.payoff_place_horse_3.value == container.info_horse_number.value
-        container["is_place_win"] = to_integer(is_place_1 or is_place_2 or is_place_3)
+        container["is_place"] = to_integer(is_place_1 or is_place_2 or is_place_3)
 
         win_payoff = container.payoff_win_payoff_1.value if (container.payoff_win_horse_1.value == container.info_horse_number.value) else 0
         container["win_payoff"] = to_integer(win_payoff)

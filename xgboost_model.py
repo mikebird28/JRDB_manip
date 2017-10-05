@@ -26,7 +26,7 @@ def main():
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
 
     print(">> filling none value of train dataset")
-    #train_x = dataset2.fillna_mean(train_x,"race")
+    train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True)
@@ -49,7 +49,7 @@ def main():
     train_x,train_y = dataset2.for_use(train_x,train_y)
 
     print(">> filling none value of test dataset")
-    #test_x = dataset2.fillna_mean(test_x,"race")
+    test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
     print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
