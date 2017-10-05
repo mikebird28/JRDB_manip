@@ -6,73 +6,62 @@
         "info_jockey_win",
         "info_jockey_place",
         "info_late_start_per",
+        "info_downgrading_flag",
         "info_prize",
         "info_class_prize",
         "info_basis_weight",
         "info_training_score",
         "info_stable_score",
         "info_frame_number",
-
         "info_stabling_race_count",
         "info_stabling_elapsed_dates",
 
         "exinfo_jra_win_per",
         "exinfo_jra_place_per",
         "exinfo_jra_total",
-
         "exinfo_season_win_per",
         "exinfo_season_place_per",
         "exinfo_season_total",
-
         "exinfo_surf_win_per",
         "exinfo_surf_place_per",
         "exinfo_surf_total",
-
         "exinfo_dist_win_per",
         "exinfo_dist_place_per",
         "exinfo_dist_total",
 
-
         "pre1_first_3f_time",
         "pre2_first_3f_time",
         "pre3_first_3f_time",
-
         "pre1_first_3f_delta",
         "pre2_first_3f_delta",
         "pre3_first_3f_delta",
-
         "pre1_last_3f_time",
         "pre2_last_3f_time",
         "pre3_last_3f_time",
-
         "pre1_last_3f_delta",
         "pre2_last_3f_delta",
         "pre3_last_3f_delta",
-
         "pre1_time_delta",
         "pre2_time_delta",
         "pre3_time_delta",
-
         "pre1_prize",
         "pre2_prize",
         "pre3_prize",
-
         "pre1_distance",
         "pre2_distance",
         "pre3_distance",
-
         "pre1_jrdb_idm",
         "pre2_jrdb_idm",
         "pre3_jrdb_idm",
-
         "pre1_jrdb_pace_info",
         "pre2_jrdb_pace_info",
         "pre3_jrdb_pace_info",
-
+        "pre1_pace_score",
+        "pre2_pace_score",
+        "pre3_pace_score",
         "pre1_race_pace_score",
         "pre2_race_pace_score",
         "pre3_race_pace_score",
-
         "pre1_basis_weight",
         "pre2_basis_weight",
         "pre3_basis_weight"

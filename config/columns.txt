@@ -518,4 +518,3 @@ pre5_trainer_name
 pre5_weather_code
 pre5_weight
 pre5_weight_delta
-

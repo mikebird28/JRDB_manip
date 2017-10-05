@@ -42,10 +42,10 @@ def to_unicode(x,illegal_value = None):
 
 def to_nominal(x,converter = nominal.nominal_int, n = 1):
     x = x.strip()
-    value = converter(x)
-    if value > x:
-        raise Exception("nominal convert error")
-    return Maybe("NOM",(value,n))
+    v,n = converter(x,n)
+    if v > x:
+        return (0,n)
+    return Maybe("NOM",(v,n))
 
 class ColumnInfo(object):
     def __init__(self,column_name,table_name,typ,n = None):
@@ -275,6 +275,7 @@ class HorseInfoDatabase(BaseORM):
 
     def parse_line(self,line):
         c = Container()
+        c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code) #場コード
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
         c.horse_id             = to_string(line[0:10])  #馬キー
@@ -289,7 +290,7 @@ class HorseInfoDatabase(BaseORM):
         c.running_style        = to_nominal(line[89],n=6) #脚質
         c.distance_fitness     = to_nominal(line[90],n=6) #距離適性
         c.condiction_score     = to_nominal(line[91],converter = nominal.nominal_condiction_score)     #上昇度
-        c.rotation             = to_integer(line[92:95])  #ローテーション
+        c.rotation             = to_integer(line[92:95],0)  #ローテーション
 
         c.base_odds            = to_float(line[95:100])  #基準オッズ
         c.base_popularity      = to_integer(line[100:102]) #基準人気順位
@@ -309,13 +310,13 @@ class HorseInfoDatabase(BaseORM):
         c.training_score       = to_float(line[144:149]) #調教師数
         c.stable_score         = to_float(line[149:154]) #厩舎指数
 
-        c.training_sign_code   = to_integer(line[154])     #調教矢印コード
-        c.stable_eval_code     = to_integer(line[155])     #厩舎評価コード
+        c.training_sign_code   = to_nominal(line[154], n=5)     #調教矢印コード
+        c.stable_eval_code     = to_nominal(line[155], n=5)     #厩舎評価コード
         c.jockey_quinella      = to_float(line[156:160])   #騎手期待値連対率
         c.running_score        = to_integer(line[160:163]) #激走指数
         c.hoof_code            = to_integer(line[163:165]) #蹄コード
-        c.heavy_fitness_code   = to_integer(line[165])     #重適正コード
-        c.class_code           = to_integer(line[166:168]) #クラスコード
+        c.heavy_fitness_code   = to_nominal(line[165], n=3)     #重適正コード
+        c.class_code           = to_nominal(line[166:168],converter = nominal.nominal_class_code) #クラスコード
 
         c.brinker              = to_nominal(line[170],n=3)     #ブリンカー
         #c.jockey_name          = to_unicode(line[171:183]) #騎手名
@@ -348,8 +349,8 @@ class HorseInfoDatabase(BaseORM):
         c.jockey_code          = to_integer(line[335:340]) #騎手コード
         c.trainer_code         = to_integer(line[340:345]) #調教師コード
 
-        c.prize                = to_integer(line[346:352]) #獲得賞金
-        c.class_prize          = to_integer(line[352:357]) #収得賞金
+        c.prize                = to_integer(line[346:352],0) #獲得賞金
+        c.class_prize          = to_integer(line[352:357],0) #収得賞金
         c.condition_class      = to_integer(line[357])     #条件クラス
 
         c.firstphase_score     = to_float(line[358:363])   #テン指数
@@ -373,7 +374,7 @@ class HorseInfoDatabase(BaseORM):
         c.weight_delta_afd     = to_integer(line[399:402]) #枠確定馬体重増減
 
         c.cancel_flag          = to_nominal(line[402],n=1) #取り消しフラグ
-        c.sex_code             = to_integer(line[403])     #性別コード
+        c.sex_code             = to_nominal(to_integer(line[403],2))     #性別コード
         #c.owner_name           = to_unicode(line[404:444]) #馬主名
         c.owner_code           = to_integer(line[444:446]) #馬主会コード
 
@@ -437,6 +438,7 @@ class RaceInfoDatabase(BaseORM):
 
     def parse_line(self,line):
         c = Container()
+        c.race_course_code     = to_nominal(line[0:2])
         c.race_id              = to_string(line[0:8])
         c.date                 = to_string(line[8:16])
         c.time                 = to_string(line[16:20])
@@ -446,7 +448,6 @@ class RaceInfoDatabase(BaseORM):
         c.in_or_out            = to_nominal(line[26])
 
         c.head_count           = to_integer(line[94:96])
-
         c.first_prize          = to_integer(line[125:130])
         c.second_prize         = to_integer(line[130:135])
         c.third_prize          = to_integer(line[135:140])
@@ -603,6 +604,12 @@ class ExpandedInfoDatabase(BaseORM):
         c.others_total        = to_integer(c.others_place.value + c.others_lose.value)
         c.others_win_per      = to_float(divide(c.others_win.value,c.others_total.value))
         c.others_place_per    = to_float(divide(c.others_place.value,c.others_total.value))
+
+        c.win                 = to_integer(c.jra_win.value + c.interleague_win.value + c.others_win.value)
+        c.place               = to_integer(c.jra_place.value + c.interleague_place.value + c.others_place.value)
+        c.total               = to_integer(c.jra_total.value + c.interleague_total.value + c.others_total.value)
+        c.win_per             = to_integer(divide(c.win.value,c.total.value))
+        c.place_per           = to_integer(divide(c.place.value,c.total.value))
 
         c.surf_win            = to_integer(line[46:49],0)
         c.surf_second         = to_integer(line[49:52],0)
@@ -827,10 +834,19 @@ def create_feature_table(con):
         if container["info_race_id"] == 06101501:
             print("OK")
         container["is_win"] = to_integer(container.payoff_win_horse_1.value == container.info_horse_number.value)
+
         is_place_1 = container.payoff_place_horse_1.value == container.info_horse_number.value
         is_place_2 = container.payoff_place_horse_2.value == container.info_horse_number.value
         is_place_3 = container.payoff_place_horse_3.value == container.info_horse_number.value
         container["is_place_win"] = to_integer(is_place_1 or is_place_2 or is_place_3)
+
+        win_payoff = container.payoff_win_payoff_1.value if (container.payoff_win_horse_1.value == container.info_horse_number.value) else 0
+        container["win_payoff"] = to_integer(win_payoff)
+
+        place_payoff_1 = container.payoff_place_payoff_1 if (container.payoff_place_horse_1.value == container.info_horse_number.value) else 0
+        place_payoff_2 = container.payoff_place_payoff_2 if (container.payoff_place_horse_2.value == container.info_horse_number.value) else 0
+        place_payoff_3 = container.payoff_place_payoff_3 if (container.payoff_place_horse_3.value == container.info_horse_number.value) else 0
+        container["place_payoff"] = to_integer(max(place_payoff_1,place_payoff_2,place_payoff_3))
         insert_container(con,"feature",container)
     con.commit()
 

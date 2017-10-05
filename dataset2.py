@@ -30,6 +30,9 @@ def load_dataset(db_path,features,typ):
 
     return dataset_x,dataset_y
 
+def nominal_columns(config):
+    pass
+
 def split_with_race(x,y):
     x_col = x.columns
     y_col = y.columns
@@ -104,8 +107,9 @@ def flatten_race(df):
     df = pd.concat([dfx,dfid],axis = 1)
     return df
 
-def get_dummies(x,y):
-    pass
+def get_dummies(x,col):
+    x[col] = pd.get_dummies(x[col],drop_first = True)
+    return x
 
 def fillna_mean(dataset,typ = "horse"):
     if typ == "horse":
@@ -116,7 +120,6 @@ def fillna_mean(dataset,typ = "horse"):
         raise Exception("unknown separate type")
 
 def __fillna_mean_race(df):
-
     means_stds = df.groupby("info_race_id").agg(["mean"]).reset_index()
     columns = df.columns
     for col in columns:
