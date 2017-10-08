@@ -1,5 +1,6 @@
 #-*- coding:utf-8 -*-
 
+import sqlite3
 from util import *
 import nominal
 
@@ -893,7 +894,6 @@ def fetch_columns_info(con):
         columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
     ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
     columns_dict.update(ex_fixed)
-    return (columns_list,columns_dict,columns_query)
 
     ri_raw_col = column_list(con,"race_info")
     for c in ri_raw_col:
@@ -906,6 +906,7 @@ def fetch_columns_info(con):
         columns_list.append("linfo_{0}".format(c))
         columns_query.append("last_info.{0} as 'linfo_{0}'".format(c))
     li_fixed = fixed_column_dict(con,"last_info","linfo")
+    return (columns_list,columns_dict,columns_query)
 
 
 
@@ -937,3 +938,17 @@ def divide(a,b):
         return float(a)/b
     except ZeroDivisionError:
         return 0.0
+
+if __name__=="__main__":
+    con = sqlite3.connect("db/output_v4.db")
+    corm = ColumnInfoORM(con)
+    dic = corm.column_dict("feature").items()
+    dic = sorted(dic,key = lambda x :x[0])
+    fp = open("readme.md","w")
+    for k,v in dic:
+        print(k + "|" +str(v))
+        line = "|"+k + "|"+ str(v) + "||" + "\n"
+        fp.write(line)
+    fp.close()
+
+

@@ -6,7 +6,6 @@
         "info_jockey_win",
         "info_jockey_place",
         "info_late_start_per",
-        "info_downgrading_flag",
         "info_prize",
         "info_class_prize",
         "info_basis_weight",
@@ -16,6 +15,15 @@
         "info_stabling_race_count",
         "info_stabling_elapsed_dates",
 
+        "linfo_weight",
+        "linfo_weight_delta",
+
+        "rinfo_distance",
+        "rinfo_first_prize",
+
+        "exinfo_win",
+        "exinfo_place",
+        "exinfo_total",
         "exinfo_jra_win_per",
         "exinfo_jra_place_per",
         "exinfo_jra_total",
@@ -28,6 +36,15 @@
         "exinfo_dist_win_per",
         "exinfo_dist_place_per",
         "exinfo_dist_total",
+
+        "exinfo_surf_good_win",
+        "exinfo_surf_good_place",
+        "exinfo_surf_middle_win",
+        "exinfo_surf_middle_place",
+        "exinfo_surf_bad_win",
+        "exinfo_surf_bad_place",
+
+
 
         "pre1_first_3f_time",
         "pre2_first_3f_time",
