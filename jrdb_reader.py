@@ -30,6 +30,14 @@ def create_db(args,is_test = False):
     db_con = sqlite3.connect(args.output)
     start = "031025"
 
+    #process about race information
+    ri_orm = reader.RaceInfoDatabase(db_con)
+    csv_to_db(args,"race_info","BAC",ri_orm,test_mode = is_test,start = start)
+
+    #process about last inforamtion
+    li_orm = reader.LastInfoDatabase(db_con)
+    csv_to_db(args,"last_info","TYB",li_orm,test_mode = is_test,start = start)
+
     #process about payoff
     pd_orm = reader.PayoffDatabase(db_con)
     csv_to_db(args,"payoff", "HJC",pd_orm,test_mode = is_test,start = start)
@@ -40,8 +48,9 @@ def create_db(args,is_test = False):
 
     #process about past race result
     rd_orm = reader.ResultDatabase(db_con)
-    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test,start = start)
+    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
 
+    #process about extra horse information
     ex_orm = reader.ExpandedInfoDatabase(db_con)
     csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test,start = start)
 
@@ -83,7 +92,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
 
     counter = 1
     for f in files:
-        if test_mode and counter > 10:
+        if test_mode and counter > 100:
             break
         sys.stdout.write("processing : {0}/{1}\r".format(counter,len(files)))
         sys.stdout.flush()

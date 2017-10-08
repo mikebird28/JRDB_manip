@@ -28,7 +28,7 @@ class Maybe():
 
     def string(self):
         str_op = lambda x : u"'"+ x + u"'"
-        nominal_op = lambda x : u"'" + unicode(x[0]) + u"'"
+        nominal_op = lambda x : u"'" + unicode(x[0]) + u"'" 
         func_dict = {STR_SYNBOL:str_op,UNI_SYNBOL:str_op,INT_SYNBOL:str,FLO_SYNBOL:str,NOM_SYNBOL:nominal_op}
         if self.value != None:
             string = func_dict[self.typ](self.value)

@@ -151,6 +151,8 @@ def insert_container(con,name,container):
     keys = []
     values = []
     for k,v in container.items():
+        if v.typ == NOM_SYNBOL and v.value[0] == None:
+            continue
         if v.value == None:
             continue
         keys.append(k)
@@ -256,11 +258,11 @@ class PayoffDatabase(BaseORM):
         c.place_horse_2   = to_integer(line[44:46])
         c.place_payoff_2  = to_integer(line[46:53])
         c.place_horse_3   = to_integer(line[53:55])
-        c.place_payoff_3  = to_integer(line[62:69])
-        c.place_horse_4   = to_integer(line[69:71])
-        c.place_payoff_4  = to_integer(line[71:78])
-        c.place_horse_5   = to_integer(line[78:80])
-        c.place_payoff_5  = to_integer(line[80:87])
+        c.place_payoff_3  = to_integer(line[55:62])
+        c.place_horse_4   = to_integer(line[62:64])
+        c.place_payoff_4  = to_integer(line[64:71])
+        c.place_horse_5   = to_integer(line[71:73])
+        c.place_payoff_5  = to_integer(line[73:80])
         return c
 
     def set_indexes(self):
@@ -816,6 +818,8 @@ def create_feature_table(con):
     sql = """SELECT {0} FROM horse_info as hi
              INNER JOIN payoff on hi.race_id = payoff.race_id
              LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
+             LEFT JOIN last_info on hi.horse_id = last_info.horse_id
+             LEFT JOIN race_info on hi.race_id = race_info.race_id
              LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
              LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
              LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
@@ -846,9 +850,9 @@ def create_feature_table(con):
         win_payoff = container.payoff_win_payoff_1.value if (container.payoff_win_horse_1.value == container.info_horse_number.value) else 0
         container["win_payoff"] = to_integer(win_payoff)
 
-        place_payoff_1 = container.payoff_place_payoff_1 if (container.payoff_place_horse_1.value == container.info_horse_number.value) else 0
-        place_payoff_2 = container.payoff_place_payoff_2 if (container.payoff_place_horse_2.value == container.info_horse_number.value) else 0
-        place_payoff_3 = container.payoff_place_payoff_3 if (container.payoff_place_horse_3.value == container.info_horse_number.value) else 0
+        place_payoff_1 = container.payoff_place_payoff_1.value if (container.payoff_place_horse_1.value == container.info_horse_number.value) else 0
+        place_payoff_2 = container.payoff_place_payoff_2.value if (container.payoff_place_horse_2.value == container.info_horse_number.value) else 0
+        place_payoff_3 = container.payoff_place_payoff_3.value if (container.payoff_place_horse_3.value == container.info_horse_number.value) else 0
         container["place_payoff"] = to_integer(max(place_payoff_1,place_payoff_2,place_payoff_3))
         insert_container(con,"feature",container)
     con.commit()
@@ -890,6 +894,20 @@ def fetch_columns_info(con):
     ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
     columns_dict.update(ex_fixed)
     return (columns_list,columns_dict,columns_query)
+
+    ri_raw_col = column_list(con,"race_info")
+    for c in ri_raw_col:
+        columns_list.append("rinfo_{0}".format(c))
+        columns_query.append("race_info.{0} as 'rinfo_{0}'".format(c))
+    ri_fixed = fixed_column_dict(con,"race_info","rinfo")
+
+    li_raw_col = column_list(con,"last_info")
+    for c in li_raw_col:
+        columns_list.append("linfo_{0}".format(c))
+        columns_query.append("last_info.{0} as 'linfo_{0}'".format(c))
+    li_fixed = fixed_column_dict(con,"last_info","linfo")
+
+
 
 def fixed_column_dict(con,table_name,prefix):
     ci_orm = ColumnInfoORM(con)
