@@ -1,18 +1,22 @@
-|exinfo_course_lose|exinfo_course_lose feature INT||
-|exinfo_course_place|exinfo_course_place feature INT||
-|exinfo_course_place_per|exinfo_course_place_per feature FLO||
-|exinfo_course_second|exinfo_course_second feature INT||
-|exinfo_course_third|exinfo_course_third feature INT||
-|exinfo_course_total|exinfo_course_total feature INT||
-|exinfo_course_win|exinfo_course_win feature INT||
-|exinfo_course_win_per|exinfo_course_win_per feature FLO||
-|exinfo_dist_lose|exinfo_dist_lose feature INT||
-|exinfo_dist_place|exinfo_dist_place feature INT||
-|exinfo_dist_place_per|exinfo_dist_place_per feature FLO||
-|exinfo_dist_second|exinfo_dist_second feature INT||
-|exinfo_dist_third|exinfo_dist_third feature INT||
-|exinfo_dist_total|exinfo_dist_total feature INT||
-|exinfo_dist_win|exinfo_dist_win feature INT||
+
+## 馬過去戦績
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
+|exinfo_course_total|回り成績　合計回数|INT|
+|exinfo_course_lose|回り成績　圏外回数|INT|
+|exinfo_course_place|回り成績　複勝回数|INT|
+|exinfo_course_place_per|回り成績　複勝率|FLO|
+|exinfo_course_second|回り成績　2位回数|INT|
+|exinfo_course_third|回り成績　3位回数|INT|
+|exinfo_course_win|回り成績　1位回数|INT|
+|exinfo_course_win_per|回り成績　単勝率|FLO|
+|exinfo_dist_lose|トラック距離成績　圏外回数|INT|
+|exinfo_dist_place|トラック距離成績　複勝回数|INT|
+|exinfo_dist_place_per|トラック距離成績|FLO|
+|exinfo_dist_second|トラック距離成績|INT|
+|exinfo_dist_third|トラック距離成績|INT|
+|exinfo_dist_total|トラック距離成績|INT|
+|exinfo_dist_win|トラック距離成績INT|INT|
 |exinfo_dist_win_per|exinfo_dist_win_per feature FLO||
 |exinfo_frame_lose|exinfo_frame_lose feature INT||
 |exinfo_frame_place|exinfo_frame_place feature INT||
@@ -142,71 +146,77 @@
 |exinfo_total|exinfo_total feature INT||
 |exinfo_win|exinfo_win feature INT||
 |exinfo_win_per|exinfo_win_per feature INT||
-|info_apprentice_class|info_apprentice_class feature NOM||
-|info_base_odds|info_base_odds feature FLO||
-|info_base_place_odds|info_base_place_odds feature FLO||
-|info_base_place_popularity|info_base_place_popularity feature INT||
-|info_base_popularity|info_base_popularity feature INT||
-|info_basis_weight|info_basis_weight feature INT||
-|info_body_shape|info_body_shape feature UNI||
-|info_brinker|info_brinker feature NOM||
-|info_cancel_flag|info_cancel_flag feature NOM||
-|info_class_code|info_class_code feature NOM||
-|info_class_prize|info_class_prize feature INT||
-|info_composite_score|info_composite_score feature FLO||
-|info_composite_sign|info_composite_sign feature NOM||
-|info_condiction_score|info_condiction_score feature NOM||
-|info_condition_class|info_condition_class feature INT||
-|info_development_sign|info_development_sign feature INT||
-|info_dirt_fitness|info_dirt_fitness feature NOM||
-|info_distance_fitness|info_distance_fitness feature NOM||
-|info_distance_fitness2|info_distance_fitness2 feature NOM||
-|info_downgrading_flag|info_downgrading_flag feature NOM||
-|info_firstphase_score|info_firstphase_score feature FLO||
-|info_firstphase_score_order|info_firstphase_score_order feature INT||
-|info_frame_number|info_frame_number feature INT||
-|info_general_info_1|info_general_info_1 feature INT||
-|info_general_info_2|info_general_info_2 feature INT||
-|info_general_info_3|info_general_info_3 feature INT||
-|info_general_info_4|info_general_info_4 feature INT||
-|info_general_info_5|info_general_info_5 feature INT||
-|info_hard_running_sign|info_hard_running_sign feature NOM||
-|info_hard_runnning_order|info_hard_runnning_order feature INT||
-|info_heavy_fitness_code|info_heavy_fitness_code feature NOM||
-|info_hoof_code|info_hoof_code feature INT||
-|info_horse_id|info_horse_id feature STR||
-|info_horse_number|info_horse_number feature INT||
-|info_horse_remarks_1|info_horse_remarks_1 feature INT||
-|info_horse_remarks_2|info_horse_remarks_2 feature INT||
-|info_horse_remarks_3|info_horse_remarks_3 feature INT||
-|info_horse_sign_code|info_horse_sign_code feature INT||
-|info_idm|info_idm feature FLO||
-|info_idm_sign|info_idm_sign feature NOM||
-|info_info_score|info_info_score feature FLO||
-|info_info_sign|info_info_sign feature NOM||
-|info_jockey_code|info_jockey_code feature INT||
-|info_jockey_place|info_jockey_place feature FLO||
-|info_jockey_quinella|info_jockey_quinella feature FLO||
-|info_jockey_score|info_jockey_score feature FLO||
-|info_jockey_sign|info_jockey_sign feature NOM||
-|info_jockey_win|info_jockey_win feature FLO||
-|info_last_run_jockey_code|info_last_run_jockey_code feature INT||
-|info_lastphase_delta|info_lastphase_delta feature INT||
-|info_lastphase_in_out|info_lastphase_in_out feature INT||
-|info_lastphase_order|info_lastphase_order feature INT||
-|info_lastphase_score|info_lastphase_score feature FLO||
-|info_lastphase_score_order|info_lastphase_score_order feature INT||
-|info_late_start_per|info_late_start_per feature FLO||
-|info_ls_score_order|info_ls_score_order feature INT||
-|info_middlephase_delta|info_middlephase_delta feature INT||
-|info_middlephase_in_out|info_middlephase_in_out feature INT||
-|info_middlephase_order|info_middlephase_order feature INT||
-|info_oof_delta|info_oof_delta feature INT||
-|info_oof_in_out|info_oof_in_out feature INT||
-|info_oof_prediction|info_oof_prediction feature INT||
-|info_owner_code|info_owner_code feature INT||
-|info_pace_prediction|info_pace_prediction feature NOM||
-|info_pace_score|info_pace_score feature FLO||
+
+
+## 馬情報
+
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
+|info_apprentice_class|見習い区分|NOM|
+|info_base_odds|基準オッズ|FLO|
+|info_base_place_odds|基準複勝オッズ|FLO|
+|info_base_place_popularity|基準人気複勝順位|INT|
+|info_base_popularity|基準人気順位|INT|
+|info_basis_weight|負担重量|INT|
+|info_body_shape|体型|UNI|
+|info_brinker|ブリンカー|NOM|
+|info_cancel_flag|キャンセルフラグ|NOM|
+|info_class_code|クラスコード|NOM|
+|info_class_prize|収得賞金|INT|
+|info_composite_score|総合指数|FLO|
+|info_composite_sign|総合印|NOM|
+|info_condiction_score|上昇度|NOM|
+|info_condition_class|条件クラス|INT|
+|info_development_sign|展開記号|INT|
+|info_dirt_fitness|ダート適正|NOM|
+|info_distance_fitness|距離適性|NOM|
+|info_distance_fitness2|距離適性2|NOM|
+|info_downgrading_flag|降級フラグ|NOM|
+|info_firstphase_score|テン指数|FLO|
+|info_firstphase_score_order|テン指数順位|INT|
+|info_frame_number|枠番|INT|
+|info_general_info_1|総合情報×|INT|
+|info_general_info_2|総合情報△|INT|
+|info_general_info_3|総合情報▲|INT|
+|info_general_info_4|総合情報〇|INT|
+|info_general_info_5|総合情報◎|INT|
+|info_hard_running_sign|激走印|NOM|
+|info_hard_runnning_order|激走順位|INT|
+|info_heavy_fitness_code|重適正コード|NOM|
+|info_hoof_code|蹄コード|INT|
+|info_horse_id|馬ID|STR|
+|info_horse_number|馬番|INT|
+|info_horse_remarks_1|馬特記１|INT|
+|info_horse_remarks_2|馬特記２|INT|
+|info_horse_remarks_3|馬特記３|INT|
+|info_horse_sign_code|馬記号コード|INT|
+|info_idm|IDM|FLO|
+|info_idm_sign|IDM印|NOM|
+|info_info_score|情報指数|FLO|
+|info_info_sign|情報印|NOM|
+|info_jockey_code|騎手コード|INT|
+|info_jockey_place|騎手期待3着内率|FLO|
+|info_jockey_quinella|騎手期待連対率|FLO|
+|info_jockey_score|騎手指数|FLO|
+|info_jockey_sign|騎手印|NOM|
+|info_jockey_win|騎手期待単勝率|FLO|
+|info_last_run_jockey_code|参考前走騎手コード|INT|
+|info_lastphase_delta|後3F差|INT|
+|info_lastphase_in_out|後3F内外|INT|
+|info_lastphase_order|後3F順位|INT|
+|info_lastphase_score|上がり指数|FLO|
+|info_lastphase_score_order|上がり指数順位|INT|
+|info_late_start_per|出遅れ率|FLO|
+|info_ls_score_order|LS指数順位|INT|
+|info_middlephase_delta|道中差|INT|
+|info_middlephase_in_out|道中内外|INT|
+|info_middlephase_order|道中順位|INT|
+|info_oof_delta|ゴール差|INT|
+|info_oof_in_out|info_oof_in_out feature INT|INT|
+|info_oof_prediction|info_oof_prediction feature INT|INT|
+|info_owner_code|info_owner_code feature INT|INT|
+|info_pace_prediction|info_pace_prediction feature NOM|INT|
+|info_pace_score|info_pace_score feature FLO|FLO|
 |info_pace_score_order|info_pace_score_order feature INT||
 |info_paddock_rank|info_paddock_rank feature STR||
 |info_pedigree_id|info_pedigree_id feature INT||
@@ -253,8 +263,19 @@
 |info_turf_fitness|info_turf_fitness feature NOM||
 |info_weight_afd|info_weight_afd feature INT||
 |info_weight_delta_afd|info_weight_delta_afd feature INT||
+
+## 学習用変数
+
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
 |is_place|is_place feature INT||
 |is_win|is_win feature INT||
+|place_payoff|place_payoff feature INT||
+
+## 払い戻し
+
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
 |payoff_place_horse_1|payoff_place_horse_1 feature INT||
 |payoff_place_horse_2|payoff_place_horse_2 feature INT||
 |payoff_place_horse_3|payoff_place_horse_3 feature INT||
@@ -272,7 +293,12 @@
 |payoff_win_payoff_1|payoff_win_payoff_1 feature INT||
 |payoff_win_payoff_2|payoff_win_payoff_2 feature INT||
 |payoff_win_payoff_3|payoff_win_payoff_3 feature INT||
-|place_payoff|place_payoff feature INT||
+
+
+## 馬過去情報
+
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
 |pre1_atmosphere_code|pre1_atmosphere_code feature INT||
 |pre1_basis_weight|pre1_basis_weight feature FLO||
 |pre1_body_code|pre1_body_code feature INT||
@@ -342,280 +368,4 @@
 |pre1_weather_code|pre1_weather_code feature INT||
 |pre1_weight|pre1_weight feature INT||
 |pre1_weight_delta|pre1_weight_delta feature INT||
-|pre2_atmosphere_code|pre2_atmosphere_code feature INT||
-|pre2_basis_weight|pre2_basis_weight feature FLO||
-|pre2_body_code|pre2_body_code feature INT||
-|pre2_class_code|pre2_class_code feature INT||
-|pre2_class_prize|pre2_class_prize feature FLO||
-|pre2_condition_code|pre2_condition_code feature INT||
-|pre2_course_info|pre2_course_info feature NOM||
-|pre2_course_position|pre2_course_position feature INT||
-|pre2_disadvantage|pre2_disadvantage feature FLO||
-|pre2_disadvantage_final|pre2_disadvantage_final feature FLO||
-|pre2_disadvantage_middle|pre2_disadvantage_middle feature FLO||
-|pre2_disadvantage_opening|pre2_disadvantage_opening feature FLO||
-|pre2_discipline|pre2_discipline feature NOM||
-|pre2_distance|pre2_distance feature INT||
-|pre2_field_status|pre2_field_status feature INT||
-|pre2_finishing_time|pre2_finishing_time feature FLO||
-|pre2_first_3f_delta|pre2_first_3f_delta feature FLO||
-|pre2_first_3f_time|pre2_first_3f_time feature FLO||
-|pre2_firstphase_score|pre2_firstphase_score feature FLO||
-|pre2_horse_number|pre2_horse_number feature INT||
-|pre2_horse_pace|pre2_horse_pace feature NOM||
-|pre2_in_or_out|pre2_in_or_out feature NOM||
-|pre2_irregular_category|pre2_irregular_category feature INT||
-|pre2_jockey_id|pre2_jockey_id feature STR||
-|pre2_jrdb_field_info|pre2_jrdb_field_info feature FLO||
-|pre2_jrdb_idm|pre2_jrdb_idm feature FLO||
-|pre2_jrdb_pace_info|pre2_jrdb_pace_info feature FLO||
-|pre2_jrdb_raw_score|pre2_jrdb_raw_score feature FLO||
-|pre2_jrdb_remarks|pre2_jrdb_remarks feature UNI||
-|pre2_last_3f_delta|pre2_last_3f_delta feature FLO||
-|pre2_last_3f_time|pre2_last_3f_time feature FLO||
-|pre2_lastphase_score|pre2_lastphase_score feature FLO||
-|pre2_late_start|pre2_late_start feature FLO||
-|pre2_left_or_right|pre2_left_or_right feature NOM||
-|pre2_morning_odds|pre2_morning_odds feature FLO||
-|pre2_morning_place_odds|pre2_morning_place_odds feature FLO||
-|pre2_odds|pre2_odds feature FLO||
-|pre2_order_of_finish|pre2_order_of_finish feature INT||
-|pre2_pace_score|pre2_pace_score feature FLO||
-|pre2_pass_1|pre2_pass_1 feature INT||
-|pre2_pass_2|pre2_pass_2 feature INT||
-|pre2_pass_3|pre2_pass_3 feature INT||
-|pre2_pass_4|pre2_pass_4 feature INT||
-|pre2_payback_place|pre2_payback_place feature FLO||
-|pre2_payback_win|pre2_payback_win feature FLO||
-|pre2_pedigree_id|pre2_pedigree_id feature STR||
-|pre2_place_odds|pre2_place_odds feature FLO||
-|pre2_popularity|pre2_popularity feature INT||
-|pre2_position|pre2_position feature FLO||
-|pre2_position_at_corner|pre2_position_at_corner feature INT||
-|pre2_prize|pre2_prize feature FLO||
-|pre2_race_category|pre2_race_category feature INT||
-|pre2_race_condition|pre2_race_condition feature STR||
-|pre2_race_grade|pre2_race_grade feature INT||
-|pre2_race_headcount|pre2_race_headcount feature INT||
-|pre2_race_id|pre2_race_id feature STR||
-|pre2_race_info|pre2_race_info feature FLO||
-|pre2_race_pace|pre2_race_pace feature NOM||
-|pre2_race_pace_score|pre2_race_pace_score feature FLO||
-|pre2_race_remarks|pre2_race_remarks feature INT||
-|pre2_race_running_style|pre2_race_running_style feature NOM||
-|pre2_race_weights|pre2_race_weights feature INT||
-|pre2_registered_date|pre2_registered_date feature STR||
-|pre2_result_id|pre2_result_id feature STR||
-|pre2_time_delta|pre2_time_delta feature FLO||
-|pre2_trainer_id|pre2_trainer_id feature STR||
-|pre2_weather_code|pre2_weather_code feature INT||
-|pre2_weight|pre2_weight feature INT||
-|pre2_weight_delta|pre2_weight_delta feature INT||
-|pre3_atmosphere_code|pre3_atmosphere_code feature INT||
-|pre3_basis_weight|pre3_basis_weight feature FLO||
-|pre3_body_code|pre3_body_code feature INT||
-|pre3_class_code|pre3_class_code feature INT||
-|pre3_class_prize|pre3_class_prize feature FLO||
-|pre3_condition_code|pre3_condition_code feature INT||
-|pre3_course_info|pre3_course_info feature NOM||
-|pre3_course_position|pre3_course_position feature INT||
-|pre3_disadvantage|pre3_disadvantage feature FLO||
-|pre3_disadvantage_final|pre3_disadvantage_final feature FLO||
-|pre3_disadvantage_middle|pre3_disadvantage_middle feature FLO||
-|pre3_disadvantage_opening|pre3_disadvantage_opening feature FLO||
-|pre3_discipline|pre3_discipline feature NOM||
-|pre3_distance|pre3_distance feature INT||
-|pre3_field_status|pre3_field_status feature INT||
-|pre3_finishing_time|pre3_finishing_time feature FLO||
-|pre3_first_3f_delta|pre3_first_3f_delta feature FLO||
-|pre3_first_3f_time|pre3_first_3f_time feature FLO||
-|pre3_firstphase_score|pre3_firstphase_score feature FLO||
-|pre3_horse_number|pre3_horse_number feature INT||
-|pre3_horse_pace|pre3_horse_pace feature NOM||
-|pre3_in_or_out|pre3_in_or_out feature NOM||
-|pre3_irregular_category|pre3_irregular_category feature INT||
-|pre3_jockey_id|pre3_jockey_id feature STR||
-|pre3_jrdb_field_info|pre3_jrdb_field_info feature FLO||
-|pre3_jrdb_idm|pre3_jrdb_idm feature FLO||
-|pre3_jrdb_pace_info|pre3_jrdb_pace_info feature FLO||
-|pre3_jrdb_raw_score|pre3_jrdb_raw_score feature FLO||
-|pre3_jrdb_remarks|pre3_jrdb_remarks feature UNI||
-|pre3_last_3f_delta|pre3_last_3f_delta feature FLO||
-|pre3_last_3f_time|pre3_last_3f_time feature FLO||
-|pre3_lastphase_score|pre3_lastphase_score feature FLO||
-|pre3_late_start|pre3_late_start feature FLO||
-|pre3_left_or_right|pre3_left_or_right feature NOM||
-|pre3_morning_odds|pre3_morning_odds feature FLO||
-|pre3_morning_place_odds|pre3_morning_place_odds feature FLO||
-|pre3_odds|pre3_odds feature FLO||
-|pre3_order_of_finish|pre3_order_of_finish feature INT||
-|pre3_pace_score|pre3_pace_score feature FLO||
-|pre3_pass_1|pre3_pass_1 feature INT||
-|pre3_pass_2|pre3_pass_2 feature INT||
-|pre3_pass_3|pre3_pass_3 feature INT||
-|pre3_pass_4|pre3_pass_4 feature INT||
-|pre3_payback_place|pre3_payback_place feature FLO||
-|pre3_payback_win|pre3_payback_win feature FLO||
-|pre3_pedigree_id|pre3_pedigree_id feature STR||
-|pre3_place_odds|pre3_place_odds feature FLO||
-|pre3_popularity|pre3_popularity feature INT||
-|pre3_position|pre3_position feature FLO||
-|pre3_position_at_corner|pre3_position_at_corner feature INT||
-|pre3_prize|pre3_prize feature FLO||
-|pre3_race_category|pre3_race_category feature INT||
-|pre3_race_condition|pre3_race_condition feature STR||
-|pre3_race_grade|pre3_race_grade feature INT||
-|pre3_race_headcount|pre3_race_headcount feature INT||
-|pre3_race_id|pre3_race_id feature STR||
-|pre3_race_info|pre3_race_info feature FLO||
-|pre3_race_pace|pre3_race_pace feature NOM||
-|pre3_race_pace_score|pre3_race_pace_score feature FLO||
-|pre3_race_remarks|pre3_race_remarks feature INT||
-|pre3_race_running_style|pre3_race_running_style feature NOM||
-|pre3_race_weights|pre3_race_weights feature INT||
-|pre3_registered_date|pre3_registered_date feature STR||
-|pre3_result_id|pre3_result_id feature STR||
-|pre3_time_delta|pre3_time_delta feature FLO||
-|pre3_trainer_id|pre3_trainer_id feature STR||
-|pre3_weather_code|pre3_weather_code feature INT||
-|pre3_weight|pre3_weight feature INT||
-|pre3_weight_delta|pre3_weight_delta feature INT||
-|pre4_atmosphere_code|pre4_atmosphere_code feature INT||
-|pre4_basis_weight|pre4_basis_weight feature FLO||
-|pre4_body_code|pre4_body_code feature INT||
-|pre4_class_code|pre4_class_code feature INT||
-|pre4_class_prize|pre4_class_prize feature FLO||
-|pre4_condition_code|pre4_condition_code feature INT||
-|pre4_course_info|pre4_course_info feature NOM||
-|pre4_course_position|pre4_course_position feature INT||
-|pre4_disadvantage|pre4_disadvantage feature FLO||
-|pre4_disadvantage_final|pre4_disadvantage_final feature FLO||
-|pre4_disadvantage_middle|pre4_disadvantage_middle feature FLO||
-|pre4_disadvantage_opening|pre4_disadvantage_opening feature FLO||
-|pre4_discipline|pre4_discipline feature NOM||
-|pre4_distance|pre4_distance feature INT||
-|pre4_field_status|pre4_field_status feature INT||
-|pre4_finishing_time|pre4_finishing_time feature FLO||
-|pre4_first_3f_delta|pre4_first_3f_delta feature FLO||
-|pre4_first_3f_time|pre4_first_3f_time feature FLO||
-|pre4_firstphase_score|pre4_firstphase_score feature FLO||
-|pre4_horse_number|pre4_horse_number feature INT||
-|pre4_horse_pace|pre4_horse_pace feature NOM||
-|pre4_in_or_out|pre4_in_or_out feature NOM||
-|pre4_irregular_category|pre4_irregular_category feature INT||
-|pre4_jockey_id|pre4_jockey_id feature STR||
-|pre4_jrdb_field_info|pre4_jrdb_field_info feature FLO||
-|pre4_jrdb_idm|pre4_jrdb_idm feature FLO||
-|pre4_jrdb_pace_info|pre4_jrdb_pace_info feature FLO||
-|pre4_jrdb_raw_score|pre4_jrdb_raw_score feature FLO||
-|pre4_jrdb_remarks|pre4_jrdb_remarks feature UNI||
-|pre4_last_3f_delta|pre4_last_3f_delta feature FLO||
-|pre4_last_3f_time|pre4_last_3f_time feature FLO||
-|pre4_lastphase_score|pre4_lastphase_score feature FLO||
-|pre4_late_start|pre4_late_start feature FLO||
-|pre4_left_or_right|pre4_left_or_right feature NOM||
-|pre4_morning_odds|pre4_morning_odds feature FLO||
-|pre4_morning_place_odds|pre4_morning_place_odds feature FLO||
-|pre4_odds|pre4_odds feature FLO||
-|pre4_order_of_finish|pre4_order_of_finish feature INT||
-|pre4_pace_score|pre4_pace_score feature FLO||
-|pre4_pass_1|pre4_pass_1 feature INT||
-|pre4_pass_2|pre4_pass_2 feature INT||
-|pre4_pass_3|pre4_pass_3 feature INT||
-|pre4_pass_4|pre4_pass_4 feature INT||
-|pre4_payback_place|pre4_payback_place feature FLO||
-|pre4_payback_win|pre4_payback_win feature FLO||
-|pre4_pedigree_id|pre4_pedigree_id feature STR||
-|pre4_place_odds|pre4_place_odds feature FLO||
-|pre4_popularity|pre4_popularity feature INT||
-|pre4_position|pre4_position feature FLO||
-|pre4_position_at_corner|pre4_position_at_corner feature INT||
-|pre4_prize|pre4_prize feature FLO||
-|pre4_race_category|pre4_race_category feature INT||
-|pre4_race_condition|pre4_race_condition feature STR||
-|pre4_race_grade|pre4_race_grade feature INT||
-|pre4_race_headcount|pre4_race_headcount feature INT||
-|pre4_race_id|pre4_race_id feature STR||
-|pre4_race_info|pre4_race_info feature FLO||
-|pre4_race_pace|pre4_race_pace feature NOM||
-|pre4_race_pace_score|pre4_race_pace_score feature FLO||
-|pre4_race_remarks|pre4_race_remarks feature INT||
-|pre4_race_running_style|pre4_race_running_style feature NOM||
-|pre4_race_weights|pre4_race_weights feature INT||
-|pre4_registered_date|pre4_registered_date feature STR||
-|pre4_result_id|pre4_result_id feature STR||
-|pre4_time_delta|pre4_time_delta feature FLO||
-|pre4_trainer_id|pre4_trainer_id feature STR||
-|pre4_weather_code|pre4_weather_code feature INT||
-|pre4_weight|pre4_weight feature INT||
-|pre4_weight_delta|pre4_weight_delta feature INT||
-|pre5_atmosphere_code|pre5_atmosphere_code feature INT||
-|pre5_basis_weight|pre5_basis_weight feature FLO||
-|pre5_body_code|pre5_body_code feature INT||
-|pre5_class_code|pre5_class_code feature INT||
-|pre5_class_prize|pre5_class_prize feature FLO||
-|pre5_condition_code|pre5_condition_code feature INT||
-|pre5_course_info|pre5_course_info feature NOM||
-|pre5_course_position|pre5_course_position feature INT||
-|pre5_disadvantage|pre5_disadvantage feature FLO||
-|pre5_disadvantage_final|pre5_disadvantage_final feature FLO||
-|pre5_disadvantage_middle|pre5_disadvantage_middle feature FLO||
-|pre5_disadvantage_opening|pre5_disadvantage_opening feature FLO||
-|pre5_discipline|pre5_discipline feature NOM||
-|pre5_distance|pre5_distance feature INT||
-|pre5_field_status|pre5_field_status feature INT||
-|pre5_finishing_time|pre5_finishing_time feature FLO||
-|pre5_first_3f_delta|pre5_first_3f_delta feature FLO||
-|pre5_first_3f_time|pre5_first_3f_time feature FLO||
-|pre5_firstphase_score|pre5_firstphase_score feature FLO||
-|pre5_horse_number|pre5_horse_number feature INT||
-|pre5_horse_pace|pre5_horse_pace feature NOM||
-|pre5_in_or_out|pre5_in_or_out feature NOM||
-|pre5_irregular_category|pre5_irregular_category feature INT||
-|pre5_jockey_id|pre5_jockey_id feature STR||
-|pre5_jrdb_field_info|pre5_jrdb_field_info feature FLO||
-|pre5_jrdb_idm|pre5_jrdb_idm feature FLO||
-|pre5_jrdb_pace_info|pre5_jrdb_pace_info feature FLO||
-|pre5_jrdb_raw_score|pre5_jrdb_raw_score feature FLO||
-|pre5_jrdb_remarks|pre5_jrdb_remarks feature UNI||
-|pre5_last_3f_delta|pre5_last_3f_delta feature FLO||
-|pre5_last_3f_time|pre5_last_3f_time feature FLO||
-|pre5_lastphase_score|pre5_lastphase_score feature FLO||
-|pre5_late_start|pre5_late_start feature FLO||
-|pre5_left_or_right|pre5_left_or_right feature NOM||
-|pre5_morning_odds|pre5_morning_odds feature FLO||
-|pre5_morning_place_odds|pre5_morning_place_odds feature FLO||
-|pre5_odds|pre5_odds feature FLO||
-|pre5_order_of_finish|pre5_order_of_finish feature INT||
-|pre5_pace_score|pre5_pace_score feature FLO||
-|pre5_pass_1|pre5_pass_1 feature INT||
-|pre5_pass_2|pre5_pass_2 feature INT||
-|pre5_pass_3|pre5_pass_3 feature INT||
-|pre5_pass_4|pre5_pass_4 feature INT||
-|pre5_payback_place|pre5_payback_place feature FLO||
-|pre5_payback_win|pre5_payback_win feature FLO||
-|pre5_pedigree_id|pre5_pedigree_id feature STR||
-|pre5_place_odds|pre5_place_odds feature FLO||
-|pre5_popularity|pre5_popularity feature INT||
-|pre5_position|pre5_position feature FLO||
-|pre5_position_at_corner|pre5_position_at_corner feature INT||
-|pre5_prize|pre5_prize feature FLO||
-|pre5_race_category|pre5_race_category feature INT||
-|pre5_race_condition|pre5_race_condition feature STR||
-|pre5_race_grade|pre5_race_grade feature INT||
-|pre5_race_headcount|pre5_race_headcount feature INT||
-|pre5_race_id|pre5_race_id feature STR||
-|pre5_race_info|pre5_race_info feature FLO||
-|pre5_race_pace|pre5_race_pace feature NOM||
-|pre5_race_pace_score|pre5_race_pace_score feature FLO||
-|pre5_race_remarks|pre5_race_remarks feature INT||
-|pre5_race_running_style|pre5_race_running_style feature NOM||
-|pre5_race_weights|pre5_race_weights feature INT||
-|pre5_registered_date|pre5_registered_date feature STR||
-|pre5_result_id|pre5_result_id feature STR||
-|pre5_time_delta|pre5_time_delta feature FLO||
-|pre5_trainer_id|pre5_trainer_id feature STR||
-|pre5_weather_code|pre5_weather_code feature INT||
-|pre5_weight|pre5_weight feature INT||
-|pre5_weight_delta|pre5_weight_delta feature INT||
-|win_payoff|win_payoff feature INT||
+|win_payoff|win_payoff feature INT|||
