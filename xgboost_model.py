@@ -17,8 +17,8 @@ import evaluate
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v4.db"
-    pca = PCA(n_components = 30)
+    db_path = "db/output_v5.db"
+    pca = PCA(n_components = 10)
 
     print(">> loading dataset")
     x,y = dataset2.load_dataset(db_path,config.features,"win")
@@ -53,8 +53,8 @@ def main():
     print(">> filling none value of test dataset")
     #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
-    print(">> generating test pca dataset")
     """
+    print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
     pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
@@ -63,50 +63,13 @@ def main():
     test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
     print(">> under sampling test dataset")
     """
+
     test_rx,test_ry = dataset2.to_races(test_x,test_y)
     test_x,test_y = dataset2.under_sampling(test_x,test_y)
     test_x,test_y = dataset2.for_use(test_x,test_y)
 
-    xgbc(config.features,train_x,train_y,test_x,test_y,test_rx,test_ry)
-
-    """
-    pca.fit(ptrain_x)
-    pca_train_x = pca.transform(ptrain_x)
-    print(pca.explained_variance_ratio_)
-    print(sum(pca.explained_variance_ratio_))
-
-    train_x = dataset.add_race_info(train_x,pca_train_x)
-    train_x,train_y = dataset.races_to_horses(train_x,train_y)
-    train_x,train_y = preprocess(train_x,train_y)
-    print(">> Training data preprocessing finished")
-
-    #preprocess for test data
-
-    #grid search
-
-    paramaters = [
-        {'max_depth' : [10]},
-        {'min_child_weight':[0.6,0.8,1.0]},
-        {'subsample':[0.6,0.8,1.0]},
-        {'colsample_bytree':[0.6,0.8,1.0]},
-    ]
-    cv = GridSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',verbose = 2)
-
-    #best_forest = cv.best_estimator_
-    #cv.fit(train_x,train_y)
-    #pred = cv.predict(test_hx)
-
-    #best = cv.best_estimator_
-    #print(best)
-
-    print("Top 1   : {0}".format(evaluate.top_n_k(xgbc,config.features,test_rx,test_ry)))
-    print("Accuracy: {0}".format(accuracy_score(test_hy,pred)))
-    print(classification_report(test_hy,pred))
-    #importances = best.feature_importances_
-    importances = xgbc.feature_importances_
-    #evaluate.plot_importance(config.features,importances)
-    evaluate.show_importance(config.features,importances)
-    """
+    #xgbc(config.features,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     xgbc = xgb.XGBClassifier()
@@ -122,6 +85,47 @@ def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     print(report)
     importances = xgbc.feature_importances_
     evaluate.show_importance(features,importances)
+
+def xgbc_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
+    paramaters = [
+        {'n_estimators':[100],
+        'learning_rate':[0.05],
+        'max_depth' : [5],
+        'subsample':[0.5,0.6,0.7],
+        'min_child_weight':[0.8,1.0,1.2]}
+#        {'colsample_bytree':[0.8,1.0]},
+    ]
+
+    xgbc = xgb.XGBClassifier()
+    cv = GridSearchCV(xgbc,paramaters,cv = 2,scoring='accuracy',verbose = 2)
+    cv.fit(train_x,train_y)
+    pred = cv.predict(test_x)
+
+    accuracy = accuracy_score(test_y,pred)
+    top_1_k  = evaluate.top_n_k(cv,test_rx,test_ry)
+    report = classification_report(test_y,pred)
+    print("")
+    print("Accuracy: {0}".format(accuracy))
+    print("top_1_k : {0}".format(top_1_k))
+    print(report)
+
+
+    print("Paramaters")
+    #best_parameters, score, _ = max(cv.grid_scores_, key=lambda x: x[1])    
+    best_parameters = cv.best_params_
+    print(best_parameters)
+    for pname in sorted(best_parameters.keys()):
+        print("{0} : {1}".format(pname,best_parameters[pname]))
+
+    print("")
+    print("features")
+    best = cv.best_estimator_
+    importances = best.feature_importances_
+    evaluate.show_importance(features,importances)
+
+
+
+
 
 
 def dataset_for_pca(x,y,mean = None,std = None):

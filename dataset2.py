@@ -21,6 +21,13 @@ def load_dataset(db_path,features,typ):
     dataset_y = pd.DataFrame(dataset_y,columns = y_col)
     dataset = pd.concat([dataset_x,dataset_y],axis = 1)
 
+    for col in dataset.columns:
+        if col == "info_race_id":
+            continue
+        #dataset[col] = dataset[col].astype(np.int64)
+        dataset[col] = dataset[col].convert_objects(convert_numeric = True)
+        dataset[col] = pd.to_numeric(dataset[col],errors = "coerce")
+
     #dataset["info_race_id"] = dataset_x["info_race_id"].astype("category")
     #dataset.set_index("info_race_id")
     #dataset.sort_index()
@@ -30,8 +37,15 @@ def load_dataset(db_path,features,typ):
 
     return dataset_x,dataset_y
 
-def nominal_columns(config):
-    pass
+def nominal_columns(db_path):
+    con = sqlite3.connect(dh_path)
+    orm = reader.ColumnsInfoORM(con)
+    dic = orm.columns_dict("feature")
+    new_dic = {}
+    for k,v in dic:
+        if v.typ == util.NOMINAL_SYNBOL:
+            new_dic[k] = v
+    return new_dic
 
 def split_with_race(x,y):
     x_col = x.columns
@@ -107,8 +121,16 @@ def flatten_race(df):
     df = pd.concat([dfx,dfid],axis = 1)
     return df
 
-def get_dummies(x,col):
-    x[col] = pd.get_dummies(x[col],drop_first = True)
+def get_dummies(x,col_dic):
+    pairs = col_dic.items()
+    pairs = sorted(pairs)
+    columns = map(lambda x:x[0], pairs)
+    n_values = map(lambda x:x[1], pairs)
+    ohe = OneHotEncoder(n_values = n_values)
+    dummies = ohe.fit_transform(x[columns])
+    x = x.drop(columns,axis = 1)
+    x = pd.concat([x,dummies],axis = 1)
+    print(x)
     return x
 
 def fillna_mean(dataset,typ = "horse"):

@@ -900,12 +900,14 @@ def fetch_columns_info(con):
         columns_list.append("rinfo_{0}".format(c))
         columns_query.append("race_info.{0} as 'rinfo_{0}'".format(c))
     ri_fixed = fixed_column_dict(con,"race_info","rinfo")
+    columns_dict.update(ri_fixed)
 
     li_raw_col = column_list(con,"last_info")
     for c in li_raw_col:
         columns_list.append("linfo_{0}".format(c))
         columns_query.append("last_info.{0} as 'linfo_{0}'".format(c))
     li_fixed = fixed_column_dict(con,"last_info","linfo")
+    columns_dict.update(li_fixed)
     return (columns_list,columns_dict,columns_query)
 
 
