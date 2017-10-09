@@ -5,6 +5,8 @@ import random
 import numpy as np
 import feature
 import util
+import reader
+from sklearn.preprocessing import OneHotEncoder
 
 def load_dataset(db_path,features,typ):
     x_col = ["info_race_id"] + features
@@ -38,13 +40,13 @@ def load_dataset(db_path,features,typ):
     return dataset_x,dataset_y
 
 def nominal_columns(db_path):
-    con = sqlite3.connect(dh_path)
-    orm = reader.ColumnsInfoORM(con)
-    dic = orm.columns_dict("feature")
+    con = sqlite3.connect(db_path)
+    orm = reader.ColumnInfoORM(con)
+    dic = orm.column_dict("feature")
     new_dic = {}
-    for k,v in dic:
-        if v.typ == util.NOMINAL_SYNBOL:
-            new_dic[k] = v
+    for k,v in dic.items():
+        if v.typ == util.NOM_SYNBOL:
+            new_dic[k] = v.n
     return new_dic
 
 def split_with_race(x,y):
@@ -122,16 +124,53 @@ def flatten_race(df):
     return df
 
 def get_dummies(x,col_dic):
-    pairs = col_dic.items()
+    pairs = {}
+    for col in x.columns:
+        try:
+            pairs[col] = col_dic[col] + 1
+        except KeyError:
+            pass
+    pairs = pairs.items()
+    if len(pairs) == 0:
+        return x
     pairs = sorted(pairs)
     columns = map(lambda x:x[0], pairs)
     n_values = map(lambda x:x[1], pairs)
-    ohe = OneHotEncoder(n_values = n_values)
-    dummies = ohe.fit_transform(x[columns])
+    column_name = []
+    for k,v in pairs:
+        cols = ["{0}_{1}".format(k,i) for i in range(v)]
+        column_name.extend(cols)
+    print(column_name)
+
+    ohe = OneHotEncoder(n_values = n_values,sparse = False)
+    x.loc[:,columns] = x.loc[:,columns].fillna(0)
+    tmp_x = x.loc[:,columns]
+
+    ohe.fit(tmp_x)
+    dummies = ohe.transform(tmp_x)
+    dummies = pd.DataFrame(dummies,index = tmp_x.index,columns = column_name)
     x = x.drop(columns,axis = 1)
-    x = pd.concat([x,dummies],axis = 1)
-    print(x)
+    x = x.merge(dummies,left_index = True,right_index = True)
     return x
+
+def dummy_column(x,col_dic):
+    pairs = {}
+    for col in x.columns:
+        try:
+            pairs[col] = col_dic[col] + 1
+        except KeyError:
+            pass
+    pairs = pairs.items()
+    if len(pairs) == 0:
+        return x
+    pairs = sorted(pairs)
+    columns = map(lambda x:x[0], pairs)
+    n_values = map(lambda x:x[1], pairs)
+    column_name = []
+    for k,v in pairs:
+        cols = ["{0}_{1}".format(k,i) for i in range(v)]
+        column_name.extend(cols)
+    return column_name
 
 def fillna_mean(dataset,typ = "horse"):
     if typ == "horse":
@@ -167,21 +206,23 @@ def fillna_zero(df):
             pass
     return df
 
-def normalize(dataset,typ="horse",mean = None,std = None):
+def normalize(dataset,typ="horse",mean = None,std = None,remove = []):
     if typ == "horse":
-        return __normalize_horse(dataset,mean,std)
+        return __normalize_horse(dataset,mean,std,remove)
     elif typ == "race":
         return __normalize_race(dataset)
     else:
         raise Exception("unknown separate type")
 
-def __normalize_horse(dataset,mean = None,std = None):
+def __normalize_horse(dataset,mean = None,std = None,remove = []):
     if type(mean) == type(None):
         mean = dataset.mean(numeric_only = True)
     if type(std) == type(None):
-        std = dataset.std(numeric_only = True).clip(1e-4)
+        std = dataset.std(numeric_only = True).clip(1e-3)
     dataset = dataset.copy()
     for col in mean.index:
+        if col in remove:
+            continue
         m = mean[col]
         s = std[col]
         dataset[col] = (dataset[col] - m)/s

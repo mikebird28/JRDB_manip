@@ -21,7 +21,9 @@ def main():
     pca = PCA(n_components = 10)
 
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_path,config.features,"win")
+    x,y = dataset2.load_dataset(db_path,config.features,"place")
+    col_dic = dataset2.nominal_columns(db_path)
+    x = dataset2.get_dummies(x,col_dic)
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
 
@@ -68,8 +70,8 @@ def main():
     test_x,test_y = dataset2.under_sampling(test_x,test_y)
     test_x,test_y = dataset2.for_use(test_x,test_y)
 
-    #xgbc(config.features,train_x,train_y,test_x,test_y,test_rx,test_ry)
-    xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    xgbc(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    #xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     xgbc = xgb.XGBClassifier()
@@ -89,15 +91,15 @@ def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
 def xgbc_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     paramaters = [
         {'n_estimators':[100],
-        'learning_rate':[0.05],
-        'max_depth' : [5],
-        'subsample':[0.5,0.6,0.7],
-        'min_child_weight':[0.8,1.0,1.2]}
-#        {'colsample_bytree':[0.8,1.0]},
+        'learning_rate':[0.05,0.1],
+        'max_depth' : [5,7],
+        'subsample':[0.6,0.7],
+        'min_child_weight':[1,1,1.2,1,3],
+        'colsample_bytree':[0.8,1.0]},
     ]
 
     xgbc = xgb.XGBClassifier()
-    cv = GridSearchCV(xgbc,paramaters,cv = 2,scoring='accuracy',verbose = 2)
+    cv = GridSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',verbose = 2)
     cv.fit(train_x,train_y)
     pred = cv.predict(test_x)
 

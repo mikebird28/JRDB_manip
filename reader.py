@@ -45,7 +45,7 @@ def to_nominal(x,converter = nominal.nominal_int, n = 1):
     x = x.strip()
     v,n = converter(x,n)
     if v > x:
-        return (0,n)
+        return Maybe("NOM",(0,n))
     return Maybe("NOM",(v,n))
 
 class ColumnInfo(object):
@@ -441,14 +441,14 @@ class RaceInfoDatabase(BaseORM):
 
     def parse_line(self,line):
         c = Container()
-        c.race_course_code     = to_nominal(line[0:2])
+        c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code)
         c.race_id              = to_string(line[0:8])
         c.date                 = to_string(line[8:16])
         c.time                 = to_string(line[16:20])
         c.distance             = to_integer(line[20:24])
-        c.discipline           = to_nominal(line[24])
-        c.left_or_right        = to_nominal(line[25])
-        c.in_or_out            = to_nominal(line[26])
+        c.discipline           = to_nominal(line[24],n=3)
+        c.left_or_right        = to_nominal(line[25],n=3)
+        c.in_or_out            = to_nominal(line[26],n=3)
 
         c.head_count           = to_integer(line[94:96])
         c.first_prize          = to_integer(line[125:130])

@@ -17,11 +17,15 @@ import evaluate
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v5.db"
+    db_path = "db/output_v6.db"
     pca = PCA(n_components = 10)
 
     print(">> loading dataset")
     x,y = dataset2.load_dataset(db_path,config.features,"win")
+    col_dic = dataset2.nominal_columns(db_path)
+    nom_col = dataset2.dummy_column(x,col_dic)
+    x = dataset2.get_dummies(x,col_dic)
+
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
 
@@ -29,11 +33,12 @@ def main():
     #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
     mean = train_x.mean(numeric_only = True)
-    std = train_x.std(numeric_only = True)
-    train_x = dataset2.normalize(train_x,mean = mean,std = std)
+    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
+    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     #train_x = dataset2.normalize(train_x,typ = "race")
 
 
+    """
     print(">> generating train pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
     pca_idx = pca_x["info_race_id"]
@@ -46,6 +51,7 @@ def main():
     pca_df = pd.DataFrame(pca.transform(pca_x))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
+    """
 
 
     print(">> under sampling train dataset")
@@ -55,8 +61,9 @@ def main():
     print(">> filling none value of test dataset")
     #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
-    test_x = dataset2.normalize(test_x,mean = mean,std = std)
+    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
+    """
     print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
@@ -64,6 +71,7 @@ def main():
     pca_df = pca.transform(pca_x)
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
+    """
 
     print(">> under sampling test dataset")
     test_rx,test_ry = dataset2.to_races(test_x,test_y)
@@ -75,13 +83,13 @@ def main():
 
 def dnn(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     mlpc = MLPClassifier(
-        hidden_layer_sizes = (50,50),
+        hidden_layer_sizes = (70,50),
         solver = "adam",
         batch_size = 300,
-        learning_rate_init = 0.1,
-        epsilon = 1e-4,
+        learning_rate_init = 0.01,
+        epsilon = 1e-8,
+        tol = 1e-3,
         verbose = 10,
-        tol = 0.1e-5
     )
     mlpc.fit(train_x,train_y)
 
@@ -130,6 +138,9 @@ def dataset_for_pca(x,y,mean = None,std = None):
     x,y = dataset2.pad_race(x,y)
     x = dataset2.flatten_race(x)
     return (x,y)
+
+def dnn_with_keras(f,train_x,train_y,test_x,test_y,test_rx,test_ry):
+    pass
 
 if __name__=="__main__":
     main()

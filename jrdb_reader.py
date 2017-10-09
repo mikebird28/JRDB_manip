@@ -54,7 +54,6 @@ def create_db(args,is_test = False):
     ex_orm = reader.ExpandedInfoDatabase(db_con)
     csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test,start = start)
 
-
     #create feature table
     reader.create_feature_table(db_con)
     db_con.close()

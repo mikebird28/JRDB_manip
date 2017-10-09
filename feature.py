@@ -13,7 +13,7 @@ class Feature(object):
         if race_type == "win":
             rt_col = "is_win"
         elif race_type == "place":
-            rt_col = "is_place_win"
+            rt_col = "is_place"
         else:
             rt_col = "is_win"
         target_columns.append(rt_col)
