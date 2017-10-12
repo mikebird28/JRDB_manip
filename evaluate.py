@@ -1,5 +1,6 @@
 #-*- cofing:utf-8 -*-
 
+from keras.wrappers.scikit_learn import KerasClassifier
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -9,7 +10,10 @@ def top_n_k(model,race_x,race_y):
     counter = 0
     correct = 0
     for x,y in zip(race_x,race_y):
-        pred = model.predict_proba(x)[:,1].ravel()
+        if type(model) == KerasClassifier:
+            pred = model.predict_proba(x,verbose = 0)[:,1].ravel()
+        else:
+            pred = model.predict_proba(x)[:,1].ravel()
         binary_pred = to_descrete(pred)
 
         y = np.array(y).ravel()

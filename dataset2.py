@@ -262,7 +262,7 @@ def for_use(x,y):
     y = y["is_win"].values.tolist()
     return (x,y)
 
-def to_races(x,y):
+def to_races(x,y,to_numpy = False):
     x["info_race_id"] = x["info_race_id"].astype(str)
     x_col = x.columns
     y_col = y.columns
@@ -274,6 +274,9 @@ def to_races(x,y):
         rx = group[x_col]
         rx = rx.drop("info_race_id",axis = 1)
         ry = group[y_col].values.tolist()
+        if to_numpy:
+            rx = rx.as_matrix()
+            ry = np.array(ry)
         races_x.append(rx)
         races_y.append(ry)
     return (races_x,races_y)
