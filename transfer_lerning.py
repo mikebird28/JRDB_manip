@@ -4,8 +4,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from sklearn.decomposition import PCA
-from keras.models import Sequential
+from keras.models import Sequential,Model
 from keras.layers import Dense,Activation
+from keras.wrappers.scikit_learn import KerasClassifier
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -83,19 +84,15 @@ def main():
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def dnn(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
-    #convert dataset type pandas to numpy
-    train_x = np.array(train_x)
-    train_y = np.array(train_y)
-    test_x = np.array(test_x)
-    test_y = np.array(test_y)
-
     model = Sequential()
-    model.add(Dense(units=50, input_dim=133))
+    model.add(Dense(units=50, input_dim=133, layer_name = "feature_layer"))
     model.add(Activation('relu'))
     model.add(Dense(units=1))
     model.add(Activation('sigmoid'))
-    model.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
-    model.fit(train_x,train_y,batch_size = 300)
+    model =  KerasClassifier(build_fn = model, verbose=1,batch_size = 300)
+    #model.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
+    internal_layer = Model(inputs = model.input,output = model.get_layer("feature_layer").output)
+    model.fit(train_x,train_y)
 
     pred = model.predict(test_x)
     accuracy = accuracy_score(test_y,pred)
@@ -109,18 +106,16 @@ def dnn(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     print(report)
 
 def dnn_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
-    """
     paramaters = [
-        {'n_estimators':[100],
-        'learning_rate':[0.05],
-        'max_depth' : [5],
-        'subsample':[0.5,0.6,0.7],
-        'min_child_weight':[0.8,1.0,1.2]}
-#        {'colsample_bytree':[0.8,1.0]},
     ]
+    model = Sequential()
+    model.add(Dense(units=50, input_dim=133))
+    model.add(Activation('relu'))
+    model.add(Dense(units=1))
+    model.add(Activation('sigmoid'))
+    model =  KerasClassifier(build_fn = model, verbose=1,batch_size = 300)
 
-    mlpc = MLPClassifier()
-    cv = GridSearchCV(mlpc,paramaters,cv = 2,scoring='accuracy',verbose = 2)
+    cv = GridSearchCV(model,paramaters,cv = 2,scoring='accuracy',verbose = 2)
     cv.fit(train_x,train_y)
     pred = cv.predict(test_x)
 
@@ -136,7 +131,7 @@ def dnn_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     print("Paramaters")
     #best_parameters, score, _ = max(cv.grid_scores_, key=lambda x: x[1])
     best_parameters = cv.best_params_
-    """
+
     print(best_parameters)
     for pname in sorted(best_parameters.keys()):
         print("{0} : {1}".format(pname,best_parameters[pname]))
