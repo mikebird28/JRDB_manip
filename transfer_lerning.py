@@ -24,7 +24,7 @@ def main():
     pca = PCA(n_components = 15)
 
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_path,config.features,"win")
+    x,y = dataset2.load_dataset(db_path,config.features,["payoff_win"])
     col_dic = dataset2.nominal_columns(db_path)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
@@ -40,6 +40,7 @@ def main():
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     #train_x = dataset2.normalize(train_x,typ = "race")
 
+    """
     print(">> generating train pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
     pca_idx = pca_x["info_race_id"]
@@ -52,6 +53,7 @@ def main():
     pca_df = pd.DataFrame(pca.transform(pca_x))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
+    """
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
@@ -62,6 +64,7 @@ def main():
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
+    """
     print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
@@ -69,6 +72,7 @@ def main():
     pca_df = pca.transform(pca_x)
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
+    """
 
     print(">> under sampling test dataset")
     test_rx,test_ry = dataset2.to_races(test_x,test_y,to_numpy = True)
@@ -96,11 +100,10 @@ def dnn(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     nn.add(Dropout(0.7))
 
     nn.add(Dense(units=50))
-    nn.add(Activation('relu'))
+    #nn.add(Activation('relu'))
     nn.add(Dropout(0.7))
 
     nn.add(Dense(units=1))
-    nn.add(Activation('sigmoid'))
     nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
 
     model = keras_to_scikit(nn,params = {})

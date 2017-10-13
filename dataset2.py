@@ -256,9 +256,9 @@ def over_sampling(x,y):
     con_y = con.iloc[:,0]
     return con_x,con_y
 
-def for_use(x,y):
+def for_use(x,y,target):
     x = x.drop("info_race_id",axis = 1)
-    y = y["is_win"].values.tolist()
+    y = y[target].values.tolist()
     return (x,y)
 
 def to_races(x,y,to_numpy = False):

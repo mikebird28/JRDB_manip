@@ -91,7 +91,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
 
     counter = 1
     for f in files:
-        if test_mode and counter > 100:
+        if test_mode and counter > 10:
             break
         sys.stdout.write("processing : {0}/{1}\r".format(counter,len(files)))
         sys.stdout.flush()

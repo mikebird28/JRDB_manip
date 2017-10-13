@@ -807,12 +807,20 @@ def create_feature_table(con):
 
     # check if feature table exist
     if not table_exists(con,"feature"):
+        types = {k:v.typ for k,v in columns_dict.items()}
+        print(types)
+        nominals = {k:v.n for k,v in columns_dict.items()}
+        print(nominals)
+        create_table(con,"feature",types,nominals,unique_ls = ["info_horse_id"])
+            
+        """
         sql_create = "CREATE TABLE feature({0})".format(",".join(fixed_columns))
         con.execute(sql_create)
         con.commit()
         ci_orm = ColumnInfoORM(con)
         for v in columns_dict.values():
             ci_orm.insert(v.column_name,v.table_name,v.typ,v.n)
+        """
     columns = fixed_columns
 
     # add the optional column

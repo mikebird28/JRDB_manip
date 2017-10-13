@@ -12,18 +12,19 @@ import feature
 import reader
 import util
 import dataset2
+import evaluate
 
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v5.db"
+    db_path = "db/output_v6.db"
     pca = PCA(n_components = 15)
 
     print(">> loading dataset")
     x,y = dataset2.load_dataset(db_path,config.features)
     col_dic = dataset2.nominal_columns(db_path)
     nom_col = dataset2.dummy_column(x,col_dic)
-    #x = dataset2.get_dummies(x,col_dic)
+    x = dataset2.get_dummies(x,col_dic)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
@@ -89,7 +90,7 @@ def random_forest(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     print("Accuracy: {0}".format(accuracy))
     print("top_1_k : {0}".format(top_1_k))
     print(report)
-    importances = xgbc.feature_importances_
+    importances = rfc.feature_importances_
     evaluate.show_importance(features,importances)
 
 
