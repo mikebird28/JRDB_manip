@@ -801,8 +801,8 @@ def create_feature_table(con):
     fixed_columns.append("place_payoff")
     columns_dict["is_win"] = ColumnInfo("is_win","feature",INT_SYNBOL)
     columns_dict["is_place"] = ColumnInfo("is_place","feature",INT_SYNBOL)
-    columns_dict["win_payoff"] = ColumnInfo("win_payoff","feature",INT_SYNBOL)
-    columns_dict["place_payoff"] = ColumnInfo("place_payoff","feature",INT_SYNBOL)
+    columns_dict["win_payoff"] = ColumnInfo("win_payoff","feature",FLO_SYNBOL)
+    columns_dict["place_payoff"] = ColumnInfo("place_payoff","feature",FLO_SYNBOL)
     columns_txt = ",".join(columns_query)
 
     # check if feature table exist
@@ -952,5 +952,3 @@ if __name__=="__main__":
         line = "|"+k + "|"+ str(v) + "||" + "\n"
         fp.write(line)
     fp.close()
-
-

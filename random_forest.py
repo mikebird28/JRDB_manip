@@ -4,108 +4,94 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
+from sklearn.decomposition import PCA
 import numpy as np
 import pandas as pd
 import sqlite3
 import feature
 import reader
 import util
-import dataset
+import dataset2
 
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v3.db"
-    x,y = dataset.load_horses(db_path,config.features)
-    x = pd.DataFrame(x,columns = config.features)
-    y = pd.DataFrame(y)
-    #preprocess
-    x,y = under_sampling(x,y)
-    x = dataset.fillna_mean(x)
-    #con = sqlite3.connect("analyze.db")
-    #x.to_sql("feature",con)
-    y = dataset.fillna_zero(y)
-    train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 0.1)
+    db_path = "db/output_v5.db"
+    pca = PCA(n_components = 15)
 
-    #grid search
-    paramaters = [
-        {'max_depth' : [10]},
-    ]
-    cv = GridSearchCV(RandomForestClassifier(n_estimators = 150),paramaters,cv = 2,scoring='accuracy')
-    cv.fit(train_x,train_y)
-    best_forest = cv.best_estimator_
-    pred = best_forest.predict(test_x)
+    print(">> loading dataset")
+    x,y = dataset2.load_dataset(db_path,config.features)
+    col_dic = dataset2.nominal_columns(db_path)
+    nom_col = dataset2.dummy_column(x,col_dic)
+    #x = dataset2.get_dummies(x,col_dic)
 
-    print(cv.best_estimator_)
-    print(accuracy_score(test_y,pred))
-    print(classification_report(test_y,pred))
-    importances = best_forest.feature_importances_
-    for f,i in zip(config.features,importances):
-        print("{0:<20} : {1:.5f}".format(f,i))
+    print(">> separating dataset")
+    train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
 
-def generate_dataset(features):
-    dataset_x = []
-    dataset_y = []
+    print(">> filling none value of train dataset")
+    #train_x = dataset2.fillna_mean(train_x,"race")
+    train_x = dataset2.fillna_mean(train_x,"horse")
+    mean = train_x.mean(numeric_only = True)
+    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
+    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
+    #train_x = dataset2.normalize(train_x,typ = "race")
 
-    #db_con = sqlite3.connect("output.db")
-    db_con = sqlite3.connect("test.db")
+    """
+    print(">> generating train pca dataset")
+    pca_x,pca_y = dataset_for_pca(train_x,train_y)
+    pca_idx = pca_x["info_race_id"]
+    pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
 
-    f_orm = feature.Feature(db_con)
-    target_columns = features
-    for x,y in f_orm.fetch_horse(target_columns):
-        dataset_x.append(x)
-        dataset_y.append(y)
-    dataset_x = pd.DataFrame(dataset_x)
-    dataset_y = pd.DataFrame(dataset_y)
-    print(dataset_x)
+    print(">> fitting with pca")
+    pca.fit(pca_x)
+    print(sum(pca.explained_variance_ratio_))
+    print(pca.explained_variance_ratio_)
+    pca_df = pd.DataFrame(pca.transform(pca_x))
+    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
+    train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
+    """
 
-    dataset_x.columns = target_columns
+    print(">> under sampling train dataset")
+    train_x,train_y = dataset2.under_sampling(train_x,train_y)
+    train_x,train_y = dataset2.for_use(train_x,train_y)
 
-    ci_orm = reader.ColumnInfoORM(db_con)
-    column_dict = ci_orm.column_dict("feature")
-    get_dummies(dataset_x,target_columns,column_dict)
+    print(">> filling none value of test dataset")
+    #test_x = dataset2.fillna_mean(test_x,"race")
+    test_x = dataset2.fillna_mean(test_x,"horse")
+    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
-    return dataset_x,dataset_y
+    """
+    print(">> generating test pca dataset")
+    pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
+    pca_idx = pca_x["info_race_id"]
+    pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
+    pca_df = pca.transform(pca_x)
+    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
+    test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
+    """
 
-def get_dummies(df,column_dict):
-    nominal_columns = []
-    for info in column_dict.values():
-        if info.typ == util.NOM_SYNBOL:
-            nominal_columns.append(info)
-    for info in nominal_columns:
-        print(info.column_name)
-        target_column = df[info.column_name]
-        print(target_column)
+    print(">> under sampling test dataset")
+    test_rx,test_ry = dataset2.to_races(test_x,test_y,to_numpy = True)
+    test_x,test_y = dataset2.under_sampling(test_x,test_y)
+    test_x,test_y = dataset2.for_use(test_x,test_y)
 
-def generate_dataset_races():
-    dataset_x = []
-    dataset_y = []
+    random_forest(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
-    config = util.get_config("config.json")
-    db_con = sqlite3.connect("output.db")
+def random_forest(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
+    rfc = RandomForestClassifier(n_estimators = 100)
+    rfc.fit(train_x,train_y)
+    pred = rfc.predict(test_x)
+    accuracy = accuracy_score(test_y,pred)
+    top_1_k  = evaluate.top_n_k(rfc,test_rx,test_ry)
+    report = classification_report(test_y,pred)
+    print("")
+    print("Accuracy: {0}".format(accuracy))
+    print("top_1_k : {0}".format(top_1_k))
+    print(report)
+    importances = xgbc.feature_importances_
+    evaluate.show_importance(features,importances)
 
-    f_orm = feature.Feature(db_con)
-    target_columns = config.features
-    for x,y in f_orm.fetch_horse(target_columns):
-        dataset_x.append(x)
-        dataset_y.append(y)
-    dataset_x = pd.DataFrame(dataset_x)
-    dataset_y = pd.DataFrame(dataset_y)
-    return dataset_x,dataset_y
-
-
-def under_sampling(x,y):
-    con = pd.concat([y,x],axis = 1)
-
-    loweset_frequent_value = 1
-    low_frequent_records = con.ix[con.iloc[:,0] == 1,:]
-    other_records = con.ix[con.iloc[:,0] != 1,:]
-    under_sampled_records = other_records.sample(len(low_frequent_records))
-    con = pd.concat([low_frequent_records,under_sampled_records])
-    con.sample(frac=1.0).reset_index(drop=True)
-    con_x = con.iloc[:,1:]
-    con_y = con.iloc[:,0]
-    return con_x,con_y
 
 if __name__=="__main__":
     main()

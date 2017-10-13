@@ -8,15 +8,14 @@ import util
 import reader
 from sklearn.preprocessing import OneHotEncoder
 
-def load_dataset(db_path,features,typ):
+def load_dataset(db_path, features, y_col = ["is_win"]):
     x_col = ["info_race_id"] + features
-    y_col = ["is_win"]
     dataset_x = []
     dataset_y = []
 
     db_con = sqlite3.connect(db_path)
     f_orm = feature.Feature(db_con)
-    for x,y in f_orm.fetch_horse(x_col,typ):
+    for x,y in f_orm.fetch_with_xy(x_col,y_col):
         dataset_x.append(x)
         dataset_y.append(y)
     dataset_x = pd.DataFrame(dataset_x,columns = x_col)

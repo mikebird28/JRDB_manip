@@ -40,7 +40,6 @@ def main():
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     #train_x = dataset2.normalize(train_x,typ = "race")
 
-
     print(">> generating train pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
     pca_idx = pca_x["info_race_id"]
@@ -53,7 +52,6 @@ def main():
     pca_df = pd.DataFrame(pca.transform(pca_x))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
-
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
