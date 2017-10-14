@@ -23,6 +23,7 @@
         "linfo_leg_info",
         "linfo_equipment_change",
         "linfo_paddok_sign",
+        "linfo_field_code",
 
         "rinfo_distance",
         "rinfo_first_prize",

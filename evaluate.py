@@ -6,10 +6,11 @@ import pandas as pd
 import numpy as np
 import dataset2
 
-def top_n_k(model,race_x,race_y):
+def top_n_k(model,race_x,race_y,payoff):
     counter = 0
     correct = 0
-    for x,y in zip(race_x,race_y):
+    rewards = 0
+    for x,y,p in zip(race_x,race_y,payoff):
         if type(model) == KerasClassifier:
             pred = model.predict_proba(x,verbose = 0)[:,1].ravel()
         else:
@@ -17,12 +18,14 @@ def top_n_k(model,race_x,race_y):
         binary_pred = to_descrete(pred)
 
         y = np.array(y).ravel()
+        p = np.array(p).ravel()
         c = np.dot(y,binary_pred)
+        ret = np.dot(p,binary_pred)
         if c > 0:
             correct +=1
+            rewards += ret
         counter += 1
-    return float(correct)/counter
-
+    return (float(correct)/counter,float(rewards)/counter)
 
 def to_descrete(array):
     res = np.zeros_like(array)

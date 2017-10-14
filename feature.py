@@ -28,7 +28,6 @@ class Feature(object):
         x_col = [v for v in x_col]
         y_col = [v for v in y_col]
         sep_idx = len(x_col)
-        print(sep_idx)
 
         target_col = x_col + y_col
         columns_query = ",".join(target_col)

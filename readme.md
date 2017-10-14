@@ -167,13 +167,10 @@
 |info_composite_sign|総合印|NOM|
 |info_condiction_score|上昇度|NOM|
 |info_condition_class|条件クラス|INT|
-|info_development_sign|展開記号|INT|
 |info_dirt_fitness|ダート適正|NOM|
 |info_distance_fitness|距離適性|NOM|
 |info_distance_fitness2|距離適性2|NOM|
 |info_downgrading_flag|降級フラグ|NOM|
-|info_firstphase_score|テン指数|FLO|
-|info_firstphase_score_order|テン指数順位|INT|
 |info_frame_number|枠番|INT|
 |info_general_info_1|総合情報×|INT|
 |info_general_info_2|総合情報△|INT|
@@ -181,7 +178,6 @@
 |info_general_info_4|総合情報〇|INT|
 |info_general_info_5|総合情報◎|INT|
 |info_hard_running_sign|激走印|NOM|
-|info_hard_runnning_order|激走順位|INT|
 |info_heavy_fitness_code|重適正コード|NOM|
 |info_hoof_code|蹄コード|INT|
 |info_horse_id|馬ID|STR|
@@ -201,68 +197,69 @@
 |info_jockey_sign|騎手印|NOM|
 |info_jockey_win|騎手期待単勝率|FLO|
 |info_last_run_jockey_code|参考前走騎手コード|INT|
-|info_lastphase_delta|後3F差|INT|
-|info_lastphase_in_out|後3F内外|INT|
-|info_lastphase_order|後3F順位|INT|
-|info_lastphase_score|上がり指数|FLO|
-|info_lastphase_score_order|上がり指数順位|INT|
 |info_late_start_per|出遅れ率|FLO|
-|info_ls_score_order|LS指数順位|INT|
+|info_owner_code|馬主会コード|INT|
+|info_paddock_rank|放牧先ランク|STR|
+|info_pedigree_id|血統登録番号|INT|
+|info_popurality_score|人気指数|INT|
+|info_precious_ticket_score|万馬券指数|INT|
+|info_precious_ticket_sign|万馬券印|INT|
+|info_prize|本賞金|INT|
+|info_race_course_code|場コード|NOM|
+|info_race_id|レースキー|STR|
+|info_remarks_flag|フラグ|UNI|
+|info_rotation|ローテーション|INT|
+|info_running_score|激走指数|INT|
+|info_running_style|走法|INT|
+|info_sex_code|性別コード|NOM|
+|info_specific_info_1|特定情報1|INT|
+|info_specific_info_2|特定情報2|INT|
+|info_specific_info_3|特定情報3|INT|
+|info_specific_info_4|特定情報4|INT|
+|info_specific_info_5|特定情報5|INT|
+|info_stable_eval_code|厩舎評価コード|NOM|
+|info_stable_rank|厩舎ランク|STR|
+|info_stable_score|厩舎指数|FLO|
+|info_stable_sign|厩舎印|NOM|
+|info_stabling_elapsed_dates|入厩何日目|INT|
+|info_stabling_race_count|入厩何走目||
+|info_start_score|馬スタート指数|FLO|
+|info_trainer_code|調教師コード|INT|
+|info_training_score|調教師スコア|FLO|
+|info_training_sign|調教師印|NOM|
+|info_training_sign_code|調教矢印コード|NOM|
+|info_transport_class|輸送区分|INT|
+|info_turf_fitness|芝適正|NOM|
+|info_weight_afd|枠確定後重量|INT|
+|info_weight_delta_afd|枠確定後重量変化|INT|
+
+#展開予想データ
+
+|名前|説明|型|特記事項|
+|:----------------|:-----|:--------|----------|
+|info_firstphase_score|テン指数|FLO|
+|info_pace_score|info_pace_score feature FLO|FLO|
+|info_lastphase_score|上がり指数|FLO|
+|info_position_score|info_position_score feature FLO||
+|info_pace_prediction|info_pace_prediction feature NOM|INT|
 |info_middlephase_delta|道中差|INT|
 |info_middlephase_in_out|道中内外|INT|
 |info_middlephase_order|道中順位|INT|
+|info_lastphase_delta|後3F差|INT|
+|info_lastphase_in_out|後3F内外|INT|
+|info_lastphase_order|後3F順位|INT|
 |info_oof_delta|ゴール差|INT|
 |info_oof_in_out|info_oof_in_out feature INT|INT|
 |info_oof_prediction|info_oof_prediction feature INT|INT|
-|info_owner_code|info_owner_code feature INT|INT|
-|info_pace_prediction|info_pace_prediction feature NOM|INT|
-|info_pace_score|info_pace_score feature FLO|FLO|
+|info_development_sign|展開記号|INT|
+|info_hard_runnning_order|激走順位|INT|
+|info_ls_score_order|LS指数順位|INT|
+|info_firstphase_score_order|テン指数順位|INT|
 |info_pace_score_order|info_pace_score_order feature INT||
-|info_paddock_rank|info_paddock_rank feature STR||
-|info_pedigree_id|info_pedigree_id feature INT||
-|info_popurality_score|info_popurality_score feature INT||
-|info_position_score|info_position_score feature FLO||
+|info_lastphase_score_order|上がり指数順位|INT|
 |info_position_score_order|info_position_score_order feature INT||
-|info_pre1_race_id|info_pre1_race_id feature STR||
-|info_pre1_result_id|info_pre1_result_id feature STR||
-|info_pre2_race_id|info_pre2_race_id feature STR||
-|info_pre2_result_id|info_pre2_result_id feature STR||
-|info_pre3_race_id|info_pre3_race_id feature STR||
-|info_pre3_result_id|info_pre3_result_id feature STR||
-|info_pre4_race_id|info_pre4_race_id feature STR||
-|info_pre4_result_id|info_pre4_result_id feature STR||
-|info_pre5_race_id|info_pre5_race_id feature STR||
-|info_pre5_result_id|info_pre5_result_id feature STR||
-|info_precious_ticket_score|info_precious_ticket_score feature INT||
-|info_precious_ticket_sign|info_precious_ticket_sign feature INT||
-|info_prize|info_prize feature INT||
-|info_race_course_code|info_race_course_code feature NOM||
-|info_race_id|info_race_id feature STR||
-|info_remarks_flag|info_remarks_flag feature UNI||
-|info_rotation|info_rotation feature INT||
-|info_running_score|info_running_score feature INT||
-|info_running_style|info_running_style feature INT||
-|info_sex_code|info_sex_code feature NOM||
-|info_specific_info_1|info_specific_info_1 feature INT||
-|info_specific_info_2|info_specific_info_2 feature INT||
-|info_specific_info_3|info_specific_info_3 feature INT||
-|info_specific_info_4|info_specific_info_4 feature INT||
-|info_specific_info_5|info_specific_info_5 feature INT||
-|info_stable_eval_code|info_stable_eval_code feature NOM||
-|info_stable_rank|info_stable_rank feature STR||
-|info_stable_score|info_stable_score feature FLO||
-|info_stable_sign|info_stable_sign feature NOM||
-|info_stabling_elapsed_dates|info_stabling_elapsed_dates feature INT||
-|info_stabling_race_count|info_stabling_race_count feature INT||
-|info_start_score|info_start_score feature FLO||
-|info_trainer_code|info_trainer_code feature INT||
-|info_training_score|info_training_score feature FLO||
-|info_training_sign|info_training_sign feature NOM||
-|info_training_sign_code|info_training_sign_code feature NOM||
-|info_transport_class|info_transport_class feature INT||
-|info_turf_fitness|info_turf_fitness feature NOM||
-|info_weight_afd|info_weight_afd feature INT||
-|info_weight_delta_afd|info_weight_delta_afd feature INT||
+
+
 
 ## 学習用変数
 

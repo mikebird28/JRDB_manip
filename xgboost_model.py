@@ -19,10 +19,11 @@ def main():
     config = util.get_config("config/config.json")
     #generate dataset
     db_path = "db/output_v6.db"
+    predict_type = "is_win"
     pca = PCA(n_components = 15)
 
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_path,config.features,["is_place"])
+    x,y = dataset2.load_dataset(db_path,config.features,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_path)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
@@ -39,7 +40,6 @@ def main():
     #train_x = dataset2.normalize(train_x,typ = "race")
 
     """
-    print(">> generating train pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
     pca_idx = pca_x["info_race_id"]
     pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
@@ -55,7 +55,7 @@ def main():
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
-    train_x,train_y = dataset2.for_use(train_x,train_y,"is_place")
+    train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
     print(">> filling none value of test dataset")
     #test_x = dataset2.fillna_mean(test_x,"race")
@@ -73,15 +73,46 @@ def main():
     """
 
     print(">> under sampling test dataset")
-    test_rx,test_ry = dataset2.to_races(test_x,test_y)
-    test_x,test_y = dataset2.under_sampling(test_x,test_y)
-    test_x,test_y = dataset2.for_use(test_x,test_y,"is_place")
+    test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races2(
+        test_x,
+        test_y[predict_type],
+        test_y["is_win"],
+        test_y["win_payoff"],
+        test_y["is_place"],
+        test_y["place_payoff"]
+    )
+    test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
+    test_x,test_y = dataset2.for_use(test_x,test_y,predict_type)
 
-    xgbc(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
-    #xgbc_wigh_bayessearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    datasets = {
+        "train_x"      : train_x,
+        "train_y"      : train_y,
+        "test_x"       : test_x,
+        "test_y"       : test_y,
+        "test_rx"      : test_rx,
+        "test_ry"      : test_ry,
+        "test_r_win"   : test_r_win,
+        "test_r_place" : test_r_place,
+        "test_rp_win"  : test_rp_win,
+        "test_rp_place": test_rp_place
+    }
+
+    #xgbc(train_x.columns,datasets)
+    xgbc_wigh_bayessearch(train_x.columns,datasets)
     #xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
-def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
+def xgbc(features,datasets):
+    train_x = datasets["train_x"]
+    train_y = datasets["train_y"]
+    test_x  = datasets["test_x"]
+    test_y  = datasets["test_y"]
+    test_rx = datasets["test_rx"]
+    test_ry = datasets["test_ry"]
+    test_r_win = datasets["test_r_win"]
+    test_r_place = datasets["test_r_place"]
+    test_rp_win = datasets["test_rp_win"]
+    test_rp_place = datasets["test_rp_place"]
+    
     xgbc = xgb.XGBClassifier(
         n_estimators = 1000,
         colsample_bytree =  0.5,
@@ -95,18 +126,35 @@ def xgbc(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
 
     pred = xgbc.predict(test_x)
     accuracy = accuracy_score(test_y,pred)
-    top_1_k  = evaluate.top_n_k(xgbc,test_rx,test_ry)
-    report = classification_report(test_y,pred)
     print("")
     print("Accuracy: {0}".format(accuracy))
-    print("top_1_k : {0}".format(top_1_k))
+
+    win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
+    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+    place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
+    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
+
+    report = classification_report(test_y,pred)
     print(report)
+
     importances = xgbc.feature_importances_
     evaluate.show_importance(features,importances)
 
-def xgbc_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
+def xgbc_wigh_gridsearch(features,datasets):
+    train_x = datasets["train_x"]
+    train_y = datasets["train_y"]
+    test_x  = datasets["test_x"]
+    test_y  = datasets["test_y"]
+    test_rx = datasets["test_rx"]
+    test_ry = datasets["test_ry"]
+    test_r_win = datasets["test_r_win"]
+    test_r_place = datasets["test_r_place"]
+    test_rp_win = datasets["test_rp_win"]
+    test_rp_place = datasets["test_rp_place"]
+
+
     paramaters = [
-        {'n_estimators':[300],
+        {'n_estimators':[200],
         'learning_rate':[0.05,0.1],
         'max_depth' : [5,7],
         'subsample':[0.6,0.7],
@@ -117,16 +165,16 @@ def xgbc_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry)
     xgbc = xgb.XGBClassifier()
     cv = GridSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',verbose = 2)
     cv.fit(train_x,train_y)
-    pred = cv.predict(test_x)
 
+    pred = cv.predict(test_x)
     accuracy = accuracy_score(test_y,pred)
-    top_1_k  = evaluate.top_n_k(cv,test_rx,test_ry)
-    report = classification_report(test_y,pred)
     print("")
     print("Accuracy: {0}".format(accuracy))
-    print("top_1_k : {0}".format(top_1_k))
-    print(report)
 
+    win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
+    place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
+    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 
     print("Paramaters")
     #best_parameters, score, _ = max(cv.grid_scores_, key=lambda x: x[1])    
@@ -136,12 +184,23 @@ def xgbc_wigh_gridsearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry)
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
     print("")
-    print("features")
+    print("Features")
     best = cv.best_estimator_
     importances = best.feature_importances_
     evaluate.show_importance(features,importances)
 
-def xgbc_wigh_bayessearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
+def xgbc_wigh_bayessearch(features,datasets):
+    train_x = datasets["train_x"]
+    train_y = datasets["train_y"]
+    test_x  = datasets["test_x"]
+    test_y  = datasets["test_y"]
+    test_rx = datasets["test_rx"]
+    test_ry = datasets["test_ry"]
+    test_r_win = datasets["test_r_win"]
+    test_r_place = datasets["test_r_place"]
+    test_rp_win = datasets["test_rp_win"]
+    test_rp_place = datasets["test_rp_place"]
+
     paramaters = [
         {
         'learning_rate': (0.001,0.5),
@@ -153,18 +212,18 @@ def xgbc_wigh_bayessearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry
     ]
 
     xgbc = xgb.XGBClassifier(n_estimators = 300)
-    cv = BayesSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 2)
+    cv = BayesSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',n_iter = 60,verbose = 2)
     cv.fit(train_x,train_y)
     pred = cv.predict(test_x)
 
     accuracy = accuracy_score(test_y,pred)
-    top_1_k  = evaluate.top_n_k(cv,test_rx,test_ry)
-    report = classification_report(test_y,pred)
     print("")
     print("Accuracy: {0}".format(accuracy))
-    print("top_1_k : {0}".format(top_1_k))
-    print(report)
 
+    win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
+    place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
+    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 
     print("Paramaters")
     #best_parameters, score, _ = max(cv.grid_scores_, key=lambda x: x[1])    
@@ -174,7 +233,7 @@ def xgbc_wigh_bayessearch(features,train_x,train_y,test_x,test_y,test_rx,test_ry
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
     print("")
-    print("features")
+    print("Features")
     best = cv.best_estimator_
     importances = best.feature_importances_
     evaluate.show_importance(features,importances)

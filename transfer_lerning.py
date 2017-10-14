@@ -100,7 +100,7 @@ def dnn(features,train_x,train_y,test_x,test_y,test_rx,test_ry):
     nn.add(Dropout(0.7))
 
     nn.add(Dense(units=50))
-    #nn.add(Activation('relu'))
+    nn.add(Activation('relu'))
     nn.add(Dropout(0.7))
 
     nn.add(Dense(units=1))

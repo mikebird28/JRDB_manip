@@ -74,8 +74,8 @@ def add_race_info(x,y,race_info):
     return ret_x,ret_y
 
 def pad_race(x,y,n=18):
-    x_col = x.columns
-    y_col = y.columns
+    x_col = x.columns.tolist()
+    y_col = y.columns.tolist()
     columns = x_col + y_col
     df = pd.concat([y,x],axis = 1)
     df = df.sort_values(by = "info_race_id",ascending = True)
@@ -139,7 +139,6 @@ def get_dummies(x,col_dic):
     for k,v in pairs:
         cols = ["{0}_{1}".format(k,i) for i in range(v)]
         column_name.extend(cols)
-    print(column_name)
 
     ohe = OneHotEncoder(n_values = n_values,sparse = False)
     x.loc[:,columns] = x.loc[:,columns].fillna(0)
@@ -230,13 +229,13 @@ def __normalize_horse(dataset,mean = None,std = None,remove = []):
 def __normalize_race(dataset,mean = None,std = None):
     pass
 
-def under_sampling(x,y):
+def under_sampling(x,y,key = "is_win"):
     x_col = x.columns
     y_col = y.columns
     con = pd.concat([y,x],axis = 1)
     lowest_frequent_value = 1
-    low_frequent_records = con.ix[con.iloc[:,0] == lowest_frequent_value,:]
-    other_records = con.ix[con.iloc[:,0] != lowest_frequent_value,:]
+    low_frequent_records = con.ix[con.loc[:,key] == lowest_frequent_value,:]
+    other_records = con.ix[con.loc[:,key] != lowest_frequent_value,:]
     under_sampled_records = other_records.sample(len(low_frequent_records))
     con = pd.concat([low_frequent_records,under_sampled_records])
     con.sample(frac=1.0).reset_index(drop=True)
@@ -260,6 +259,35 @@ def for_use(x,y,target):
     x = x.drop("info_race_id",axis = 1)
     y = y[target].values.tolist()
     return (x,y)
+
+def to_races2(*args):
+    for dataset in args:
+        if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
+            dataset["info_race_id"] = dataset["info_race_id"].astype(str)
+
+    races = [[] for dataset in args]
+    con = pd.concat(args,axis = 1)
+
+    #delete duplicate columns
+    _,i = np.unique(con.columns,return_index = True)
+    con = con.iloc[:,i]
+
+    grouped = con.groupby("info_race_id")
+
+    for name,group in grouped:
+        for i,dataset in enumerate(args):
+            if type(dataset) == pd.Series:
+                columns = dataset.name
+            elif type(dataset) == pd.DataFrame:
+                columns = dataset.columns
+                columns = columns.drop("info_race_id",errors = "ignore")
+            else:
+                raise Exception("Dataset which has unknown type was passed")
+            race = group[columns]
+            races[i].append(race)
+            
+            #ry = group[y_col].values.tolist()
+    return races
 
 def to_races(x,y,to_numpy = False):
     x["info_race_id"] = x["info_race_id"].astype(str)
