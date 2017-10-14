@@ -26,7 +26,7 @@ def load_dataset(db_path, features, y_col = ["is_win"]):
         if col == "info_race_id":
             continue
         #dataset[col] = dataset[col].astype(np.int64)
-        dataset[col] = dataset[col].convert_objects(convert_numeric = True)
+        #dataset[col] = dataset[col].convert_objects(convert_numeric = True)
         dataset[col] = pd.to_numeric(dataset[col],errors = "coerce")
 
     #dataset["info_race_id"] = dataset_x["info_race_id"].astype("category")
@@ -260,7 +260,7 @@ def for_use(x,y,target):
     y = y[target].values.tolist()
     return (x,y)
 
-def to_races2(*args):
+def to_races(*args):
     for dataset in args:
         if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
             dataset["info_race_id"] = dataset["info_race_id"].astype(str)
@@ -285,28 +285,18 @@ def to_races2(*args):
                 raise Exception("Dataset which has unknown type was passed")
             race = group[columns]
             races[i].append(race)
-            
-            #ry = group[y_col].values.tolist()
     return races
 
-def to_races(x,y,to_numpy = False):
-    x["info_race_id"] = x["info_race_id"].astype(str)
-    x_col = x.columns
-    y_col = y.columns
-    races_x = []
-    races_y = []
-    con = pd.concat([x,y],axis = 1)
-    grouped = con.groupby("info_race_id")
-    for name,group in grouped:
-        rx = group[x_col]
-        rx = rx.drop("info_race_id",axis = 1)
-        ry = group[y_col].values.tolist()
-        if to_numpy:
-            rx = rx.as_matrix()
-            ry = np.array(ry)
-        races_x.append(rx)
-        races_y.append(ry)
-    return (races_x,races_y)
+def races_to_numpy(dataset):
+    new_races = []
+    for race in dataset:
+        if type(race) == pd.Series:
+            new_race = race.values.tolist()
+        elif type(race) == pd.DataFrame:
+            new_race = race.as_matrix()
+        new_races.append(new_race)
+    return new_races
+
 
 if __name__=="__main__":
     config = util.get_config("config/config.json")

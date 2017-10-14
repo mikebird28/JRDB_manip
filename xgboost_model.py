@@ -73,7 +73,7 @@ def main():
     """
 
     print(">> under sampling test dataset")
-    test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races2(
+    test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
         test_x,
         test_y[predict_type],
         test_y["is_win"],
@@ -97,8 +97,8 @@ def main():
         "test_rp_place": test_rp_place
     }
 
-    #xgbc(train_x.columns,datasets)
-    xgbc_wigh_bayessearch(train_x.columns,datasets)
+    xgbc(train_x.columns,datasets)
+    #xgbc_wigh_bayessearch(train_x.columns,datasets)
     #xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def xgbc(features,datasets):
@@ -220,8 +220,8 @@ def xgbc_wigh_bayessearch(features,datasets):
     print("")
     print("Accuracy: {0}".format(accuracy))
 
-    win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
-    place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
+    win_eval  = evaluate.top_n_k(cv,test_rx,test_r_win,test_rp_win)
+    place_eval  = evaluate.top_n_k(cv,test_rx,test_r_place,test_rp_place)
     print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
     print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 

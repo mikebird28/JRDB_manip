@@ -329,7 +329,7 @@
 |pre1_last_3f_delta|後3F差|FLO|
 |pre1_last_3f_time|後3Fタイム|FLO|
 |pre1_lastphase_score|上がり指数|FLO|
-|pre1_late_start|出遅れ率|FLO|
+|pre1_late_start|出遅れ|FLO|
 |pre1_left_or_right|右左|NOM|
 |pre1_morning_odds|朝段階での単勝オッズ|FLO|
 |pre1_morning_place_odds|朝段階での複勝オッズ|FLO|
