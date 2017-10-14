@@ -151,7 +151,7 @@
 ## 馬情報
 
 |名前|説明|型|特記事項|
-|:----------------|:-----|:--------|----------|
+|:----------------|:---------------|:--------|----------|
 |info_apprentice_class|見習い区分|NOM|
 |info_base_odds|基準オッズ|FLO|
 |info_base_place_odds|基準複勝オッズ|FLO|
@@ -268,6 +268,7 @@
 |is_place|is_place feature INT||
 |is_win|is_win feature INT||
 |place_payoff|place_payoff feature INT||
+|win_payoff|place_payoff feature INT||
 
 ## 払い戻し
 
@@ -296,73 +297,72 @@
 
 |名前|説明|型|特記事項|
 |:----------------|:-----|:--------|----------|
-|pre1_atmosphere_code|pre1_atmosphere_code feature INT||
-|pre1_basis_weight|pre1_basis_weight feature FLO||
-|pre1_body_code|pre1_body_code feature INT||
-|pre1_class_code|pre1_class_code feature INT||
-|pre1_class_prize|pre1_class_prize feature FLO||
-|pre1_condition_code|pre1_condition_code feature INT||
-|pre1_course_info|pre1_course_info feature NOM||
-|pre1_course_position|pre1_course_position feature INT||
-|pre1_disadvantage|pre1_disadvantage feature FLO||
-|pre1_disadvantage_final|pre1_disadvantage_final feature FLO||
-|pre1_disadvantage_middle|pre1_disadvantage_middle feature FLO||
-|pre1_disadvantage_opening|pre1_disadvantage_opening feature FLO||
-|pre1_discipline|pre1_discipline feature NOM||
-|pre1_distance|pre1_distance feature INT||
-|pre1_field_status|pre1_field_status feature INT||
-|pre1_finishing_time|pre1_finishing_time feature FLO||
-|pre1_first_3f_delta|pre1_first_3f_delta feature FLO||
-|pre1_first_3f_time|pre1_first_3f_time feature FLO||
-|pre1_firstphase_score|pre1_firstphase_score feature FLO||
-|pre1_horse_number|pre1_horse_number feature INT||
-|pre1_horse_pace|pre1_horse_pace feature NOM||
-|pre1_in_or_out|pre1_in_or_out feature NOM||
-|pre1_irregular_category|pre1_irregular_category feature INT||
-|pre1_jockey_id|pre1_jockey_id feature STR||
-|pre1_jrdb_field_info|pre1_jrdb_field_info feature FLO||
-|pre1_jrdb_idm|pre1_jrdb_idm feature FLO||
-|pre1_jrdb_pace_info|pre1_jrdb_pace_info feature FLO||
-|pre1_jrdb_raw_score|pre1_jrdb_raw_score feature FLO||
-|pre1_jrdb_remarks|pre1_jrdb_remarks feature UNI||
-|pre1_last_3f_delta|pre1_last_3f_delta feature FLO||
-|pre1_last_3f_time|pre1_last_3f_time feature FLO||
-|pre1_lastphase_score|pre1_lastphase_score feature FLO||
-|pre1_late_start|pre1_late_start feature FLO||
-|pre1_left_or_right|pre1_left_or_right feature NOM||
-|pre1_morning_odds|pre1_morning_odds feature FLO||
-|pre1_morning_place_odds|pre1_morning_place_odds feature FLO||
-|pre1_odds|pre1_odds feature FLO||
-|pre1_order_of_finish|pre1_order_of_finish feature INT||
-|pre1_pace_score|pre1_pace_score feature FLO||
-|pre1_pass_1|pre1_pass_1 feature INT||
-|pre1_pass_2|pre1_pass_2 feature INT||
-|pre1_pass_3|pre1_pass_3 feature INT||
-|pre1_pass_4|pre1_pass_4 feature INT||
-|pre1_payback_place|pre1_payback_place feature FLO||
-|pre1_payback_win|pre1_payback_win feature FLO||
-|pre1_pedigree_id|pre1_pedigree_id feature STR||
-|pre1_place_odds|pre1_place_odds feature FLO||
-|pre1_popularity|pre1_popularity feature INT||
-|pre1_position|pre1_position feature FLO||
-|pre1_position_at_corner|pre1_position_at_corner feature INT||
-|pre1_prize|pre1_prize feature FLO||
-|pre1_race_category|pre1_race_category feature INT||
-|pre1_race_condition|pre1_race_condition feature STR||
-|pre1_race_grade|pre1_race_grade feature INT||
-|pre1_race_headcount|pre1_race_headcount feature INT||
-|pre1_race_id|pre1_race_id feature STR||
-|pre1_race_info|pre1_race_info feature FLO||
-|pre1_race_pace|pre1_race_pace feature NOM||
-|pre1_race_pace_score|pre1_race_pace_score feature FLO||
-|pre1_race_remarks|pre1_race_remarks feature INT||
-|pre1_race_running_style|pre1_race_running_style feature NOM||
-|pre1_race_weights|pre1_race_weights feature INT||
-|pre1_registered_date|pre1_registered_date feature STR||
-|pre1_result_id|pre1_result_id feature STR||
-|pre1_time_delta|pre1_time_delta feature FLO||
-|pre1_trainer_id|pre1_trainer_id feature STR||
-|pre1_weather_code|pre1_weather_code feature INT||
-|pre1_weight|pre1_weight feature INT||
-|pre1_weight_delta|pre1_weight_delta feature INT||
-|win_payoff|win_payoff feature INT|||
+|pre1_atmosphere_code|気配コード|INT|
+|pre1_basis_weight|斤量|FLO|
+|pre1_body_code|馬体コード|INT|
+|pre1_class_code|クラスコード|INT|
+|pre1_class_prize|収得賞金|FLO|
+|pre1_condition_code|上昇度コード|INT|
+|pre1_course_info|コース|NOM|
+|pre1_course_position|コース取り|INT|
+|pre1_disadvantage|不利|FLO|
+|pre1_disadvantage_final|後不利|FLO|
+|pre1_disadvantage_middle|中不利|FLO|
+|pre1_disadvantage_opening|後不利|FLO|
+|pre1_discipline|芝ダ障害|NOM|
+|pre1_distance|距離|INT|
+|pre1_field_status|馬場状態|INT|
+|pre1_finishing_time|タイム|FLO|
+|pre1_first_3f_delta|前3F差|FLO|
+|pre1_first_3f_time|前3Fタイム|FLO|
+|pre1_firstphase_score|テン指数|FLO|
+|pre1_horse_number|馬番|INT|
+|pre1_horse_pace|馬ペース|NOM|
+|pre1_in_or_out|内外|NOM|
+|pre1_irregular_category|異常区分|INT|
+|pre1_jockey_id|騎手コード|STR|
+|pre1_jrdb_field_info|馬場差|FLO|
+|pre1_jrdb_idm|IDM|FLO|
+|pre1_jrdb_pace_info|ペース|FLO|
+|pre1_jrdb_raw_score|素点|FLO|
+|pre1_jrdb_remarks|備考|UNI|
+|pre1_last_3f_delta|後3F差|FLO|
+|pre1_last_3f_time|後3Fタイム|FLO|
+|pre1_lastphase_score|上がり指数|FLO|
+|pre1_late_start|出遅れ率|FLO|
+|pre1_left_or_right|右左|NOM|
+|pre1_morning_odds|朝段階での単勝オッズ|FLO|
+|pre1_morning_place_odds|朝段階での複勝オッズ|FLO|
+|pre1_odds|単勝オッズ|FLO|
+|pre1_order_of_finish|順位|INT|
+|pre1_pace_score|ペース指数|FLO|
+|pre1_pass_1|1コーナー通過順位|INT|
+|pre1_pass_2|2コーナー通過順位|INT|
+|pre1_pass_3|3コーナー通過順位|INT|
+|pre1_pass_4|4コーナー通過順位|INT|
+|pre1_payback_place|複勝払い戻し|FLO|
+|pre1_payback_win|単勝払い戻し|FLO|
+|pre1_pedigree_id|血統登録番号|STR|
+|pre1_place_odds|複勝オッズ|FLO|
+|pre1_popularity|人気順位|INT|
+|pre1_position|位置取り|FLO|
+|pre1_position_at_corner|4角コース取り|INT|
+|pre1_prize|本賞金|FLO|
+|pre1_race_category|種別|INT|
+|pre1_race_condition|レース条件|STR|
+|pre1_race_grade|グレード|INT|
+|pre1_race_headcount|頭数|INT|
+|pre1_race_id|レースキー|STR|
+|pre1_race_info|レース|FLO|
+|pre1_race_pace|レースペース|NOM|
+|pre1_race_pace_score|レースペース指数|FLO|
+|pre1_race_remarks|記号|INT|
+|pre1_race_running_style|走法|NOM|
+|pre1_race_weights|重量|INT|
+|pre1_registered_date|登録日|STR|
+|pre1_result_id|結果キー||
+|pre1_time_delta|1位とのタイム差|FLO|
+|pre1_trainer_id|調教師キー|STR|
+|pre1_weather_code|天候コード|INT|
+|pre1_weight|重量|INT|
+|pre1_weight_delta|重量増減|INT|

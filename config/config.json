@@ -17,9 +17,12 @@
         "info_stabling_elapsed_dates",
         "info_running_style",
         "info_race_course_code",
+        "info_downgrading_flag",
+        "info_rotation",
 
         "linfo_horse_weight",
         "linfo_weight_delta",
+        "linfo_basis_weight",
         "linfo_leg_info",
         "linfo_equipment_change",
         "linfo_paddok_sign",
@@ -104,7 +107,13 @@
         "pre3_condition_code",
         "pre1_body_code",
         "pre2_body_code",
-        "pre3_body_code"
+        "pre3_body_code",
+        "pre1_weight_delta",
+        "pre2_weight_delta",
+        "pre3_weight_delta",
+        "pre1_weight_delta",
+        "pre2_weight",
+        "pre3_weight"
 
     ]
 }
