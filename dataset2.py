@@ -122,6 +122,22 @@ def flatten_race(df):
     df = pd.concat([dfx,dfid],axis = 1)
     return df
 
+def flatten_race2(df):
+    ls = []
+    rids = []
+    count = 0
+    x_col = df.columns
+    x_col = x_col.drop("info_race_id")
+    cc = df.groupby("info_race_id").cumcount() + 1
+    cc.name = "__cc"
+    df = pd.concat([cc,df],axis = 1)
+    df = df[df["__cc"] <= 18]
+    df = df.set_index(["info_race_id","__cc"])
+    df = df.unstack().sort_index(1,level = 1)
+    df.columns = ['_'.join(map(str,i)) for i in df.columns]
+    return df
+
+
 def get_dummies(x,col_dic):
     pairs = {}
     for col in x.columns:
@@ -256,7 +272,8 @@ def over_sampling(x,y):
     return con_x,con_y
 
 def for_use(x,y,target):
-    x = x.drop("info_race_id",axis = 1)
+    if "info_race_id" in x.columns:
+        x = x.drop("info_race_id",axis = 1)
     y = y[target].values.tolist()
     return (x,y)
 
@@ -301,8 +318,8 @@ def races_to_numpy(dataset):
 if __name__=="__main__":
     config = util.get_config("config/config.json")
     print("loading data")
-    dx,dy = load_dataset("db/output_v4.db",config.features,typ="win")
+    dx,dy = load_dataset("db/output_v6.db",config.features)
     print("fill with horse mean")
     dx,dy = pad_race(dx,dy)
-    dx = flatten_race(dx)
+    dx = flatten_race2(dx)
     #fillna_mean(dx,"race")

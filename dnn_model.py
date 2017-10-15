@@ -41,8 +41,10 @@ def main():
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     #train_x = dataset2.normalize(train_x,typ = "race")
 
+    print(">> generating pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
-    pca_idx = pca_x["info_race_id"]
+    pca_idx = pca.index
+    #pca_idx = pca_x["info_race_id"]
     pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
 
     print(">> fitting with pca")
@@ -227,7 +229,7 @@ def dnn_wigh_bayessearch(features,datasets):
 def dataset_for_pca(x,y,mean = None,std = None):
     #x = dataset2.normalize(x,mean = mean,std = std)
     x,y = dataset2.pad_race(x,y)
-    x = dataset2.flatten_race(x)
+    x = dataset2.flatten_race2(x)
     return (x,y)
 
 def dnn_with_keras(f,train_x,train_y,test_x,test_y,test_rx,test_ry):
