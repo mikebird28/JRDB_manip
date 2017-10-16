@@ -32,6 +32,8 @@ def main():
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
+    del x
+    del y
 
     print(">> filling none value of train dataset")
     #train_x = dataset2.fillna_mean(train_x,"race")
@@ -43,15 +45,15 @@ def main():
 
     print(">> generating pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
-    pca_idx = pca.index
-    #pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
+    #pca_idx = pca.index
+    pca_idx = pca_x["info_race_id"]
+    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
 
     print(">> fitting with pca")
     pca.fit(pca_x)
     print(sum(pca.explained_variance_ratio_))
     print(pca.explained_variance_ratio_)
-    pca_df = pd.DataFrame(pca.transform(pca_x))
+    pca_df = pd.DataFrame(pca.transform(pca_x).astype(np.float32))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
 
@@ -67,8 +69,8 @@ def main():
     print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y)
-    pca_df = pca.transform(pca_x)
+    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
+    pca_df = pca.transform(pca_x).astype(np.float32)
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
 
@@ -103,7 +105,7 @@ def main():
 
 def create_model(activation = "relu",dropout = 0.6,hidden_1 = 200,hidden_2 = 100):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 285, kernel_initializer = "he_normal"))
+    nn.add(Dense(units=hidden_1,input_dim = 266, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 

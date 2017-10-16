@@ -18,24 +18,8 @@ def load_dataset(db_path, features, y_col = ["is_win"]):
     for x,y in f_orm.fetch_with_xy(x_col,y_col):
         dataset_x.append(x)
         dataset_y.append(y)
-    dataset_x = pd.DataFrame(dataset_x,columns = x_col)
-    dataset_y = pd.DataFrame(dataset_y,columns = y_col)
-    dataset = pd.concat([dataset_x,dataset_y],axis = 1)
-
-    for col in dataset.columns:
-        if col == "info_race_id":
-            continue
-        #dataset[col] = dataset[col].astype(np.int64)
-        #dataset[col] = dataset[col].convert_objects(convert_numeric = True)
-        dataset[col] = pd.to_numeric(dataset[col],errors = "coerce")
-
-    #dataset["info_race_id"] = dataset_x["info_race_id"].astype("category")
-    #dataset.set_index("info_race_id")
-    #dataset.sort_index()
-
-    #dataset_x = dataset[x_col]
-    #dataset_y = dataset[y_col]
-
+    dataset_x = downcast(pd.DataFrame(dataset_x,columns = x_col))
+    dataset_y = downcast(pd.DataFrame(dataset_y,columns = y_col))
     return dataset_x,dataset_y
 
 def nominal_columns(db_path):
@@ -68,7 +52,10 @@ def add_race_info(x,y,race_info):
     y_col = y.columns
     con = pd.concat([x,y],axis = 1)
     con = con.merge(race_info,on = "info_race_id",how = "left")
-    con = con.loc[:,~con.columns.duplicated()]
+    #con = con.loc[:,~con.columns.duplicated()]
+    _,i = np.unique(con.columns,return_index = True)
+    con = con.iloc[:,i]
+
     ret_x = con.loc[:,x_col]
     ret_y = con.loc[:,y_col]
     return ret_x,ret_y
@@ -135,6 +122,7 @@ def flatten_race2(df):
     df = df.set_index(["info_race_id","__cc"])
     df = df.unstack().sort_index(1,level = 1)
     df.columns = ['_'.join(map(str,i)) for i in df.columns]
+    df = df.reset_index()
     return df
 
 
@@ -161,7 +149,7 @@ def get_dummies(x,col_dic):
     tmp_x = x.loc[:,columns]
 
     ohe.fit(tmp_x)
-    dummies = ohe.transform(tmp_x)
+    dummies = ohe.transform(tmp_x).astype(np.int8)
     dummies = pd.DataFrame(dummies,index = tmp_x.index,columns = column_name)
     x = x.drop(columns,axis = 1)
     x = x.merge(dummies,left_index = True,right_index = True)
@@ -313,6 +301,14 @@ def races_to_numpy(dataset):
             new_race = race.as_matrix()
         new_races.append(new_race)
     return new_races
+
+def downcast(dataset):
+    for clmns in dataset.columns:
+        if dataset[clmns].dtype == np.float64:
+            dataset[clmns] = pd.to_numeric(dataset[clmns], downcast = "float")
+        if dataset[clmns].dtype == np.int64:
+            dataset[clmns] = pd.to_numeric(dataset[clmns], downcast = "integer")
+    return dataset
 
 
 if __name__=="__main__":
