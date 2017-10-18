@@ -1,6 +1,6 @@
 #-*- cofing:utf-8 -*-
 
-from keras.wrappers.scikit_learn import KerasClassifier
+from keras.wrappers.scikit_learn import KerasClassifier,KerasRegressor
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -26,6 +26,29 @@ def top_n_k(model,race_x,race_y,payoff):
             rewards += ret
         counter += 1
     return (float(correct)/counter,float(rewards)/counter)
+
+def top_n_k_regress(model,race_x,race_y,payoff):
+    counter = 0
+    correct = 0
+    rewards = 0
+    for x,y,p in zip(race_x,race_y,payoff):
+        if type(model) == KerasRegressor:
+            pred = model.predict(x,verbose = 0).ravel()
+        else:
+            pred = model.predict(x).ravel()
+        binary_pred = to_descrete(pred)
+
+        y = np.array(y).ravel()
+        p = np.array(p).ravel()
+        c = np.dot(y,binary_pred)
+        ret = np.dot(p,binary_pred)
+        if c > 0:
+            correct +=1
+            rewards += ret
+        counter += 1
+    return (float(correct)/counter,float(rewards)/counter)
+
+
 
 def to_descrete(array):
     res = np.zeros_like(array)
