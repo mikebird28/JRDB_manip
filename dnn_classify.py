@@ -43,6 +43,7 @@ def main():
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     #train_x = dataset2.normalize(train_x,typ = "race")
 
+    """
     print(">> generating pca dataset")
     pca_x,pca_y = dataset_for_pca(train_x,train_y)
     #pca_idx = pca.index
@@ -56,6 +57,7 @@ def main():
     pca_df = pd.DataFrame(pca.transform(pca_x).astype(np.float32))
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
+    """
 
     print(">> under sampling train dataset")
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
@@ -66,6 +68,7 @@ def main():
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
+    """
     print(">> generating test pca dataset")
     pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
     pca_idx = pca_x["info_race_id"]
@@ -73,6 +76,7 @@ def main():
     pca_df = pca.transform(pca_x).astype(np.float32)
     pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
     test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
+    """
 
     print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
@@ -103,9 +107,10 @@ def main():
     #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
-def create_model(activation = "relu",dropout = 0.6,hidden_1 = 200,hidden_2 = 100):
+def create_model(activation = "relu",dropout = 0.38,hidden_1 = 50,hidden_2 = 250):
+    #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 266, kernel_initializer = "he_normal"))
+    nn.add(Dense(units=hidden_1,input_dim = 172, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
@@ -206,7 +211,7 @@ def dnn_wigh_bayessearch(features,datasets):
         "dropout" : (0.3,1.0)
     }
 
-    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 10,verbose = 2)
+    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 2)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)

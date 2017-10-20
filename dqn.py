@@ -16,6 +16,9 @@ import dataset2
 import util
 import evaluate
 
+LOOSE_VALUE = 0.1
+DONT_BUY_VALUE = 0.001
+
 
 def main():
     predict_type = "win_payoff"
@@ -45,47 +48,32 @@ def generate_dataset(predict_type,db_path,config):
     del y
 
     print(">> filling none value of train dataset")
-    #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
-    #train_x = dataset2.normalize(train_x,typ = "race")
 
-    """
-    print(">> generating pca dataset")
-    pca_x,pca_y = dataset_for_pca(train_x,train_y)
-    #pca_idx = pca.index
-    pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
 
-    print(">> fitting with pca")
-    pca.fit(pca_x)
-    print(sum(pca.explained_variance_ratio_))
-    print(pca.explained_variance_ratio_)
-    pca_df = pd.DataFrame(pca.transform(pca_x).astype(np.float32))
-    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
-    """
+    #x = dataset2.normalize(x,mean = mean,std = std)
+    print("padding")
+    train_x,train_y = dataset2.pad_race(train_x,train_y)
+    train_y["dont_buy"] = np.zeros(len(train_y.index),dtype = "float32")-0.01
+    print(train_y)
+    print("convert_to_race")
+    train_x,train_action = dataset2.to_races(train_x,train_y[["win_payoff","dont_buy"]])
+
+
+    #train_y = pd.DataFrame(train_y,columns = ["buy"])
+    print(train_y)
+
 
     print(">> under sampling train dataset")
-    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = "is_win")
+    #train_x,train_y = dataset2.under_sampling(train_x,train_y,key = "is_win")
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
     print(">> filling none value of test dataset")
-    #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
-
-    """
-    print(">> generating test pca dataset")
-    pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
-    pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
-    pca_df = pca.transform(pca_x).astype(np.float32)
-    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
-    """
 
     print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
@@ -96,7 +84,7 @@ def generate_dataset(predict_type,db_path,config):
         test_y["is_place"],
         test_y["place_payoff"]
     )
-    test_x,test_y = dataset2.under_sampling(test_x,test_y,key = "is_win")
+    #test_x,test_y = dataset2.under_sampling(test_x,test_y,key = "is_win")
     test_x,test_y = dataset2.for_use(test_x,test_y,predict_type)
 
     datasets = {
