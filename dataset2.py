@@ -270,7 +270,8 @@ def to_races(*args):
         if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
             dataset["info_race_id"] = dataset["info_race_id"].astype(str)
 
-    races = [[] for dataset in args]
+    #races = [[] for dataset in args]
+    #races = [np.zeros(len(dataset),18,columns)]
     con = pd.concat(args,axis = 1)
 
     #delete duplicate columns
@@ -288,7 +289,8 @@ def to_races(*args):
                 columns = columns.drop("info_race_id",errors = "ignore")
             else:
                 raise Exception("Dataset which has unknown type was passed")
-            race = group[columns]
+            race = group[columns].as_matrix()
+            #race = group[columns]
             races[i].append(race)
     return races
 
