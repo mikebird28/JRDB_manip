@@ -1,4 +1,5 @@
 import sqlite3
+import os
 import sys
 import pandas as pd
 import random
@@ -6,6 +7,7 @@ import numpy as np
 import feature
 import util
 import reader
+import pickle
 from sklearn.preprocessing import OneHotEncoder
 
 def load_dataset(db_path, features, y_col = ["is_win"]):
@@ -32,13 +34,13 @@ def nominal_columns(db_path):
             new_dic[k] = v.n
     return new_dic
 
-def split_with_race(x,y):
+def split_with_race(x,y,test_nums = 1000):
     x_col = x.columns
     y_col = y.columns
 
     con = pd.concat([y,x],axis = 1)
     race_id = con["info_race_id"].unique()
-    test_id = random.sample(race_id,1000)
+    test_id = random.sample(race_id,test_nums)
     test_con = con[con["info_race_id"].isin(test_id)]
     test_x = test_con.loc[:,x_col]
     test_y = test_con.loc[:,y_col]
@@ -66,11 +68,12 @@ def pad_race(x,y,n=18):
     columns = x_col + y_col
     df = pd.concat([y,x],axis = 1)
     df = df.sort_values(by = "info_race_id",ascending = True)
+    df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
 
     size = df.groupby("info_race_id").size().reset_index(name = "counts")
     mean = df.groupby("info_race_id").mean().reset_index()
     mean.loc[:,y.columns] = 0
-    target_columns = x_col
+    target_columns = columns
 
     merged = mean.merge(size,on = "info_race_id",how="inner")
     ls = []
@@ -278,8 +281,18 @@ def to_races(*args):
     _,i = np.unique(con.columns,return_index = True)
     con = con.iloc[:,i]
 
+    """
+    cc = con.groupby("info_race_id").cumcount() 
+    con = con.set_index(["info_race_id",cc])
+    print(con)
+    print(con.axes)
     grouped = con.groupby("info_race_id")
+    print("Panel")
+    panel = pd.Panel(grouped.groups)
+    print(panel)
+    """
 
+    grouped = con.groupby("info_race_id")
     for name,group in grouped:
         for i,dataset in enumerate(args):
             if type(dataset) == pd.Series:
@@ -293,6 +306,31 @@ def to_races(*args):
             race = group[columns]
             races[i].append(race)
     return races
+
+def to_race_panel(*args):
+    for dataset in args:
+        if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
+            dataset["info_race_id"] = dataset["info_race_id"].astype(str)
+
+    races = [[] for dataset in args]
+    con = pd.concat(args,axis = 1)
+
+    #delete duplicate columns
+    _,i = np.unique(con.columns,return_index = True)
+    con = con.iloc[:,i]
+
+    cc = con.groupby("info_race_id").cumcount() 
+    con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
+    panel = con.to_panel()
+    panel = panel.swapaxes(0,1)
+    panel = panel.swapaxes(1,2)
+
+    results = []
+    for dataset in args:
+        p = panel.loc[:,:,dataset.columns]
+        results.append(p)
+    return results
+
 
 def races_to_numpy(dataset):
     new_races = []
@@ -311,6 +349,16 @@ def downcast(dataset):
         if dataset[clmns].dtype == np.int64:
             dataset[clmns] = pd.to_numeric(dataset[clmns], downcast = "integer")
     return dataset
+
+def save_cache(dir_path,dataset):
+    path_dict = {k:os.path.join(dir_path,k) for k,v in dataset.items()}
+    info_path = os.path.join(dir_path,"cache_info")
+    with open(info_path,"wb") as f:
+        pickle.dump(path_dict,f)
+
+
+def load_cache(path):
+    pass
 
 
 if __name__=="__main__":

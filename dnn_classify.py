@@ -103,11 +103,11 @@ def main():
         "test_rp_place": test_rp_place
     }
 
-    dnn(config.features,datasets)
-    #dnn_wigh_bayessearch(config.features,datasets)
+    #dnn(config.features,datasets)
+    dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
-def create_model(activation = "relu",dropout = 0.38,hidden_1 = 50,hidden_2 = 250):
+def create_model(activation = "relu",dropout = 0.33,hidden_1 = 138,hidden_2 = 265,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     nn = Sequential()
     nn.add(Dense(units=hidden_1,input_dim = 172, kernel_initializer = "he_normal"))
@@ -115,6 +115,10 @@ def create_model(activation = "relu",dropout = 0.38,hidden_1 = 50,hidden_2 = 250
     nn.add(Dropout(dropout))
 
     nn.add(Dense(units=hidden_2, kernel_initializer = "he_normal"))
+    nn.add(Activation(activation))
+    nn.add(Dropout(dropout))
+
+    nn.add(Dense(units=hidden_3, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
@@ -206,12 +210,13 @@ def dnn_wigh_bayessearch(features,datasets):
  
     model =  KerasClassifier(create_model,epochs = 6,verbose = 0)
     paramaters = {
-        "hidden_1" : (50,250),
-        "hidden_2" : (50,250),
+        "hidden_1" : (50,300),
+        "hidden_2" : (50,300),
+        "hidden_3" : (50,300),
         "dropout" : (0.3,1.0)
     }
 
-    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 2)
+    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 15,verbose = 2)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)

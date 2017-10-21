@@ -44,6 +44,7 @@ class Config(object):
     def __init__(self,js):
         self.config = js["config"]
         self.features = js["features"]
+        self.features_light = js["features_light"]
 
 def get_config(path):
     fp = open(path,"r")
