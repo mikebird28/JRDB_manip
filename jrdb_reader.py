@@ -30,6 +30,9 @@ def create_db(args,is_test = False):
     db_con = sqlite3.connect(args.output)
     start = "031025"
 
+    ti_orm = reader.TrainingInfoDatabase(db_con)
+    csv_to_db(args,"train_info","CYB",ti_orm,test_mode = is_test,start = start)
+
     #process about race information
     ri_orm = reader.RaceInfoDatabase(db_con)
     csv_to_db(args,"race_info","BAC",ri_orm,test_mode = is_test,start = start)
@@ -66,8 +69,6 @@ def generate_dataset(args,config):
     for x,y in f_orm.fetch_horse(target_columns):
         win_horse = int(x[0][0])
         ls[win_horse-1] += 1
-    print(ls)
-        
     db_con.close()
 
 def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end = None):
@@ -91,7 +92,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
 
     counter = 1
     for f in files:
-        if test_mode and counter > 10:
+        if test_mode and counter > 100:
             break
         sys.stdout.write("processing : {0}/{1}\r".format(counter,len(files)))
         sys.stdout.flush()

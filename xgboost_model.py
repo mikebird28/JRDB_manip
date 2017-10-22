@@ -18,7 +18,7 @@ import evaluate
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v6.db"
+    db_path = "db/output_v7.db"
     predict_type = "is_win"
     pca = PCA(n_components = 100)
 

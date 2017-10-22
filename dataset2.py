@@ -322,8 +322,10 @@ def to_race_panel(*args):
     cc = con.groupby("info_race_id").cumcount() 
     con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
     panel = con.to_panel()
-    panel = panel.swapaxes(0,1)
-    panel = panel.swapaxes(1,2)
+    panel = panel.astype(np.float32)
+    print(panel.dtypes)
+    panel = panel.swapaxes(0,1,copy = False)
+    panel = panel.swapaxes(1,2,copy = False)
 
     results = []
     for dataset in args:

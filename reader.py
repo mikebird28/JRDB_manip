@@ -1,8 +1,9 @@
 #-*- coding:utf-8 -*-
 
 import sqlite3
-from util import *
+import sys
 import nominal
+from util import *
 
 #functions which convert data to appropriate type
 def to_integer(x,illegal_value = None):
@@ -165,8 +166,9 @@ def insert_container(con,name,container):
         sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
         con.execute(sql)
     except Exception as e:
-        print(e)
-        print("")
+        pass
+        #print(e)
+        #print("")
 
 def set_index(con,index_name,table_name,columns):
     columns_txt = ",".join(columns)
@@ -393,7 +395,7 @@ class HorseInfoDatabase(BaseORM):
         c.jockey_place         = to_float(line[464:468])     #騎手期待３着内率
         c.transport_class      = to_integer(line[468])       #輸送区分
 
-        c.running_style        = to_integer(line[469:477])   #走法
+        #c.running_style        = to_integer(line[469:477])   #走法
         c.body_shape           = to_unicode(line[477:501])   #体型
         #c.body_composite_1     = to_integer(line[501:504])   #体型総合1
         #c.body_composite_2     = to_integer(line[504:507])   #体型総合2
@@ -771,7 +773,8 @@ class LastInfoDatabase(BaseORM):
         c.equipment_change     = to_nominal(line[45],n=2)
         c.leg_info             = to_nominal(line[46],n=3)
         c.basis_weight         = to_integer(line[65:68])
-        c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
+        c.field_status         = to_integer(line[69:71])
+        #c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
         c.weather_code         = to_nominal(line[71], n=6)
         c.win_odds             = to_float(line[72:78])
         c.place_odds           = to_float(line[78:84])
@@ -783,15 +786,50 @@ class LastInfoDatabase(BaseORM):
         return c
 
     def set_indexes(self):
-        #set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        set_index(self.con,"lid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
         #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
         #set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
-        pass
 
     def set_unique(self):
         return ["horse_id"]
 
-def create_feature_table(con):
+
+class TrainingInfoDatabase(BaseORM):
+    def __init__(self,con):
+        super(TrainingInfoDatabase,self).__init__(con,"train_info")
+
+    def parse_line(self,line):
+        c = Container()
+        c.race_id              = to_string(line[0:8])
+        c.horse_number         = to_integer(line[8:10])
+        c.horse_id             = to_string(line[0:10])
+        
+        c.training_code      = to_nominal(line[10:12],n = 11)
+        c.course_type        = to_nominal(line[12],n = 5)
+        c.course_type_saka   = to_integer(line[13:15])
+        c.course_type_wood   = to_integer(line[15:17])
+        c.course_type_dirt   = to_integer(line[17:19])
+        c.course_type_turf   = to_integer(line[19:21])
+        c.course_type_pool   = to_integer(line[21:23])
+        c.course_type_obst   = to_integer(line[23:25])
+        c.course_type_poli   = to_integer(line[25:27])
+
+        c.course_distance     = to_integer(line[27])
+        c.training_weight     = to_nominal(line[28],n = 4)
+        c.chasing_score       = to_integer(line[29:32])
+        c.quality_score       = to_integer(line[32:35])
+        #c.training_volume     = line[35]
+        c.quality_score_delta = to_integer(line[36])
+        c.training_eval       = to_integer(line[85])
+        return c
+
+    def set_indexes(self):
+        set_index(self.con,"tid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+
+    def set_unique(self):
+        return ["horse_id"]
+
+def create_feature_table(con,show_progress = True):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con)
 
     fixed_columns = raw_columns
@@ -808,9 +846,7 @@ def create_feature_table(con):
     # check if feature table exist
     if not table_exists(con,"feature"):
         types = {k:v.typ for k,v in columns_dict.items()}
-        print(types)
         nominals = {k:v.n for k,v in columns_dict.items()}
-        print(nominals)
         create_table(con,"feature",types,nominals,unique_ls = ["info_horse_id"])
             
         """
@@ -828,6 +864,7 @@ def create_feature_table(con):
              INNER JOIN payoff on hi.race_id = payoff.race_id
              LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
              LEFT JOIN last_info on hi.horse_id = last_info.horse_id
+             LEFT JOIN train_info on hi.horse_id = train_info.horse_id
              LEFT JOIN race_info on hi.race_id = race_info.race_id
              LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
              LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
@@ -838,7 +875,9 @@ def create_feature_table(con):
     cur = con.execute(sql)
     for count,row in enumerate(cur):
         if count % 100 == 0:
-            print(count)
+            if show_progress:
+                sys.stdout.write("{0} rows have finished \r".format(str(count)))
+                sys.stdout.flush()
             con.commit()
         container = Container()
         for col_name,value in zip(columns,row):
@@ -866,8 +905,53 @@ def create_feature_table(con):
         insert_container(con,"feature",container)
     con.commit()
 
+def create_predict_table(con,show_progress = True):
+    raw_columns,columns_dict,columns_query = fetch_columns_info(con,for_predict = True)
+    fixed_columns = raw_columns
 
-def fetch_columns_info(con):
+    # check if feature table exist
+    if not table_exists(con,"feature"):
+        types = {k:v.typ for k,v in columns_dict.items()}
+        nominals = {k:v.n for k,v in columns_dict.items()}
+        create_table(con,"feature",types,nominals,unique_ls = ["info_horse_id"])
+
+    columns = fixed_columns
+    columns_txt = ",".join(columns_query)
+
+    # add the optional column
+    sql = """SELECT {0} FROM horse_info as hi
+             LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
+             LEFT JOIN last_info on hi.horse_id = last_info.horse_id
+             LEFT JOIN train_info on hi.horse_id = train_info.horse_id
+             LEFT JOIN race_info on hi.race_id = race_info.race_id
+             LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
+             LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
+             LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
+             LEFT JOIN result as p4 ON hi.pre4_result_id = p4.result_id
+             LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
+
+    cur = con.execute(sql)
+    for count,row in enumerate(cur):
+        if count % 100 == 0:
+            if show_progress:
+                sys.stdout.write("{0} rows have finished \r".format(str(count)))
+                sys.stdout.flush()
+            con.commit()
+        container = Container()
+        for col_name,value in zip(columns,row):
+            typ = columns_dict[col_name].typ
+            if typ == NOM_SYNBOL:
+                maybe = Maybe(typ,[value])
+            else:
+                maybe = Maybe(typ,value)
+            container[col_name] = maybe
+
+        insert_container(con,"feature",container)
+    if show_progress:
+        print("")
+    con.commit()
+
+def fetch_columns_info(con,for_predict = False):
     columns_list = []
     columns_dict = {}
     columns_query = []
@@ -881,12 +965,13 @@ def fetch_columns_info(con):
     hi_fixed = fixed_column_dict(con,"horse_info","info")
     columns_dict.update(hi_fixed)
 
-    po_raw_col = column_list(con,"payoff")
-    for c in po_raw_col:
-        columns_list.append("payoff_{0}".format(c))
-        columns_query.append("payoff.{0} as 'payoff_{0}'".format(c))
-    po_fixed = fixed_column_dict(con,"payoff","payoff")
-    columns_dict.update(po_fixed)
+    if not for_predict:
+        po_raw_col = column_list(con,"payoff")
+        for c in po_raw_col:
+            columns_list.append("payoff_{0}".format(c))
+            columns_query.append("payoff.{0} as 'payoff_{0}'".format(c))
+        po_fixed = fixed_column_dict(con,"payoff","payoff")
+        columns_dict.update(po_fixed)
 
     res_raw_col = column_list(con,"result")
     for i in range(5):
@@ -916,6 +1001,14 @@ def fetch_columns_info(con):
         columns_query.append("last_info.{0} as 'linfo_{0}'".format(c))
     li_fixed = fixed_column_dict(con,"last_info","linfo")
     columns_dict.update(li_fixed)
+
+    ti_raw_col = column_list(con,"train_info")
+    for c in ti_raw_col:
+        columns_list.append("tinfo_{0}".format(c))
+        columns_query.append("train_info.{0} as 'tinfo_{0}'".format(c))
+    ti_fixed = fixed_column_dict(con,"train_info","tinfo")
+    columns_dict.update(ti_fixed)
+
     return (columns_list,columns_dict,columns_query)
 
 

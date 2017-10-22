@@ -17,13 +17,15 @@ import util
 import evaluate
 
 LOOSE_VALUE = -100
-#LOOSE_VALUE = -0.1
 DONT_BUY_VALUE = 0
+REWARD_THREHOLD = 30
+EVALUATE_INTERVAL = 5
+MAX_ITERATION = 1000
 
 def main():
     predict_type = "place_payoff"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v6.db"
+    db_path = "db/output_v7.db"
     use_cache = False
 
     datasets = generate_dataset(predict_type,db_path,config)
@@ -94,7 +96,7 @@ def dnn(features,datasets):
 
     #main_loop
     gene = dataset_generator(train_x,train_action)
-    max_iteration = 500
+    max_iteration = MAX_ITERATION
     batch_size = 100
 
     for count in range(max_iteration):
@@ -116,11 +118,12 @@ def dnn(features,datasets):
         y = np.array(y_ls)
         prob_threnold = max(float(100 - count),1)/1000
         model.fit(x,y,verbose = 0,epochs = 1)
-        evaluate(count,model,test_x,test_action)
+        if count % EVALUATE_INTERVAL == 0:
+            evaluate(count,model,test_x,test_action)
 
 def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 44, kernel_initializer = "he_normal"))
+    nn.add(Dense(units=hidden_1,input_dim = 129, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
@@ -135,18 +138,26 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250)
 def evaluate(step,model,x,y):
     total_reward = 0
     total_buy = 0
+    total_hit = 0
     for i in range(len(x)):
         rx = x.iloc[i]
         ry = y.iloc[i]
-        action = get_action(model,rx.as_matrix(),is_predict = True)[:,1].sum()
+        is_win = ry.iloc[:,1].clip(lower = 0.0,upper = 1.0)
+        buy = get_action(model,rx.as_matrix(),is_predict = True)[:,1]
+        buy_num = buy.sum()
+        is_hit = 1 if np.dot(is_win,buy) > 0 else 0
         reward = get_reward(model,rx,ry,is_predict = True)
         total_reward += reward
-        total_buy += action
+        total_buy += buy_num
+        total_hit += is_hit
     avg_reward = total_reward/float(len(x))
     avg_buy = total_buy/float(len(x))
+    avg_hit = total_hit/float(len(x))
     print("Step: {0}".format(step))
-    print("Profit: {0}".format(avg_reward))
-    print("Buy : {0} ticket/race".format(avg_buy))
+    print("Profit: {0} yen/race".format(avg_reward))
+    print("Hit: {0} tickets/race".format(avg_hit))
+    print("Buy : {0} tickets/race".format(avg_buy))
+    print("")
 
 
 def dataset_generator(x,y,batch_size = 100):
@@ -179,8 +190,8 @@ def get_action(model,x,is_predict = False,threhold = 0.1):
     return action
 
 def clip(y):
-    y[y<=0] = -1
-    y[y>0] = 1
+    y[y<=REWARD_THREHOLD] = -1
+    y[y>REWARD_THREHOLD] = 1
     return y
 
 def others(df,idx):

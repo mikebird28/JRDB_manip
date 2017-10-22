@@ -20,7 +20,7 @@ import evaluate
 def main():
     config = util.get_config("config/config.json")
     #generate dataset
-    db_path = "db/output_v6.db"
+    db_path = "db/output_v7.db"
     predict_type = "is_win"
     pca = PCA(n_components = 100)
 
@@ -103,14 +103,14 @@ def main():
         "test_rp_place": test_rp_place
     }
 
-    #dnn(config.features,datasets)
-    dnn_wigh_bayessearch(config.features,datasets)
+    dnn(config.features,datasets)
+    #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def create_model(activation = "relu",dropout = 0.33,hidden_1 = 138,hidden_2 = 265,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 172, kernel_initializer = "he_normal"))
+    nn.add(Dense(units=hidden_1,input_dim = 179, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
@@ -140,7 +140,7 @@ def dnn(features,datasets):
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
     model =  KerasClassifier(create_model,batch_size = 300,verbose = 1)
-    model.fit(train_x,train_y)
+    model.fit(train_x,train_y,epochs = 30)
 
     pred = model.predict(test_x)
     accuracy = accuracy_score(test_y,pred)
@@ -216,7 +216,7 @@ def dnn_wigh_bayessearch(features,datasets):
         "dropout" : (0.3,1.0)
     }
 
-    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 15,verbose = 2)
+    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 25,verbose = 2)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)
