@@ -100,6 +100,29 @@ def pad_race(x,y,n=18):
     dfy = df.loc[:,y_col]
     return (dfx,dfy)
 
+def pad_race_x(df):
+    x_col = df.columns.tolist()
+    df = df.sort_values(by = "info_race_id",ascending = True)
+    df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
+
+    size = df.groupby("info_race_id").size().reset_index(name = "counts")
+    mean = df.groupby("info_race_id").mean().reset_index()
+    target_columns = x_col
+
+    merged = mean.merge(size,on = "info_race_id",how="inner")
+    ls = []
+    for i,row in merged.iterrows():
+        rid = row["info_race_id"]
+        hnum = row["counts"]
+        pad_num = n - row["counts"]
+        new_row = row[target_columns]
+        for i in range(pad_num):
+            ls.append(new_row)
+    pad_data = pd.DataFrame(ls,columns = target_columns)
+    df = df.append(pad_data)
+    df = df.sort_values(by = "info_race_id")
+    return df
+
 def flatten_race(df):
     ls = []
     rids = []
@@ -319,8 +342,8 @@ def to_race_panel(*args):
     cc = con.groupby("info_race_id").cumcount()
     con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
     panel = con.to_panel()
-    panel = panel.astype(np.float32)
     print(panel.dtypes)
+    panel = panel.astype(np.float32)
     panel = panel.swapaxes(0,1,copy = False)
     panel = panel.swapaxes(1,2,copy = False)
 

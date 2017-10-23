@@ -9,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 import reader
 import dataset2
 import util
+import dqn
 
 def main():
     config = util.get_config("config/config.json")
@@ -19,8 +20,7 @@ def main():
     password = raw_input(">> Enter your password: ")
     csv = fetch_csv(date,username,password)
     con = create_database(csv)
-    dataset = dataset2.load_x(con,config.features_light)
-    print(dataset.head())
+    dqn.predict(con,config)
 
 def fetch_csv(date,username,password):
     pinfo_url = "http://www.jrdb.com/member/datazip/Paci/{0}/PACI{1}.zip".format(date.year,datecode(date))

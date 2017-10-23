@@ -1,3 +1,4 @@
+#-*- coding:utf-8 -*-
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
@@ -5,9 +6,10 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from sklearn.decomposition import PCA
 from skopt import BayesSearchCV
-from keras.models import Sequential,Model
+from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Dropout
 from keras.wrappers.scikit_learn import KerasRegressor
+import keras.optimizers
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -15,30 +17,44 @@ import feature
 import dataset2
 import util
 import evaluate
+import pickle
 
 LOOSE_VALUE = -100
 DONT_BUY_VALUE = 0
-REWARD_THREHOLD = 30
+REWARD_THREHOLD = 20
 EVALUATE_INTERVAL = 5
-MAX_ITERATION = 1000
+MAX_ITERATION = 1500
+MODEL_PATH = "./models/dqn_model.h5"
+MEAN_PATH = "./models/dqn_mean.pickle"
+STD_PATH = "./models/dqn_std.pickle"
 
 def main():
     predict_type = "place_payoff"
     config = util.get_config("config/config.json")
     db_path = "db/output_v7.db"
-    use_cache = False
 
     db_con = sqlite3.connect(db_path)
-    datasets = generate_dataset(predict_type,db_path,config)
+    datasets = generate_dataset(predict_type,db_con,config)
     dnn(config.features_light,datasets)
-    #dnn_wigh_bayessearch(config.features,datasets)
-    #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+
+def predict(db_con,config):
+    x = dataset2.load_x(db_con,config.features_light)
+    col_dic = dataset2.nominal_columns(db_con)
+    nom_col = dataset2.dummy_column(x,col_dic)
+    x = dataset2.get_dummies(x,col_dic)
+
+    x = dataset2.fillna_mean(x,"horse")
+    mean = load_value(MEAN_PATH)
+    std = load_value(STD_PATH)
+    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
+    x = dataset2.pad_race_x(x)
+    print(x)
 
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
     x,y = dataset2.load_dataset(db_con,config.features_light,["is_win","win_payoff","is_place","place_payoff"])
-    col_dic = dataset2.nominal_columns(db_path)
+    col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
 
@@ -58,6 +74,7 @@ def generate_dataset(predict_type,db_con,config):
     train_y["win_payoff"] = train_y["win_payoff"].where(train_y["win_payoff"] != 0.0,LOOSE_VALUE)
     train_y["place_payoff"] = train_y["place_payoff"].where(train_y["place_payoff"] != 0.0,LOOSE_VALUE)
     train_y["dont_buy"] = np.zeros(len(train_y.index),dtype = "float32")-DONT_BUY_VALUE
+
     train_x,train_action = dataset2.to_race_panel(train_x,train_y)
     train_x = train_x.drop("info_race_id",axis = 2)
     train_action = train_action.loc[:,:,["dont_buy",predict_type]]
@@ -82,15 +99,6 @@ def generate_dataset(predict_type,db_con,config):
         "test_action"  : test_action,
     }
     return datasets
-
-def generate_x(x):
-    x = dataset2.fillna_mean(x,"horse")
-    mean = train_x.mean(numeric_only = True)
-    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
-    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
-
-def generate_y(y):
-    pass
 
 def dnn(features,datasets):
     print("[*] training step")
@@ -123,12 +131,13 @@ def dnn(features,datasets):
             y_ls.append(new_y)
         x = np.array(x_ls)
         y = np.array(y_ls)
-        prob_threnold = max(float(100 - count),1)/1000
+        prob_threnold = max(float(100 - count),10)/1000
         model.fit(x,y,verbose = 0,epochs = 1)
         if count % EVALUATE_INTERVAL == 0:
             evaluate(count,model,test_x,test_action)
+            save_model(model,MODEL_PATH)
 
-def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250):
+def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250,hidden_3 = 80):
     nn = Sequential()
     nn.add(Dense(units=hidden_1,input_dim = 129, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
@@ -138,8 +147,16 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250)
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
+    """
+    nn.add(Dense(units=hidden_3, kernel_initializer = "he_normal"))
+    nn.add(Activation(activation))
+    nn.add(Dropout(dropout))
+    """
+
     nn.add(Dense(units=2))
-    nn.compile(loss = "mean_squared_error",optimizer="adam",metrics=["accuracy"])
+
+    opt = keras.optimizers.Nadam(lr=0.0001)
+    nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
     return nn
 
 def evaluate(step,model,x,y):
@@ -165,7 +182,6 @@ def evaluate(step,model,x,y):
     print("Hit: {0} tickets/race".format(avg_hit))
     print("Buy : {0} tickets/race".format(avg_buy))
     print("")
-
 
 def dataset_generator(x,y,batch_size = 100):
     x_col = x.axes[2].tolist()
@@ -204,6 +220,20 @@ def clip(y):
 def others(df,idx):
     df = df[~df.index.isin([idx])]
     return df
+
+def save_model(model,path):
+    print("Save model")
+    model.save(path)
+
+def save_value(v,path):
+    with open(path,"wb") as fp:
+        pickle.dump(v,fp)
+
+def load_value(path):
+    with open(path,"rb") as fp:
+        v = pickle.load(path)
+        return v
+    raise Exception ("File does not exist")
 
 if __name__=="__main__":
     main()
