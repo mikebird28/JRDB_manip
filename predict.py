@@ -7,14 +7,20 @@ import io
 import sqlite3
 from requests.auth import HTTPBasicAuth
 import reader
+import dataset2
+import util
 
 def main():
+    config = util.get_config("config/config.json")
+
     date = datetime.date.today()
     date = date.replace(day = 22)
     username = raw_input(">> Enter your username: ")
     password = raw_input(">> Enter your password: ")
     csv = fetch_csv(date,username,password)
     con = create_database(csv)
+    dataset = dataset2.load_x(con,config.features_light)
+    print(dataset.head())
 
 def fetch_csv(date,username,password):
     pinfo_url = "http://www.jrdb.com/member/datazip/Paci/{0}/PACI{1}.zip".format(date.year,datecode(date))
@@ -50,7 +56,7 @@ def fetch_csv(date,username,password):
     return file_dict
 
 def create_database(csv_dict):
-    db_con = sqlite3.connect(":memory")
+    db_con = sqlite3.connect(":memory:")
     orm_dict = {
         "CYB" : reader.TrainingInfoDatabase(db_con),
         "BAC" : reader.RaceInfoDatabase(db_con),

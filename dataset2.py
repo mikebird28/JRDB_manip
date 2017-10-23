@@ -10,23 +10,31 @@ import reader
 import pickle
 from sklearn.preprocessing import OneHotEncoder
 
-def load_dataset(db_path, features, y_col = ["is_win"]):
+def load_dataset(db_con, features, y_col = ["is_win"]):
     x_col = ["info_race_id"] + features
     dataset_x = []
     dataset_y = []
 
-    db_con = sqlite3.connect(db_path)
+    #db_con = sqlite3.connect(db_path)
     f_orm = feature.Feature(db_con)
-    for x,y in f_orm.fetch_with_xy(x_col,y_col):
+    for x,y in f_orm.fetch_xy(x_col,y_col):
         dataset_x.append(x)
         dataset_y.append(y)
     dataset_x = downcast(pd.DataFrame(dataset_x,columns = x_col))
     dataset_y = downcast(pd.DataFrame(dataset_y,columns = y_col))
     return dataset_x,dataset_y
 
-def nominal_columns(db_path):
-    con = sqlite3.connect(db_path)
-    orm = reader.ColumnInfoORM(con)
+def load_x(db_con, features):
+    x_col = ["info_race_id"] + features
+    dataset_x = []
+    f_orm = feature.Feature(db_con)
+    for x in f_orm.fetch_x(x_col):
+        dataset_x.append(x)
+    dataset_x = downcast(pd.DataFrame(dataset_x,columns = x_col))
+    return dataset_x
+
+def nominal_columns(db_con):
+    orm = reader.ColumnInfoORM(db_con)
     dic = orm.column_dict("feature")
     new_dic = {}
     for k,v in dic.items():
@@ -281,17 +289,6 @@ def to_races(*args):
     _,i = np.unique(con.columns,return_index = True)
     con = con.iloc[:,i]
 
-    """
-    cc = con.groupby("info_race_id").cumcount() 
-    con = con.set_index(["info_race_id",cc])
-    print(con)
-    print(con.axes)
-    grouped = con.groupby("info_race_id")
-    print("Panel")
-    panel = pd.Panel(grouped.groups)
-    print(panel)
-    """
-
     grouped = con.groupby("info_race_id")
     for name,group in grouped:
         for i,dataset in enumerate(args):
@@ -319,7 +316,7 @@ def to_race_panel(*args):
     _,i = np.unique(con.columns,return_index = True)
     con = con.iloc[:,i]
 
-    cc = con.groupby("info_race_id").cumcount() 
+    cc = con.groupby("info_race_id").cumcount()
     con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
     panel = con.to_panel()
     panel = panel.astype(np.float32)

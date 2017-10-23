@@ -23,7 +23,7 @@ class Feature(object):
         for row in cur:
             yield row[:-1],row[-1]
 
-    def fetch_with_xy(self,x_col,y_col,where = ""):
+    def fetch_xy(self,x_col,y_col,where = ""):
         #copy target_columns
         x_col = [v for v in x_col]
         y_col = [v for v in y_col]
@@ -39,6 +39,21 @@ class Feature(object):
         cur = self.con.execute(sql)
         for row in cur:
             yield row[:sep_idx],row[sep_idx:]
+
+    def fetch_x(self,x_col,where = ""):
+        #copy target_columns
+        x_col = [v for v in x_col]
+
+        target_col = x_col
+        columns_query = ",".join(target_col)
+        if where != "":
+            where_query = "WHERE {0}".format(where)
+        else:
+            where_query = ""
+        sql = "SELECT {0} FROM feature{1}".format(columns_query,where_query)
+        cur = self.con.execute(sql)
+        for row in cur:
+            yield row
 
 if __name__=="__main__":
     con = sqlite3.connect("db/output_v3.db")

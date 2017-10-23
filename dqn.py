@@ -28,18 +28,16 @@ def main():
     db_path = "db/output_v7.db"
     use_cache = False
 
+    db_con = sqlite3.connect(db_path)
     datasets = generate_dataset(predict_type,db_path,config)
-
     dnn(config.features_light,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
-def generate_dataset(predict_type,db_path,config):
+def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_path,config.features_light,["is_win","win_payoff","is_place","place_payoff"])
-    #y["win_payoff"] = y["win_payoff"].clip(upper = 1000)/1000
-    #y["place_payoff"] = y["place_payoff"].clip(upper = 1000)/1000
+    x,y = dataset2.load_dataset(db_con,config.features_light,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_path)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
@@ -84,6 +82,15 @@ def generate_dataset(predict_type,db_path,config):
         "test_action"  : test_action,
     }
     return datasets
+
+def generate_x(x):
+    x = dataset2.fillna_mean(x,"horse")
+    mean = train_x.mean(numeric_only = True)
+    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
+    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
+
+def generate_y(y):
+    pass
 
 def dnn(features,datasets):
     print("[*] training step")
