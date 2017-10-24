@@ -19,6 +19,7 @@ import util
 import evaluate
 import pickle
 
+USE_CACHE = False
 LOOSE_VALUE = -100
 DONT_BUY_VALUE = 0
 REWARD_THREHOLD = 20
@@ -27,6 +28,7 @@ MAX_ITERATION = 1500
 MODEL_PATH = "./models/dqn_model.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
+CACHE_PATH = "./cache"
 
 def main():
     predict_type = "place_payoff"
@@ -34,7 +36,11 @@ def main():
     db_path = "db/output_v7.db"
 
     db_con = sqlite3.connect(db_path)
-    datasets = generate_dataset(predict_type,db_con,config)
+    if USE_CACHE:
+        print("[*] load dataset from cache")
+        datasets = dataset2.load_cache(CACHE_PATH)
+    else:
+        datasets = generate_dataset(predict_type,db_con,config)
     dnn(config.features_light,datasets)
 
 def predict(db_con,config):
@@ -48,7 +54,6 @@ def predict(db_con,config):
     std = load_value(STD_PATH)
     x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
     x = dataset2.pad_race_x(x)
-    print(x)
 
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
@@ -67,13 +72,17 @@ def generate_dataset(predict_type,db_con,config):
     train_x = dataset2.fillna_mean(train_x,"horse")
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
+    save_value(mean,MEAN_PATH)
+    save_value(std,STD_PATH)
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
 
     print(">> converting train dataset to race panel")
+    train_x = dataset2.downcast(train_x)
+    train_y = dataset2.downcast(train_y)
     train_x,train_y = dataset2.pad_race(train_x,train_y)
     train_y["win_payoff"] = train_y["win_payoff"].where(train_y["win_payoff"] != 0.0,LOOSE_VALUE)
     train_y["place_payoff"] = train_y["place_payoff"].where(train_y["place_payoff"] != 0.0,LOOSE_VALUE)
-    train_y["dont_buy"] = np.zeros(len(train_y.index),dtype = "float32")-DONT_BUY_VALUE
+    train_y["dont_buy"] = np.zeros(len(train_y.index),dtype = np.float32)-DONT_BUY_VALUE
 
     train_x,train_action = dataset2.to_race_panel(train_x,train_y)
     train_x = train_x.drop("info_race_id",axis = 2)
@@ -87,7 +96,7 @@ def generate_dataset(predict_type,db_con,config):
     test_x,test_y = dataset2.pad_race(test_x,test_y)
     test_y["win_payoff"] = test_y["win_payoff"].where(test_y["win_payoff"] != 0.0,LOOSE_VALUE)
     test_y["place_payoff"] = test_y["place_payoff"].where(test_y["place_payoff"] != 0.0,LOOSE_VALUE)
-    test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = "float32")-DONT_BUY_VALUE
+    test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)-DONT_BUY_VALUE
     test_x,test_action = dataset2.to_race_panel(test_x,test_y)
     test_x = test_x.drop("info_race_id",axis = 2)
     test_action = test_action.loc[:,:,["dont_buy",predict_type]]
@@ -98,6 +107,7 @@ def generate_dataset(predict_type,db_con,config):
         "test_x"       : test_x,
         "test_action"  : test_action,
     }
+    dataset2.save_cache(datasets,CACHE_PATH)
     return datasets
 
 def dnn(features,datasets):
@@ -139,7 +149,7 @@ def dnn(features,datasets):
 
 def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250,hidden_3 = 80):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 129, kernel_initializer = "he_normal"))
+    nn.add(Dense(units=hidden_1,input_dim = 133, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 

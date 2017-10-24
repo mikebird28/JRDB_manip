@@ -84,21 +84,24 @@ def pad_race(x,y,n=18):
     target_columns = columns
 
     merged = mean.merge(size,on = "info_race_id",how="inner")
+    for col in merged.columns:
+        if col != "info_race_id" and col != "counts":
+            merged[col] = merged[col].astype(np.float32)
+
+    #con = con.loc[:,~con.columns.duplicated()]
+    del mean
+    del size
+
     ls = []
     for i,row in merged.iterrows():
-        rid = row["info_race_id"]
-        hnum = row["counts"]
         pad_num = n - row["counts"]
         new_row = row[target_columns]
-        for i in range(pad_num):
-            ls.append(new_row)
-    pad_data = pd.DataFrame(ls,columns = target_columns)
-    df = df.append(pad_data)
+        ls.extend([new_row for i in range(pad_num)])
+    df = df.append(pd.DataFrame(ls,columns = target_columns))
+    print(df.dtypes)
+    del ls
     df = df.sort_values(by = "info_race_id")
-    size = df.groupby("info_race_id").size().reset_index(name="counts")
-    dfx = df.loc[:,x_col]
-    dfy = df.loc[:,y_col]
-    return (dfx,dfy)
+    return (df.loc[:,x_col],df.loc[:,y_col])
 
 def pad_race_x(df):
     x_col = df.columns.tolist()
@@ -332,35 +335,43 @@ def to_race_panel(*args):
         if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
             dataset["info_race_id"] = dataset["info_race_id"].astype(str)
 
-    races = [[] for dataset in args]
-    con = pd.concat(args,axis = 1)
+    df = pd.concat(args,axis = 1)
+    columns = [dataset.columns for dataset in args]
+    del args
 
     #delete duplicate columns
-    _,i = np.unique(con.columns,return_index = True)
-    con = con.iloc[:,i]
+    _,i = np.unique(df.columns,return_index = True)
+    df = df.iloc[:,i]
 
-    cc = con.groupby("info_race_id").cumcount()
-    con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
+    cc = df.groupby("info_race_id").cumcount()
+    df = df.set_index(["info_race_id",cc]).sort_index(1,level = 1)
+    type_dict = df.dtypes.to_dict()
 
-    panels = []
+    panel = None
     batch_size = 10
-    iter_times = len(con.columns)/batch_size
+    iter_times = len(df.columns)//batch_size + 1
+    df_columns = df.columns
+    
     for i in range(iter_times):
-        target = range(i,min(i+10,len(con.columns)))
-        partial_df = df.iloc[:,target]
-        partial_panel = partial_df.to_panel()
+        starts = i*batch_size
+        ends   = min((i+1)*batch_size,len(df_columns))
+        target = df_columns[range(starts,ends)]
+        partial_panel = df.loc[:,target].to_panel()
+        df.drop(target,axis = 1,inplace = True)
         for col in partial_panel.axes[0]:
-            typ = con.columns[co].dtype
-            partial_panel.loc[col,:,:] = partial_panel.loc[col,:,:].astype(np.float32)
-    panel = pd.concat(panels,axis = 2)
+            typ = type_dict[col]
+            partial_panel.loc[col,:,:] = partial_panel.loc[col,:,:].astype(typ)
+        if type(panel) != type(None):
+            panel = pd.concat([panel,partial_panel],axis = 0)
+        else:
+            panel = partial_panel
+    #df = df.to_panel()
+    # f= df.astype(float32)
+    print(panel.loc["dont_buy",:,:])
     panel = panel.swapaxes(0,1,copy = False)
     panel = panel.swapaxes(1,2,copy = False)
 
-    results = []
-    for dataset in args:
-        p = panel.loc[:,:,dataset.columns]
-        results.append(p)
-    return results
+    return [panel.loc[:,:,col] for col in columns]
 
 
 def races_to_numpy(dataset):
@@ -381,15 +392,23 @@ def downcast(dataset):
             dataset[clmns] = pd.to_numeric(dataset[clmns], downcast = "integer")
     return dataset
 
-def save_cache(dir_path,dataset):
-    path_dict = {k:os.path.join(dir_path,k) for k,v in dataset.items()}
-    info_path = os.path.join(dir_path,"cache_info")
+def save_cache(dataset,path):
+    path_dict = {k:os.path.join(path,k) for k,v in dataset.items()}
+    info_path = os.path.join(path,"cache_info")
     with open(info_path,"wb") as f:
         pickle.dump(path_dict,f)
+    for k,v in path_dict.items():
+        dataset[k].to_pickle(path_dict[k])
 
 
 def load_cache(path):
-    pass
+    dataset= {}
+    info_path = os.path.join(path,"cache_info")
+    with open(info_path,"rb") as fp:
+        dic = pickle.load(fp)
+    for k,v in dic.items():
+        dataset[k] = pd.read_pickle(v)
+    return dataset
 
 if __name__=="__main__":
     config = util.get_config("config/config.json")

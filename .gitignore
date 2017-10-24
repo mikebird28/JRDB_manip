@@ -1,5 +1,7 @@
 raw_text/
 db/
+cache/
+models/
 output.db
 new_output.db
 test.db

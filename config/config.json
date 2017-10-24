@@ -171,10 +171,15 @@
         "linfo_equipment_change",
         "linfo_paddok_sign",
         "linfo_odds_score",
+        "linfo_field_status",
 
         "rinfo_distance",
         "rinfo_first_prize",
         "rinfo_discipline",
+
+        "tinfo_chasing_score",
+        "tinfo_quality_score",
+        "tinfo_quality_score_delta",
 
         "exinfo_win_per",
         "exinfo_place_per",
