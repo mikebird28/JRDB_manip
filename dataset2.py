@@ -341,9 +341,18 @@ def to_race_panel(*args):
 
     cc = con.groupby("info_race_id").cumcount()
     con = con.set_index(["info_race_id",cc]).sort_index(1,level = 1)
-    panel = con.to_panel()
-    print(panel.dtypes)
-    panel = panel.astype(np.float32)
+
+    panels = []
+    batch_size = 10
+    iter_times = len(con.columns)/batch_size
+    for i in range(iter_times):
+        target = range(i,min(i+10,len(con.columns)))
+        partial_df = df.iloc[:,target]
+        partial_panel = partial_df.to_panel()
+        for col in partial_panel.axes[0]:
+            typ = con.columns[co].dtype
+            partial_panel.loc[col,:,:] = partial_panel.loc[col,:,:].astype(np.float32)
+    panel = pd.concat(panels,axis = 2)
     panel = panel.swapaxes(0,1,copy = False)
     panel = panel.swapaxes(1,2,copy = False)
 
@@ -382,12 +391,12 @@ def save_cache(dir_path,dataset):
 def load_cache(path):
     pass
 
-
 if __name__=="__main__":
     config = util.get_config("config/config.json")
     print("loading data")
-    dx,dy = load_dataset("db/output_v6.db",config.features)
+    con = sqlite3.connect("db/output_v6.db")
+    dx,dy = load_dataset(con,config.features,["is_win"])
     print("fill with horse mean")
     dx,dy = pad_race(dx,dy)
-    dx = flatten_race2(dx)
+    dx = to_race_panel(dx)
     #fillna_mean(dx,"race")
