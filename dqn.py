@@ -155,8 +155,9 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250,
 
     nn.add(Dense(units=2))
 
-    opt = keras.optimizers.Nadam(lr=0.0001)
-    nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
+    opt = keras.optimizers.Nadam(lr=0.001)
+    #nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
+    nn.compile(loss = "hinge",optimizer=opt,metrics=["accuracy"])
     return nn
 
 def evaluate(step,model,x,y):
