@@ -97,9 +97,12 @@ def generate_dataset(predict_type,db_con,config):
     test_y["win_payoff"] = test_y["win_payoff"].where(test_y["win_payoff"] != 0.0,LOOSE_VALUE)
     test_y["place_payoff"] = test_y["place_payoff"].where(test_y["place_payoff"] != 0.0,LOOSE_VALUE)
     test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)-DONT_BUY_VALUE
+    print(test_y.head)
     test_x,test_action = dataset2.to_race_panel(test_x,test_y)
+    print(test_action.ix[:,:,"dont_buy"])
     test_x = test_x.drop("info_race_id",axis = 2)
     test_action = test_action.loc[:,:,["dont_buy",predict_type]]
+    print(test_action.ix[:,:,"dont_buy"])
 
     datasets = {
         "train_x"      : train_x,
@@ -107,7 +110,7 @@ def generate_dataset(predict_type,db_con,config):
         "test_x"       : test_x,
         "test_action"  : test_action,
     }
-    dataset2.save_cache(datasets,CACHE_PATH)
+    #dataset2.save_cache(datasets,CACHE_PATH)
     return datasets
 
 def dnn(features,datasets):

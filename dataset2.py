@@ -80,7 +80,7 @@ def pad_race(x,y,n=18):
 
     size = df.groupby("info_race_id").size().reset_index(name = "counts")
     mean = df.groupby("info_race_id").mean().reset_index()
-    mean.loc[:,y.columns] = 0
+    mean.loc[:,y.columns] = mean.loc[:,y.columns] = 0.0
     target_columns = columns
 
     merged = mean.merge(size,on = "info_race_id",how="inner")
@@ -97,8 +97,11 @@ def pad_race(x,y,n=18):
         pad_num = n - row["counts"]
         new_row = row[target_columns]
         ls.extend([new_row for i in range(pad_num)])
-    df = df.append(pd.DataFrame(ls,columns = target_columns))
-    print(df.dtypes)
+    #dtype_dict = df.dtypes.to_dict()
+    #dtype_ls = [(k,dtype_dict[k].type) for k in df.columns]
+    #print(dtype_ls)
+    #df = df.append(pd.DataFrame(ls,dtype = dtype_ls))
+    #print(df.dtypes)
     del ls
     df = df.sort_values(by = "info_race_id")
     return (df.loc[:,x_col],df.loc[:,y_col])
@@ -352,6 +355,7 @@ def to_race_panel(*args):
     iter_times = len(df.columns)//batch_size + 1
     df_columns = df.columns
     
+    """
     for i in range(iter_times):
         starts = i*batch_size
         ends   = min((i+1)*batch_size,len(df_columns))
@@ -365,13 +369,17 @@ def to_race_panel(*args):
             panel = pd.concat([panel,partial_panel],axis = 0)
         else:
             panel = partial_panel
-    #df = df.to_panel()
-    # f= df.astype(float32)
-    print(panel.loc["dont_buy",:,:])
-    panel = panel.swapaxes(0,1,copy = False)
-    panel = panel.swapaxes(1,2,copy = False)
+    """
+    df = df.to_panel()
+    df = df.astype(np.float32)
+    #print(panel.loc["dont_buy",:,:])
+    #panel = panel.swapaxes(0,1,copy = False)
+    df = df.swapaxes(0,1,copy = False)
+    #panel = panel.swapaxes(1,2,copy = False)
+    df = df.swapaxes(1,2,copy = False)
 
-    return [panel.loc[:,:,col] for col in columns]
+    #return [panel.loc[:,:,col] for col in columns]
+    return [df.loc[:,:,col] for col in columns]
 
 
 def races_to_numpy(dataset):
