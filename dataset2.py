@@ -73,14 +73,14 @@ def add_race_info(x,y,race_info):
 def pad_race(x,y,n=18):
     x_col = x.columns.tolist()
     y_col = y.columns.tolist()
-    columns = x_col + y_col
+    columns = y_col + x_col
     df = pd.concat([y,x],axis = 1)
     df = df.sort_values(by = "info_race_id",ascending = True)
     df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
 
     size = df.groupby("info_race_id").size().reset_index(name = "counts")
     mean = df.groupby("info_race_id").mean().reset_index()
-    mean.loc[:,y.columns] = mean.loc[:,y.columns] = 0.0
+    mean.loc[:,y_col] = 0.0
     target_columns = columns
 
     merged = mean.merge(size,on = "info_race_id",how="inner")
@@ -88,7 +88,6 @@ def pad_race(x,y,n=18):
         if col != "info_race_id" and col != "counts":
             merged[col] = merged[col].astype(np.float32)
 
-    #con = con.loc[:,~con.columns.duplicated()]
     del mean
     del size
 
@@ -354,7 +353,7 @@ def to_race_panel(*args):
     batch_size = 10
     iter_times = len(df.columns)//batch_size + 1
     df_columns = df.columns
-    
+
     """
     for i in range(iter_times):
         starts = i*batch_size

@@ -4,7 +4,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
-from sklearn.decomposition import PCA
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Dropout
@@ -12,12 +11,8 @@ from keras.wrappers.scikit_learn import KerasRegressor
 import keras.optimizers
 import numpy as np
 import pandas as pd
-import sqlite3
-import feature
-import dataset2
-import util
-import evaluate
-import pickle
+import sqlite3, pickle
+import dataset2, util, evaluate, feature
 
 USE_CACHE = False
 LOOSE_VALUE = -100
