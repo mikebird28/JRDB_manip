@@ -14,13 +14,14 @@ import pandas as pd
 import sqlite3, pickle
 import dataset2, util, evaluate, feature
 
-USE_CACHE = False
+USE_CACHE = True
 LOOSE_VALUE = -100
 DONT_BUY_VALUE = 0
 REWARD_THREHOLD = 20
 EVALUATE_INTERVAL = 5
 MAX_ITERATION = 1500
-MODEL_PATH = "./models/dqn_model.h5"
+MODEL_PATH = "./models/dqn_model2.h5"
+PREDICT_MODEL_PATH = "./models/dqn_model.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
 CACHE_PATH = "./cache"
@@ -39,21 +40,51 @@ def main():
     dnn(config.features_light,datasets)
 
 def predict(db_con,config):
-    x = dataset2.load_x(db_con,config.features_light)
+    add_col = ["info_horse_name"]
+    raw_x = dataset2.load_x(db_con,config.features_light+add_col)
     col_dic = dataset2.nominal_columns(db_con)
-    nom_col = dataset2.dummy_column(x,col_dic)
-    x = dataset2.get_dummies(x,col_dic)
+    nom_col = dataset2.dummy_column(raw_x,col_dic)
+    raw_x = dataset2.get_dummies(raw_x,col_dic)
+    target_columns = []
 
-    x = dataset2.fillna_mean(x,"horse")
+    remove = ["info_race_id","info_horse_name","info_race_name"]
+    for col in raw_x.columns:
+        if col not in remove:
+            target_columns.append(col)
+
+    x = dataset2.fillna_mean(raw_x,"horse")
     mean = load_value(MEAN_PATH)
     std = load_value(STD_PATH)
-    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
+    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col+add_col)
     x = dataset2.pad_race_x(x)
+    print(x)
+    x = dataset2.to_race_panel(x)[0]
+
+    inputs = x.loc[:,:,target_columns]
+    model = load_model(PREDICT_MODEL_PATH)
+    actions = []
+    for i in range(len(inputs)):
+        rx = x.iloc[i,:,:]
+        ri = inputs.iloc[i,:,:]
+
+        a = get_action(model,ri.as_matrix(),is_predict = True)
+        a = pd.DataFrame(a,columns = ["dont_buy","buy"])
+        rx = pd.concat([rx,a],axis = 1)
+        #print(rx.iloc[:,"info_race_id"])
+        rx = rx.sort_values(["info_horse_number"])
+        print(rx.loc[:,["info_horse_name","info_horse_number","buy"]])
+        print("")
+        if i > 10:
+            break
+    actions = pd.Panel(actions)
+
+    print(actions)
 
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_con,config.features_light,["is_win","win_payoff","is_place","place_payoff"])
+    features = config.features_light
+    x,y = dataset2.load_dataset(db_con,features,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
@@ -88,14 +119,15 @@ def generate_dataset(predict_type,db_con,config):
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
     print(">> converting test dataset to race panel")
+    print(test_y.head())
     test_x,test_y = dataset2.pad_race(test_x,test_y)
     test_y["win_payoff"] = test_y["win_payoff"].where(test_y["win_payoff"] != 0.0,LOOSE_VALUE)
     test_y["place_payoff"] = test_y["place_payoff"].where(test_y["place_payoff"] != 0.0,LOOSE_VALUE)
     test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)-DONT_BUY_VALUE
-    print(test_y.head)
     test_x,test_action = dataset2.to_race_panel(test_x,test_y)
     print(test_action.ix[:,:,"dont_buy"])
     test_x = test_x.drop("info_race_id",axis = 2)
+    test_x = test_x.loc[:,:,features]
     test_action = test_action.loc[:,:,["dont_buy",predict_type]]
     print(test_action.ix[:,:,"dont_buy"])
 
@@ -105,7 +137,7 @@ def generate_dataset(predict_type,db_con,config):
         "test_x"       : test_x,
         "test_action"  : test_action,
     }
-    #dataset2.save_cache(datasets,CACHE_PATH)
+    dataset2.save_cache(datasets,CACHE_PATH)
     return datasets
 
 def dnn(features,datasets):
@@ -139,7 +171,7 @@ def dnn(features,datasets):
             y_ls.append(new_y)
         x = np.array(x_ls)
         y = np.array(y_ls)
-        prob_threnold = max(float(100 - count),10)/1000
+        prob_threnold = max(float(100 - count),1.0)/1000
         model.fit(x,y,verbose = 0,epochs = 1)
         if count % EVALUATE_INTERVAL == 0:
             evaluate(count,model,test_x,test_action)
@@ -163,9 +195,9 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 250,
 
     nn.add(Dense(units=2))
 
-    opt = keras.optimizers.Nadam(lr=0.001)
+    opt = keras.optimizers.Adam(lr=0.001)
     #nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
-    nn.compile(loss = "hinge",optimizer=opt,metrics=["accuracy"])
+    nn.compile(loss = "squared_hinge",optimizer=opt,metrics=["accuracy"])
     return nn
 
 def evaluate(step,model,x,y):
@@ -224,6 +256,7 @@ def get_action(model,x,is_predict = False,threhold = 0.1):
 def clip(y):
     y[y<=REWARD_THREHOLD] = -1
     y[y>REWARD_THREHOLD] = 1
+    #y[y>REWARD_THREHOLD] = y[y>REWARD_THREHOLD]/100.0 + 1.0
     return y
 
 def others(df,idx):
@@ -240,7 +273,7 @@ def save_value(v,path):
 
 def load_value(path):
     with open(path,"rb") as fp:
-        v = pickle.load(path)
+        v = pickle.load(fp)
         return v
     raise Exception ("File does not exist")
 

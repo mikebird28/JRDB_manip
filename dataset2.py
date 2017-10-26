@@ -99,13 +99,13 @@ def pad_race(x,y,n=18):
     #dtype_dict = df.dtypes.to_dict()
     #dtype_ls = [(k,dtype_dict[k].type) for k in df.columns]
     #print(dtype_ls)
-    #df = df.append(pd.DataFrame(ls,dtype = dtype_ls))
+    df = df.append(pd.DataFrame(ls))
     #print(df.dtypes)
     del ls
     df = df.sort_values(by = "info_race_id")
     return (df.loc[:,x_col],df.loc[:,y_col])
 
-def pad_race_x(df):
+def pad_race_x(df,n = 18):
     x_col = df.columns.tolist()
     df = df.sort_values(by = "info_race_id",ascending = True)
     df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
@@ -370,7 +370,11 @@ def to_race_panel(*args):
             panel = partial_panel
     """
     df = df.to_panel()
-    df = df.astype(np.float32)
+    remove = ["info_horse_name","info_race_name"]
+    for col in df.axes[0]:
+        if col not in remove:
+            df.loc[col,:,:] = df.loc[col,:,:].astype(np.float32)
+    #df = df.astype(np.float32)
     #print(panel.loc["dont_buy",:,:])
     #panel = panel.swapaxes(0,1,copy = False)
     df = df.swapaxes(0,1,copy = False)

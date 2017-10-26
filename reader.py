@@ -285,7 +285,7 @@ class HorseInfoDatabase(BaseORM):
         c.horse_number         = to_integer(line[8:10])  #馬番
         c.horse_id             = to_string(line[0:10])   #馬キー
         c.pedigree_id          = to_integer(line[10:18])  #血統登録番号
-        #c.horse_name           = to_unicode(line[18:54]) #名前
+        c.horse_name           = to_unicode(line[18:54]) #名前
 
         c.idm                  = to_float(line[54:59])   #IDM
         c.jockey_score         = to_float(line[59:64])   #騎手指数
@@ -485,7 +485,7 @@ class ResultDatabase(BaseORM):
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
         c.registered_date      = to_string(line[18:26])  #登録日
 
-        #c.horse_name           = to_unicode(line[26:62]) #名前
+        c.horse_name           = to_unicode(line[26:62]) #名前
         c.distance             = to_integer(line[62:66]) #距離
         c.discipline           = to_nominal(line[66],n = 3)    #芝ダ障害コード
         c.left_or_right        = to_nominal(line[67],n = 3)    #右左
@@ -497,7 +497,7 @@ class ResultDatabase(BaseORM):
         c.race_remarks         = to_integer(line[75:78])   #記号
         c.race_weights         = to_integer(line[78])      #重量
         c.race_grade           = to_integer(line[79])      #グレード
-        #c.race_name            = to_unicode(line[80:130])  #レース名
+        c.race_name            = to_unicode(line[80:130])  #レース名
         c.race_headcount       = to_integer(line[130:132]) #頭数
         #c.race_alias           = to_unicode(line[132:140]) #レース名略称
 
