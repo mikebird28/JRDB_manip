@@ -15,7 +15,7 @@ def main():
     config = util.get_config("config/config.json")
 
     date = datetime.date.today()
-    date = date.replace(day = 22)
+    date = date.replace(day = 29)
     username = raw_input(">> Enter your username: ")
     password = raw_input(">> Enter your password: ")
     csv = fetch_csv(date,username,password)

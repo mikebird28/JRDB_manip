@@ -370,15 +370,13 @@ def to_race_panel(*args):
             panel = partial_panel
     """
     df = df.to_panel()
+    #print(df.loc["dont_buy",:,:])
     remove = ["info_horse_name","info_race_name"]
-    for col in df.axes[0]:
-        if col not in remove:
-            df.loc[col,:,:] = df.loc[col,:,:].astype(np.float32)
-    #df = df.astype(np.float32)
-    #print(panel.loc["dont_buy",:,:])
-    #panel = panel.swapaxes(0,1,copy = False)
+    #for col in df.axes[0]:
+    #    if col not in remove:
+    #        df.loc[col,:,:] = df.loc[col,:,:].astype(np.float32)
+    #print(df.loc["dont_buy",:,:])
     df = df.swapaxes(0,1,copy = False)
-    #panel = panel.swapaxes(1,2,copy = False)
     df = df.swapaxes(1,2,copy = False)
 
     #return [panel.loc[:,:,col] for col in columns]

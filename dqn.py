@@ -14,14 +14,14 @@ import pandas as pd
 import sqlite3, pickle
 import dataset2, util, evaluate, feature
 
-USE_CACHE = True
+USE_CACHE = False
 LOOSE_VALUE = -100
 DONT_BUY_VALUE = 0
 REWARD_THREHOLD = 20
 EVALUATE_INTERVAL = 5
-MAX_ITERATION = 1500
+MAX_ITERATION = 2000
 MODEL_PATH = "./models/dqn_model2.h5"
-PREDICT_MODEL_PATH = "./models/dqn_model.h5"
+PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
 CACHE_PATH = "./cache"
@@ -41,23 +41,24 @@ def main():
 
 def predict(db_con,config):
     add_col = ["info_horse_name"]
-    raw_x = dataset2.load_x(db_con,config.features_light+add_col)
+    features = config.features_light+add_col
+    raw_x = dataset2.load_x(db_con,features)
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(raw_x,col_dic)
     raw_x = dataset2.get_dummies(raw_x,col_dic)
-    target_columns = []
 
+    target_columns = []
     remove = ["info_race_id","info_horse_name","info_race_name"]
     for col in raw_x.columns:
         if col not in remove:
             target_columns.append(col)
+    target_columns = sorted(target_columns)
 
     x = dataset2.fillna_mean(raw_x,"horse")
     mean = load_value(MEAN_PATH)
     std = load_value(STD_PATH)
     x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col+add_col)
     x = dataset2.pad_race_x(x)
-    print(x)
     x = dataset2.to_race_panel(x)[0]
 
     inputs = x.loc[:,:,target_columns]
@@ -70,11 +71,10 @@ def predict(db_con,config):
         a = get_action(model,ri.as_matrix(),is_predict = True)
         a = pd.DataFrame(a,columns = ["dont_buy","buy"])
         rx = pd.concat([rx,a],axis = 1)
-        #print(rx.iloc[:,"info_race_id"])
-        rx = rx.sort_values(["info_horse_number"])
-        print(rx.loc[:,["info_horse_name","info_horse_number","buy"]])
+        print(rx.loc[:,["info_horse_name","buy"]])
+        #print(rx.loc[:,["info_horse_name","info_horse_number","buy"]])
         print("")
-        if i > 10:
+        if i > 12:
             break
     actions = pd.Panel(actions)
 
@@ -88,6 +88,7 @@ def generate_dataset(predict_type,db_con,config):
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
+    features = sorted(x.columns.drop("info_race_id").values.tolist())
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y,test_nums = 1000)
@@ -108,10 +109,10 @@ def generate_dataset(predict_type,db_con,config):
     train_x,train_y = dataset2.pad_race(train_x,train_y)
     train_y["win_payoff"] = train_y["win_payoff"].where(train_y["win_payoff"] != 0.0,LOOSE_VALUE)
     train_y["place_payoff"] = train_y["place_payoff"].where(train_y["place_payoff"] != 0.0,LOOSE_VALUE)
-    train_y["dont_buy"] = np.zeros(len(train_y.index),dtype = np.float32)-DONT_BUY_VALUE
+    train_y["dont_buy"] = pd.DataFrame(np.zeros(len(train_y.index))-DONT_BUY_VALUE,dtype = np.float32)
 
     train_x,train_action = dataset2.to_race_panel(train_x,train_y)
-    train_x = train_x.drop("info_race_id",axis = 2)
+    train_x = train_x.loc[:,:,features]
     train_action = train_action.loc[:,:,["dont_buy",predict_type]]
 
     print(">> filling none value of test dataset")
@@ -119,17 +120,13 @@ def generate_dataset(predict_type,db_con,config):
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
     print(">> converting test dataset to race panel")
-    print(test_y.head())
     test_x,test_y = dataset2.pad_race(test_x,test_y)
     test_y["win_payoff"] = test_y["win_payoff"].where(test_y["win_payoff"] != 0.0,LOOSE_VALUE)
     test_y["place_payoff"] = test_y["place_payoff"].where(test_y["place_payoff"] != 0.0,LOOSE_VALUE)
     test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)-DONT_BUY_VALUE
     test_x,test_action = dataset2.to_race_panel(test_x,test_y)
-    print(test_action.ix[:,:,"dont_buy"])
-    test_x = test_x.drop("info_race_id",axis = 2)
     test_x = test_x.loc[:,:,features]
     test_action = test_action.loc[:,:,["dont_buy",predict_type]]
-    print(test_action.ix[:,:,"dont_buy"])
 
     datasets = {
         "train_x"      : train_x,
@@ -245,7 +242,7 @@ def get_reward(model,x,y,is_predict = False):
 def get_action(model,x,is_predict = False,threhold = 0.1):
     pred = model.predict(x)
     action = pred.argmax(1)
-    if is_predict:
+    if not is_predict:
         for i in range(len(action)):
             prob = np.random.rand()
             if prob < threhold:
