@@ -6,7 +6,9 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model,load_model
-from keras.layers import Dense,Activation,Dropout
+from keras.layers import Dense,Activation,Input,Dropout,Concatenate
+from keras.layers.normalization import BatchNormalization
+from keras.layers.core import Lambda
 from keras.wrappers.scikit_learn import KerasRegressor
 import random
 import keras.backend as K
@@ -20,21 +22,23 @@ import dataset2, util, evaluate, feature
 
 USE_CACHE = True
 LOOSE_VALUE = -100
-DONT_BUY_VALUE = 0.0
-REWARD_THREHOLD = 0
+DONT_BUY_VALUE = -20.0
+REWARD_THREHOLD = -10
 EVALUATE_INTERVAL = 10
 MAX_ITERATION = 50000
-BATCH_SIZE = 128
-REFRESH_INTERVAL = 10 
+BATCH_SIZE = 36
+REFRESH_INTERVAL = 50 
+#PREDICT_TYPE = "win_payoff"
+PREDICT_TYPE = "place_payoff"
 MODEL_PATH = "./models/dqn_model2.h5"
 PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
-CACHE_PATH = "./cache/dqn"
+CACHE_PATH = "./cache/dueling_dqn"
 
 def main():
     #predict_type = "place_payoff"
-    predict_type = "win_payoff"
+    predict_type = PREDICT_TYPE
     config = util.get_config("config/config.json")
     db_path = "db/output_v7.db"
 
@@ -79,7 +83,6 @@ def predict(db_con,config):
         a = pd.DataFrame(a,columns = ["dont_buy","buy"])
         rx = pd.concat([rx,a],axis = 1)
         print(rx.loc[:,["info_horse_name","buy"]])
-        #print(rx.loc[:,["info_horse_name","info_horse_number","buy"]])
         print("")
         if i > 12:
             break
@@ -117,10 +120,12 @@ def generate_dataset(predict_type,db_con,config):
     train_y["win_payoff"] = train_y["win_payoff"] + LOOSE_VALUE
     train_y["place_payoff"] = train_y["place_payoff"] + LOOSE_VALUE
     train_y["dont_buy"] = pd.DataFrame(np.zeros(len(train_y.index))+DONT_BUY_VALUE,dtype = np.float32)
+    train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
+    train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)
 
-    train_x,train_action = dataset2.to_race_panel(train_x,train_y)
+    train_x,train_y = dataset2.to_race_panel(train_x,train_y)
     train_x = train_x.loc[:,:,features]
-    train_action = train_action.loc[:,:,["dont_buy",predict_type]]
+    train_y = train_y.loc[:,:,["dont_buy","place_payoff","win_payoff","is_win","is_place"]]
 
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
@@ -131,100 +136,160 @@ def generate_dataset(predict_type,db_con,config):
     test_y["win_payoff"] = test_y["win_payoff"] + LOOSE_VALUE
     test_y["place_payoff"] = test_y["place_payoff"] + LOOSE_VALUE
     test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)+DONT_BUY_VALUE
-    test_x,test_action = dataset2.to_race_panel(test_x,test_y)
+    test_y["is_win"] = test_y["win_payoff"].clip(lower = 0,upper = 1)
+    test_y["is_place"] = test_y["place_payoff"].clip(lower = 0,upper = 1)
+
+    test_x,test_y = dataset2.to_race_panel(test_x,test_y)
     test_x = test_x.loc[:,:,features]
-    test_action = test_action.loc[:,:,["dont_buy",predict_type]]
+    test_y = test_y.loc[:,:,["dont_buy","place_payoff","win_payoff","is_win","is_place"]]
 
     datasets = {
-        "train_x"      : train_x,
-        "train_action" : train_action,
-        "test_x"       : test_x,
-        "test_action"  : test_action,
+        "train_x" : train_x,
+        "train_y" : train_y,
+        "test_x"  : test_x,
+        "test_y"  : test_y,
     }
     dataset2.save_cache(datasets,CACHE_PATH)
     return datasets
 
 def dnn(features,datasets):
     print("[*] training step")
+    target_y = "is_place"
     train_x = datasets["train_x"]
-    train_action = datasets["train_action"]
-    test_x  = datasets["test_x"]
-    test_action  = datasets["test_action"]
+    train_y = datasets["train_y"].loc[:,:,[target_y]]
+    train_action = datasets["train_y"].loc[:,:,["dont_buy",PREDICT_TYPE]]
+    #train_action.loc[:,:,"dont_buy"] = -10
 
-    model =  create_model()
-    old_model = keras.models.clone_model(model)
+    test_x = datasets["test_x"]
+    test_y = datasets["test_y"].loc[:,:,target_y]
+    test_action  = datasets["test_y"].loc[:,:,["dont_buy",PREDICT_TYPE]]
+
+    rl_memory = []
+    sl_memory_x = []
+    sl_memory_y = []
+
+    p_model =  create_policy_model()
+    a_model = create_action_model()
+    old_a_model = keras.models.clone_model(a_model)
 
     #main_loop
     batch_size = BATCH_SIZE
-    gene = dataset_generator(train_x,train_action,batch_size = batch_size)
+    gene = dataset_generator(batch_size,train_x,train_y,train_action)
     max_iteration = MAX_ITERATION
 
+    total_reward = 0.0
+    avg_reward = -10
+ 
     for count in range(max_iteration):
-        raw_x,raw_y = next(gene)
+        raw_x,raw_y,raw_reward = next(gene)
         x_ls = []
         y_ls = []
-        prob_threhold = max(float(100 - count),1.0)/1000
+        a_ls = []
+        prob_threhold = max(float(100 - count),10.0)/1000
         rob_threhold = 0.0
+        total_reward = 0
+        avg_reward = -10
         for i in range(len(raw_x)):
+            prob = np.random.rand()
+            model_threhold = 0.1
+            if prob < model_threhold:
+                use_model = a_model
+            else:
+                use_model = p_model
             rx = raw_x.ix[i]
             ry = raw_y.ix[i]
+            ra = raw_reward.ix[i]
 
-            """
-            condition = np.random.randint(4)
-            if condition == 1:
-                #win  = ry[ry["place_payoff"] > 0].index
-                win  = ry[ry["win_payoff"] > 0].index
-                if len(win) == 0:
-                    continue
-                idx = random.sample(win,1)[0]
-            else:
-                #lose = ry[ry["place_payoff"] <= 0].index
-                lose = ry[ry["win_payoff"] <= 0].index
-                idx = random.sample(lose,1)[0] 
-            """
             idx = np.random.randint(18)
             new_x = rx.ix[idx]
             new_y = ry.ix[idx]
-            reward = get_reward(old_model,others(rx,idx),others(ry,idx),action_threhold = prob_threhold)
-            #reward = get_reward(model,others(rx,idx),others(ry,idx),action_threhold = prob_threhold)
-            new_y += reward
-            new_y = clip(new_y)
+            new_a = ra.ix[idx]
+            reward = get_reward(use_model,others(rx,idx),others(ra,idx),action_threhold = prob_threhold)
+            new_a += reward
+            total_reward += reward
+            new_a = clip(new_a)
+
+            if(new_a.max() > avg_reward):
+                if new_a.argmax(1) == "dont_buy":
+                    a = [1,0]
+                else:
+                    a = [0,1]
+                sl_memory_x.append(new_x)
+                sl_memory_y.append(a)
             x_ls.append(new_x)
             y_ls.append(new_y)
+            a_ls.append(new_a)
+        avg_reward = total_reward/BATCH_SIZE
+        total_reward = 0.0
         x = np.array(x_ls)
         y = np.array(y_ls)
-        hist = model.fit(x,y,verbose = 0,epochs = 1)
+        a = np.array(a_ls)
+        hist = a_model.fit(x,a,verbose = 0,epochs = 1)
+        if len(sl_memory_x) > 30:
+            sl_memory_x = np.array(sl_memory_x)
+            sl_memory_y = np.array(sl_memory_y)
+            p_model.fit(sl_memory_x,sl_memory_y,verbose = 0,epochs = 1)
+            sl_memory_x = []
+            sl_memory_y = []
         if count % EVALUATE_INTERVAL == 0:
-            evaluate(count,model,test_x,test_action)
-            print(hist.history["loss"])
-            save_model(model,MODEL_PATH)
+            evaluate(count,p_model,test_x,test_action)
+            print(hist.history["loss"][0])
+            print("")
+            #save_model(model,MODEL_PATH)
         if count % REFRESH_INTERVAL == 0:
-            old_model = keras.models.clone_model(model)
+            old_a_model = keras.models.clone_model(a_model)
 
-def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 250,hidden_3 = 80):
-    nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 134, kernel_initializer = "he_normal"))
-    nn.add(Activation(activation))
-    nn.add(Dropout(dropout))
+def create_policy_model(activation = "relu",dropout = 0.6,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
+    inputs_size = 134
+    actions_size = 2
 
-    nn.add(Dense(units=hidden_2, kernel_initializer = "he_normal"))
-    nn.add(Activation(activation))
-    nn.add(Dropout(dropout))
+    inputs = Input(shape = (inputs_size,))
+    x = inputs
 
-    """
-    nn.add(Dense(units=hidden_3, kernel_initializer = "he_normal"))
-    nn.add(Activation(activation))
-    nn.add(Dropout(dropout))
-    """
+    x = Dense(units = hidden_1)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization()(x)
+    x = Dropout(dropout)(x)
 
-    nn.add(Dense(units=2))
-    #nn.add(Activation("tanh"))
+    x = Dense(units = hidden_2)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization()(x)
+    x = Dropout(dropout)(x)
 
+    x = Dense(units = 2)(x)
+    outputs = Activation("softmax")(x)
+
+    model = Model(inputs = inputs,outputs = outputs)
     opt = keras.optimizers.Adam(lr=0.001)
-    #nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
-    #nn.compile(loss = "squared_hinge",optimizer=opt,metrics=["accuracy"])
-    nn.compile(loss = huber_loss,optimizer=opt,metrics=["accuracy"])
-    return nn
+    model.compile(loss = ["categorical_crossentropy"],optimizer=opt,metrics=["accuracy"])
+    return model
+
+def create_action_model(activation = "relu",dropout = 0.6,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
+    inputs_size = 134
+    actions_size = 2
+
+    inputs = Input(shape = (inputs_size,))
+    x = inputs
+
+    x = Dense(units = hidden_1)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization()(x)
+    x = Dropout(dropout)(x)
+
+    x = Dense(units = hidden_2)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization()(x)
+    x = Dropout(dropout)(x)
+
+    x = Dense(units = 2)(x)
+    outputs = Activation("softmax")(x)
+
+    model = Model(inputs = inputs,outputs = outputs)
+    opt = keras.optimizers.Adam(lr=0.001)
+    model.compile(loss = ["mean_squared_error"],optimizer=opt,metrics=["accuracy"])
+    #model.compile(loss = ["categorical_crossentropy"],optimizer=opt,metrics=["accuracy"])
+    return model
+
 
 def evaluate(step,model,x,y):
     total_reward = 0
@@ -248,25 +313,43 @@ def evaluate(step,model,x,y):
     print("Profit: {0} yen/race".format(avg_reward))
     print("Hit: {0} tickets/race".format(avg_hit))
     print("Buy : {0} tickets/race".format(avg_buy))
-    print("")
 
-def dataset_generator(x,y,batch_size = 100):
-    x_col = x.axes[2].tolist()
-    y_col = y.axes[2].tolist()
-    con = pd.concat([x,y],axis = 2)
+def dataset_generator(batch_size,*datasets):
+    columns = []
+    for d in datasets:
+        columns.append(d.axes[2].tolist())
+    con = pd.concat(datasets,axis = 2)
+    _,i = np.unique(con.axes[2],return_index = True)
+    con = con.iloc[:,:,i]
 
     while True:
         sample = con.sample(n = batch_size,axis = 0)
-        x = sample.loc[:,:,x_col]
-        y = sample.loc[:,:,y_col]
-        yield (x,y)
+        ret = []
+        for i,_ in enumerate(datasets):
+            ret.append(sample.loc[:,:,columns[i]])
+        yield ret
+
+
+def get_q_value(model,x,y,is_predict = False,action_threhold = 0.01):
+    x = x.as_matrix()
+    y = y.as_matrix()
+ 
+    pred,_ = model.predict(x)
+    idx = pred.argmax(1)
+    if not is_predict:
+        for i in range(len(idx)):
+            prob = np.random.rand()
+            if prob < action_threhold:
+                idx[i] = np.random.randint(2)
+    pred = pred[idx]
+    return np.sum(pred)
+
 
 def get_reward(model,x,y,is_predict = False,action_threhold = 0.01):
     x = x.as_matrix()
     y = y.as_matrix()
     action = get_action(model,x,is_predict = is_predict,threhold = action_threhold)
     rewards = (y*action).sum()
-    #rewards = sum(np.amax(model.predict(x),axis = 1))
     return rewards
 
 def get_action(model,x,is_predict = False,threhold = 0.01):
@@ -283,7 +366,7 @@ def get_action(model,x,is_predict = False,threhold = 0.01):
 def clip(y):
     y = y/100.0
     #y = y/100.0
-    #y[y<=REWARD_THREHOLD] = -1
+    #y[y<=REWARD_THREHOLD] = 0
     #y[y>REWARD_THREHOLD] = 1
     #y = y.clip(lower = -5.0,upper = 5.0)
     #y = y.clip(upper = 5.0)

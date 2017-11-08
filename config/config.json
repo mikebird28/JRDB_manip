@@ -170,8 +170,9 @@
         "linfo_basis_weight",
         "linfo_equipment_change",
         "linfo_paddok_sign",
-        "linfo_odds_score",
         "linfo_field_status",
+        "linfo_win_odds",
+        "linfo_place_odds",
 
         "rinfo_distance",
         "rinfo_first_prize",
