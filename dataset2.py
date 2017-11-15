@@ -10,16 +10,21 @@ import reader
 import pickle
 from sklearn.preprocessing import OneHotEncoder
 
-def load_dataset(db_con, features, y_col = ["is_win"]):
+def load_dataset(db_con, features, y_col = ["is_win"],limit = None):
     x_col = ["info_race_id"] + features
     dataset_x = []
     dataset_y = []
 
     #db_con = sqlite3.connect(db_path)
     f_orm = feature.Feature(db_con)
+    count = 0
     for x,y in f_orm.fetch_xy(x_col,y_col):
+        if (limit is not None) and (count > limit):
+            break
         dataset_x.append(x)
         dataset_y.append(y)
+        count += 1
+
     dataset_x = downcast(pd.DataFrame(dataset_x,columns = x_col))
     dataset_y = downcast(pd.DataFrame(dataset_y,columns = y_col))
     return dataset_x,dataset_y
@@ -167,6 +172,8 @@ def flatten_race2(df):
 
 def get_dummies(x,col_dic):
     pairs = {}
+    if type(x) == pd.Series:
+        x = x.to_frame()
     for col in x.columns:
         try:
             pairs[col] = col_dic[col] + 1
@@ -273,8 +280,15 @@ def __normalize_race(dataset,mean = None,std = None):
     pass
 
 def under_sampling(x,y,key = "is_win"):
+    if type(x) == pd.Series:
+        x = x.to_frame()
+    if type(y) == pd.Series:
+        y = y.to_frame()
+
     x_col = x.columns
     y_col = y.columns
+    x.reset_index(drop = True,inplace = True)
+    y.reset_index(drop = True,inplace = True)
     con = pd.concat([y,x],axis = 1)
     lowest_frequent_value = 1
     low_frequent_records = con.ix[con.loc[:,key] == lowest_frequent_value,:]
@@ -301,7 +315,8 @@ def over_sampling(x,y):
 def for_use(x,y,target):
     if "info_race_id" in x.columns:
         x = x.drop("info_race_id",axis = 1)
-    y = y[target].values.tolist()
+    #y = y[target].values.tolist()
+    y = y.loc[:,target]
     return (x,y)
 
 def to_races(*args):
@@ -311,6 +326,9 @@ def to_races(*args):
 
     races = [[] for dataset in args]
     #races = [np.zeros(len(dataset),18,columns)]
+    for dataset in args:
+        dataset.reset_index(inplace = True,drop = True)
+
     con = pd.concat(args,axis = 1)
 
     #delete duplicate columns
@@ -330,6 +348,8 @@ def to_races(*args):
             #race = group[columns].as_matrix()
             race = group[columns]
             races[i].append(race)
+    #for i,v in enumerate(races):
+    #    races[i] = pd.DataFrame(races[i])
     return races
 
 def to_race_panel(*args):
@@ -407,8 +427,11 @@ def save_cache(dataset,path):
     with open(info_path,"wb") as f:
         pickle.dump(path_dict,f)
     for k,v in path_dict.items():
-        dataset[k].to_pickle(path_dict[k])
-
+        if type(dataset[k]) == list:
+            with open(path_dict[k],"wb") as fp:
+                pickle.dump(dataset[k],fp)
+        else:
+            dataset[k].to_pickle(path_dict[k])
 
 def load_cache(path):
     dataset= {}
@@ -416,7 +439,8 @@ def load_cache(path):
     with open(info_path,"rb") as fp:
         dic = pickle.load(fp)
     for k,v in dic.items():
-        dataset[k] = pd.read_pickle(v)
+        with open(v,"rb") as fp:
+            dataset[k] = pickle.load(fp)
     return dataset
 
 if __name__=="__main__":

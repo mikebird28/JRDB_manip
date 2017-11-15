@@ -5,8 +5,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from skopt import BayesSearchCV
+from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
-from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add
+from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Lambda,Reshape,Flatten
 from keras.wrappers.scikit_learn import KerasRegressor
@@ -34,7 +35,7 @@ MODEL_PATH = "./models/dqn_model2.h5"
 PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
-CACHE_PATH = "./cache/dueling_dqn"
+CACHE_PATH = "./cache/multiclass"
 
 def main():
     #predict_type = "place_payoff"
@@ -48,11 +49,11 @@ def main():
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    dnn(config.features_light,datasets)
+    dnn(config.features_vector,datasets)
 
 def predict(db_con,config):
     add_col = ["info_horse_name"]
-    features = config.features_light+add_col
+    features = config.features_vector+add_col
     raw_x = dataset2.load_x(db_con,features)
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(raw_x,col_dic)
@@ -92,7 +93,7 @@ def predict(db_con,config):
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-    features = config.features_light
+    features = config.features_vector
     x,y = dataset2.load_dataset(db_con,features,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -164,20 +165,17 @@ def dnn(features,datasets):
 
 
     train_x = train_x.as_matrix()
-    #train_x = train_x.as_matrix().reshape([134*18,-1]).T
     train_y = train_y.as_matrix().reshape([18,-1]).T
 
-    #test_x = test_x.as_matrix().reshape([134*18,-1])
-    #test_x = test_x.as_matrix().reshape([-1,134*18]).T
+    test_x = test_x.as_matrix()
     test_y = test_y.as_matrix().reshape([18,-1]).T
     model =  create_model()
-    for i in range(50):
-        model.fit(train_x,train_y,epochs = 10,verbose = 2,batch_size = 300)
-        #correct,reward = top_n_k(model,test_x,test_y,test_payoff)
-        #print(correct)
-        #print(reward)
+    for i in range(1000):
+        model.fit(train_x,train_y,epochs = 1,batch_size = 300)
+        loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
+        print(loss)
+        print(accuracy)
 
-    loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
     print("")
     print("Accuracy: {0}".format(accuracy))
 
@@ -188,33 +186,39 @@ def dnn(features,datasets):
 
 
 def create_model(activation = "relu",dropout = 0.3,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
-    inputs_size = 134*18
-    actions_size = 2
-
-    inputs = Input(shape = (18,134,))
+    inputs = Input(shape = (18,132,))
     x = inputs
-    x = Reshape([18,134,1],input_shape = (inputs_size,))(x)
+    x = Reshape([18,132,1],input_shape = (132*18,))(x)
 
-    x = Conv2D(128,(1,134),padding = "valid")(x)
+    x = ZeroPadding2D([[1,1],[0,0]])(x)
+    x = Conv2D(128,(3,132),padding = "valid")(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
-    x = Conv2D(128,(1,1),padding = "valid")(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization()(x)
-    x = Dropout(dropout)(x)
+    for i in range(2):
+        tmp = x
 
-    tmp = Flatten()(x)
-    tmp = Dense(units = 18)(tmp)
+        x = ZeroPadding2D([[1,0],[0,0]])(x)
+        x = Conv2D(128,(2,1),padding = "valid")(x)
+        x = Activation(activation)(x)
+        x = Dropout(dropout)(x)
+
+        x = ZeroPadding2D([[1,0],[0,0]])(x)
+        x = Conv2D(128,(2,1),padding = "valid")(x)
+        x = Activation(activation)(x)
+        x = Dropout(dropout)(x)
+
+        x = Add()([x,tmp])
+        x = BatchNormalization()(x)
 
     x = Conv2D(1,(1,1),padding = "valid")(x)
     x = Flatten()(x)
-    x = Add()([tmp,x])
+    #x = Dense(units = 18)(x)
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
-    opt = keras.optimizers.Adam(lr=0.1)
+    opt = keras.optimizers.Adam(lr=0.01)
     model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
 

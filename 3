@@ -1,4 +1,4 @@
-#-*-coding:utf-8-*-
+
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
@@ -7,10 +7,7 @@ from sklearn.decomposition import PCA
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model
 from keras.layers import Dense,Activation,Dropout
-from keras.layers.normalization import BatchNormalization
 from keras.wrappers.scikit_learn import KerasClassifier
-from keras.regularizers import l1,l2
-import argparse
 import numpy as np
 import pandas as pd
 import sqlite3
@@ -19,41 +16,22 @@ import dataset2
 import util
 import evaluate
 import course2vec
-import place2vec
 
-CACHE_PATH = "./cache/dnn_classify"
 
-def main(use_cache = False):
-    predict_type = "is_win"
+def main():
     config = util.get_config("config/config.json")
+    #generate dataset
     db_path = "db/output_v7.db"
     db_con = sqlite3.connect(db_path)
- 
-    if use_cache:
-        print("[*] load dataset from cache")
-        datasets = dataset2.load_cache(CACHE_PATH)
-    else:
-        datasets = generate_dataset(predict_type,db_con,config)
-        dataset2.save_cache(datasets,CACHE_PATH)
-    dnn(config.features_vector,datasets)
-    #dnn_wigh_bayessearch(config.features,datasets)
-    #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
-
-
-def generate_dataset(predict_type,db_con,config):
+    predict_type = "is_win"
 
     print(">> loading dataset")
-    features = config.features_vector 
-    x,y = dataset2.load_dataset(db_con,features+["info_race_course_code"],["is_win","win_payoff","is_place","place_payoff"])
-
-    p2v = place2vec.get_vector(x)
-    x = x.drop("info_race_course_code",axis = 1)
-
+    features = config.features_vector
+    x,y = dataset2.load_dataset(db_con,features,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
     features = sorted(x.columns.drop("info_race_id").values.tolist())
-    x = concat(x,p2v)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
@@ -66,25 +44,22 @@ def generate_dataset(predict_type,db_con,config):
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
+    #train_x = dataset2.normalize(train_x,typ = "race")
 
-    c2v_x = train_x.loc[:,features]
-    c2v_df = course2vec.get_vector(c2v_x)
-    train_x = concat(train_x,c2v_df)
 
     print(">> under sampling train dataset")
-    train_x.reset_index(inplace = True,drop = True)
-    train_y.reset_index(inplace = True,drop = True)
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
+    #train_x = course2vec.add_vector(train_x)
 
 
     print(">> filling none value of test dataset")
+    #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
-
-    c2v_x = test_x.loc[:,features]
-    c2v_df = course2vec.get_vector(c2v_x)
-    test_x = concat(test_x,c2v_df)
+    tmp_x = test_x.drop("info_race_id",axis = 1)
+    race_id = test_x.loc[:,"info_race_id"]
+    #test_x = pd.concat([race_id,course2vec.add_vector(tmp_x)],axis = 1)
 
     print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
@@ -110,20 +85,25 @@ def generate_dataset(predict_type,db_con,config):
         "test_rp_win"  : test_rp_win,
         "test_rp_place": test_rp_place
     }
-    return datasets
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 102,hidden_2 = 53,hidden_3 = 135):
+    dnn(config.features_vector,datasets)
+    #dnn_wigh_bayessearch(config.features,datasets)
+    #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+
+def create_model(activation = "relu",dropout = 0.33,hidden_1 = 138,hidden_2 = 265,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 162, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 132, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
-    nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units=hidden_2, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_2, kernel_initializer = "he_normal"))
     nn.add(Activation(activation))
-    nn.add(BatchNormalization())
+    nn.add(Dropout(dropout))
+
+    nn.add(Dense(units=hidden_3, kernel_initializer = "he_normal"))
+    nn.add(Activation(activation))
     nn.add(Dropout(dropout))
 
     nn.add(Dense(units=1))
@@ -143,20 +123,18 @@ def dnn(features,datasets):
     test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
-    #model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
-    model = create_model()
-    for i in range(50):
-        print(i)
-        model.fit(train_x,train_y,epochs = 5,batch_size = 300)
-        score = model.evaluate(test_x,test_y,verbose = 0)
+    model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
+    model.fit(train_x,train_y,epochs = 10)
 
-        print("")
+    pred = model.predict(test_x)
+    #accuracy = accuracy_score(test_y,pred)
+    print("")
+    #print("Accuracy: {0}".format(accuracy))
 
-        print("test loss : {0}".format(score[0]))
-        win_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_win,test_rp_win)
-        print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
-        place_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_place,test_rp_place)
-        print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
+    win_eval  = evaluate.top_n_k(model,test_rx,test_r_win,test_rp_win)
+    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+    place_eval  = evaluate.top_n_k(model,test_rx,test_r_place,test_rp_place)
+    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 
     report = classification_report(test_y,pred)
     print(report)
@@ -216,12 +194,13 @@ def dnn_wigh_bayessearch(features,datasets):
  
     model =  KerasClassifier(create_model,epochs = 6,verbose = 0)
     paramaters = {
-        "hidden_1" : (10,500),
-        "hidden_2" : (10,500),
-        "dropout" : (0.3,0.6)
+        "hidden_1" : (50,300),
+        "hidden_2" : (50,300),
+        "hidden_3" : (50,300),
+        "dropout" : (0.3,1.0)
     }
 
-    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 2)
+    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 25,verbose = 2)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)
@@ -249,13 +228,8 @@ def dataset_for_pca(x,y,mean = None,std = None):
     x = dataset2.flatten_race2(x)
     return (x,y)
 
-def concat(a,b):
-    a.reset_index(inplace = True,drop = True)
-    b.reset_index(inplace = True,drop = True)
-    return pd.concat([a,b],axis = 1)
+def dnn_with_keras(f,train_x,train_y,test_x,test_y,test_rx,test_ry):
+    pass
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
-    parser.add_argument("-c","--cache",action="store_true",default=False)
-    args = parser.parse_args()
-    main(use_cache = args.cache)
+    main()

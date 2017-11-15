@@ -6,6 +6,25 @@ import pandas as pd
 import numpy as np
 import dataset2
 
+def top_n_k_keras(model,race_x,race_y,payoff):
+    counter = 0
+    correct = 0
+    rewards = 0
+    for x,y,p in zip(race_x,race_y,payoff):
+        pred = model.predict(x,verbose = 0)
+        binary_pred = to_descrete(pred)
+
+        y = np.array(y).ravel()
+        p = np.array(p).ravel()
+        c = np.dot(y,binary_pred)
+        ret = np.dot(p,binary_pred)
+        if c > 0:
+            correct +=1
+            rewards += ret
+        counter += 1
+    return (float(correct)/counter,float(rewards)/counter)
+
+
 def top_n_k(model,race_x,race_y,payoff):
     counter = 0
     correct = 0
