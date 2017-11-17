@@ -24,7 +24,7 @@ def main(use_cache = False):
     config = util.get_config("config/config.json")
     db_path = "db/output_v7.db"
     db_con = sqlite3.connect(db_path)
- 
+
     if use_cache:
         print("[*] load dataset from cache")
         datasets = dataset2.load_cache(CACHE_PATH)
@@ -44,7 +44,7 @@ def get_vector(x):
 def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
-    features = ["info_pedigree_id","info_race_course_code"]
+    features = ["info_pedigree_id","info_race_course_code","info_discipline"]
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]
@@ -123,6 +123,3 @@ def save_model(model,path):
 
 if __name__=="__main__":
     main()
-
-
-

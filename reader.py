@@ -478,8 +478,10 @@ class ResultDatabase(BaseORM):
 
     def parse_line(self,line):
         c = Container()
+        c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code) #場コード
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
+        c.horse_id             = to_string(line[0:10])   #馬キー
 
         c.result_id            = to_string(line[10:26])
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
@@ -803,7 +805,7 @@ class TrainingInfoDatabase(BaseORM):
         c.race_id              = to_string(line[0:8])
         c.horse_number         = to_integer(line[8:10])
         c.horse_id             = to_string(line[0:10])
-        
+
         c.training_code      = to_nominal(line[10:12],n = 11)
         c.course_type        = to_nominal(line[12],n = 5)
         c.course_type_saka   = to_integer(line[13:15])
@@ -848,20 +850,13 @@ def create_feature_table(con,show_progress = True):
         types = {k:v.typ for k,v in columns_dict.items()}
         nominals = {k:v.n for k,v in columns_dict.items()}
         create_table(con,"feature",types,nominals,unique_ls = ["info_horse_id"])
-            
-        """
-        sql_create = "CREATE TABLE feature({0})".format(",".join(fixed_columns))
-        con.execute(sql_create)
-        con.commit()
-        ci_orm = ColumnInfoORM(con)
-        for v in columns_dict.values():
-            ci_orm.insert(v.column_name,v.table_name,v.typ,v.n)
-        """
+
     columns = fixed_columns
 
     # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
              INNER JOIN payoff on hi.race_id = payoff.race_id
+             INNER JOIN result as p0 ON hi.pre0_result_id = p0.result_id
              LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
              LEFT JOIN last_info on hi.horse_id = last_info.horse_id
              LEFT JOIN train_info on hi.horse_id = train_info.horse_id
@@ -974,11 +969,11 @@ def fetch_columns_info(con,for_predict = False):
         columns_dict.update(po_fixed)
 
     res_raw_col = column_list(con,"result")
-    for i in range(5):
+    for i in range(6):
         for c in res_raw_col:
-            columns_list.append("pre{0}_{1}".format(i+1,c))
-            columns_query.append("p{0}.{1} as 'pre{0}_{1}'".format(i+1,c))
-        res_fixed = fixed_column_dict(con,"result","pre{0}".format(i+1))
+            columns_list.append("pre{0}_{1}".format(i,c))
+            columns_query.append("p{0}.{1} as 'pre{0}_{1}'".format(i,c))
+        res_fixed = fixed_column_dict(con,"result","pre{0}".format(i))
         columns_dict.update(res_fixed)
 
     ex_raw_col = column_list(con,"exinfo")
@@ -1025,7 +1020,6 @@ def fixed_column_dict(con,table_name,prefix):
         ci = ColumnInfo(cn,tn,typ,n)
         fixed_columns_dict[cn] = ci
     return fixed_columns_dict
-
 
 def column_list(con,table_name):
     columns = []
