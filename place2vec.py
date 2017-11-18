@@ -20,9 +20,10 @@ CACHE_PATH  = "./cache/place2vec"
 MODEL_PATH = "./models/place2vec.h5"
 
 def main(use_cache = False):
+    predict_type = "is_win"
     predict_type = "is_place"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v7.db"
+    db_path = "db/output_v8.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:
@@ -33,18 +34,19 @@ def main(use_cache = False):
         dataset2.save_cache(datasets,CACHE_PATH)
     dnn(datasets)
 
-def get_vector(x):
-    x = pd.get_dummies(x["info_race_course_code"]).as_matrix()
+def get_vector(x,prefix = "p2v"):
+    x = pd.DataFrame(x,columns = ["x"])
+    x = pd.get_dummies(x["x"]).as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(x))
-    columns = ["p2v_{0}".format(i) for i in range(len(vectors.columns))]
+    columns = ["{0}_{1}".format(prefix,i) for i in range(len(vectors.columns))]
     vectors.columns = columns
     return vectors
 
 def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
-    features = ["info_pedigree_id","info_race_course_code","info_discipline"]
+    features = ["info_pedigree_id","info_race_course_code"]
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]

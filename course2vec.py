@@ -205,7 +205,8 @@ def generate_dataset(predict_type,db_con,config):
     print(">> converting test dataset to race panel")
 
     con = pd.concat([train_x,train_y],axis = 1)
-    con = con[con["is_place"] == 1]
+    con = con[con["is_win"] == 1]
+    #con = con[con["is_place"] == 1]
     train_win_x = con.loc[:,features]
     train_win_y = con.loc[:,"info_race_course_code"]
     train_x_pred = train_x.loc[:,features]
@@ -213,7 +214,8 @@ def generate_dataset(predict_type,db_con,config):
     train_x_pred,train_y_pred = dataset2.under_sampling(train_x_pred,train_y_pred)
 
     con = pd.concat([test_x,test_y],axis = 1)
-    con = con[con["is_place"] == 1]
+    #con = con[con["is_place"] == 1]
+    con = con[con["is_win"] == 1]
     test_win_x = con.loc[:,features]
     test_win_y = con.loc[:,"info_race_course_code"]
     test_x_pred = test_x.loc[:,features]
@@ -278,14 +280,16 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 120,hidden_2 = 120
     inputs = Input(shape = (132,))
     x = inputs
 
+    """
     x = Dense(units = 30)(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
+    """
 
-    x = Dense(units = 15)(x)
+    x = Dense(units = 15,name = "internal")(x)
     x = Activation(activation)(x)
-    x = BatchNormalization(name = "internal")(x)
+    x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
     x = Dense(units = 11)(x)

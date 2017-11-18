@@ -23,7 +23,13 @@ def main():
     conf = util.get_config(args.config)
 
     is_test = args.is_test == "True"
-    create_db(args,is_test = is_test)
+    #create_db(args,is_test = is_test)
+
+    #create feature table
+    db_con = sqlite3.connect(args.output)
+    reader.create_feature_table(db_con)
+    db_con.close()
+
     #generate_dataset(args,conf)
 
 def create_db(args,is_test = False):
@@ -58,8 +64,8 @@ def create_db(args,is_test = False):
     csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test,start = start)
 
     #create feature table
-    reader.create_feature_table(db_con)
-    db_con.close()
+    #reader.create_feature_table(db_con)
+    #db_con.close()
 
 def generate_dataset(args,config):
     db_con = sqlite3.connect(args.output)

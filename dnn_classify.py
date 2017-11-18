@@ -27,6 +27,7 @@ def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
     db_path = "db/output_v7.db"
+    #db_path = "db/output_v8.db"
     db_con = sqlite3.connect(db_path)
  
     if use_cache:
@@ -44,16 +45,32 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
     features = config.features_vector 
-    x,y = dataset2.load_dataset(db_con,features+["info_race_course_code"],["is_win","win_payoff","is_place","place_payoff"])
+    #x,y = dataset2.load_dataset(db_con,
+    #    features+["info_race_course_code","pre1_race_course_code","pre2_race_course_code","pre3_race_course_code"],
+    #    ["is_win","win_payoff","is_place","place_payoff"])
+    x,y = dataset2.load_dataset(db_con,
+        features+["info_race_course_code"],
+        ["is_win","win_payoff","is_place","place_payoff"])
 
-    p2v = place2vec.get_vector(x)
+
+
+    p2v_0 = place2vec.get_vector(x["info_race_course_code"].as_matrix(),prefix = "pre0")
+    #p2v_1 = place2vec.get_vector(x["pre1_race_course_code"].as_matrix(),prefix = "pre1")
+    #p2v_2 = place2vec.get_vector(x["pre1_race_course_code"].as_matrix(),prefix = "pre2")
+    #p2v_3 = place2vec.get_vector(x["pre1_race_course_code"].as_matrix(),prefix = "pre3")
     x = x.drop("info_race_course_code",axis = 1)
+    #x = x.drop("pre1_race_course_code",axis = 1)
+    #x = x.drop("pre2_race_course_code",axis = 1)
+    #x = x.drop("pre3_race_course_code",axis = 1)
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
     features = sorted(x.columns.drop("info_race_id").values.tolist())
-    x = concat(x,p2v)
+    x = concat(x,p2v_0)
+    #x = concat(x,p2v_1)
+    #x = concat(x,p2v_2)
+    #x = concat(x,p2v_3)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)

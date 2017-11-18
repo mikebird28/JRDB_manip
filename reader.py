@@ -856,7 +856,7 @@ def create_feature_table(con,show_progress = True):
     # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
              INNER JOIN payoff on hi.race_id = payoff.race_id
-             INNER JOIN result as p0 ON hi.pre0_result_id = p0.result_id
+             INNER JOIN result as p0 ON hi.horse_id = p0.horse_id
              LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
              LEFT JOIN last_info on hi.horse_id = last_info.horse_id
              LEFT JOIN train_info on hi.horse_id = train_info.horse_id
