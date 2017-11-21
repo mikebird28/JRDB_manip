@@ -195,6 +195,7 @@ def get_dummies(x,col_dic):
     tmp_x = x.loc[:,columns]
 
     ohe.fit(tmp_x)
+    print(tmp_x)
     dummies = ohe.transform(tmp_x).astype(np.int8)
     dummies = pd.DataFrame(dummies,index = tmp_x.index,columns = column_name)
     x = x.drop(columns,axis = 1)

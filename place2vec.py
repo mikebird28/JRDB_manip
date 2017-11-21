@@ -21,7 +21,7 @@ MODEL_PATH = "./models/place2vec.h5"
 
 def main(use_cache = False):
     predict_type = "is_win"
-    predict_type = "is_place"
+    #predict_type = "is_place"
     config = util.get_config("config/config.json")
     db_path = "db/output_v8.db"
     db_con = sqlite3.connect(db_path)
@@ -79,19 +79,14 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(activation = "relu",dropout = 0.5,hidden_1 = 15):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 20):
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 10,name = "internal"))
-    #nn.add(Activation(activation))
-    nn.add(BatchNormalization())
-    #nn.add(Dropout(dropout))
-
-    """
+    nn.add(Dense(units=hidden_1,input_dim = 10,activity_regularizer = l2(0.00001)))
+    nn.add(Dense(units=hidden_1,input_dim = 10))
     nn.add(Activation(activation))
-    nn.add(BatchNormalization())
+    nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
-    """
 
     nn.add(Dense(units = 10))
     nn.add(Activation("softmax"))
@@ -110,13 +105,11 @@ def dnn(datasets):
     #model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
     model = create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(10):
-        print(i)
+    for i in range(100):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         score = model.evaluate(test_x,test_y,verbose = 0)
         print("test loss : {0}".format(score[0]))
-        p = internal.predict(test_x,verbose = 0)
-        print(p)
+        #p = internal.predict(test_x,verbose = 0)
     save_model(internal,MODEL_PATH)
 
 def save_model(model,path):

@@ -47,10 +47,11 @@ def generate_dataset(predict_type,db_con,config):
     features = config.features_vector 
     x,y = dataset2.load_dataset(db_con,
         features+["info_race_course_code","pre1_race_course_code","pre2_race_course_code","pre3_race_course_code"],
-        ["is_win","win_payoff","is_place","place_payoff"])
+        ["is_win","win_payoff","is_place","place_payoff","pre0_finishing_time"])
     #x,y = dataset2.load_dataset(db_con,
     #    features+["info_race_course_code"],
     #    ["is_win","win_payoff","is_place","place_payoff"])
+    print(y["pre0_finishing_time"])
 
 
 
@@ -136,7 +137,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 102,hidden_2 = 53,
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 252, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 262, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))

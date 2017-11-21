@@ -1,6 +1,5 @@
 #-*- coding:utf-8 -*-
 
-
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
@@ -10,7 +9,8 @@ from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Lambda,Reshape,Flatten
-from keras.wrappers.scikit_learn import KerasRegressor
+from keras.wrappers.scikit_learn import KerasRegressor,KerasClassifier
+import argparse
 import xgboost as xgb
 import random
 import keras.backend as K
@@ -22,14 +22,7 @@ import sqlite3, pickle
 import dataset2, util, evaluate, feature
 
 
-USE_CACHE = True
-LOOSE_VALUE = -100
-DONT_BUY_VALUE = -20.0
-REWARD_THREHOLD = -10
-EVALUATE_INTERVAL = 10
-MAX_ITERATION = 50000
 BATCH_SIZE = 36
-REFRESH_INTERVAL = 50 
 PREDICT_TYPE = "is_win"
 #PREDICT_TYPE = "place_payoff"
 MODEL_PATH = "./models/course2vec.h5"
@@ -38,19 +31,18 @@ MEAN_PATH = "./models/dqn_mean.pickle"
 STD_PATH = "./models/dqn_std.pickle"
 CACHE_PATH = "./cache/course2vec"
 
-def main():
+def main(use_cache = False):
     predict_type = PREDICT_TYPE
     config = util.get_config("config/config.json")
     db_path = "db/output_v7.db"
-
     db_con = sqlite3.connect(db_path)
-    if USE_CACHE:
+    if use_cache:
         print("[*] load dataset from cache")
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
     dnn(config.features,datasets)
-    #dnn2(config.features_light,datasets)
+    #dnn_wigh_bayessearch(config.features,datasets)
     xgboost_test(datasets)
 
 def add_vector(x):
@@ -67,8 +59,6 @@ def get_vector(x):
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(matrix_x))
     return vectors
- 
-
 
 def xgboost_test(datasets):
     train_x = datasets["train_x_pred"]
@@ -104,7 +94,7 @@ def xgboost_test(datasets):
     """
     #test_x = pd.concat([test_x,vectors,test_c],axis = 1)
     xgbc = xgb.XGBClassifier(
-        n_estimators = 1000,
+        n_estimators = 300,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -118,14 +108,6 @@ def xgboost_test(datasets):
     accuracy = accuracy_score(test_y,pred)
     print("")
     print("Accuracy: {0}".format(accuracy))
-
-    #win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
-    #print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
-    #place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
-    #print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
-
-    report = classification_report(test_y,pred)
-    #print(report)
 
     importances = xgbc.feature_importances_
     features = train_x.columns
@@ -205,8 +187,7 @@ def generate_dataset(predict_type,db_con,config):
     print(">> converting test dataset to race panel")
 
     con = pd.concat([train_x,train_y],axis = 1)
-    con = con[con["is_win"] == 1]
-    #con = con[con["is_place"] == 1]
+    con = con[con[predict_type] == 1]
     train_win_x = con.loc[:,features]
     train_win_y = con.loc[:,"info_race_course_code"]
     train_x_pred = train_x.loc[:,features]
@@ -214,8 +195,7 @@ def generate_dataset(predict_type,db_con,config):
     train_x_pred,train_y_pred = dataset2.under_sampling(train_x_pred,train_y_pred)
 
     con = pd.concat([test_x,test_y],axis = 1)
-    #con = con[con["is_place"] == 1]
-    con = con[con["is_win"] == 1]
+    con = con[con[predict_type] == 1]
     test_win_x = con.loc[:,features]
     test_win_y = con.loc[:,"info_race_course_code"]
     test_x_pred = test_x.loc[:,features]
@@ -250,7 +230,7 @@ def dnn(features,datasets):
 
     model =  create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(15):
+    for i in range(10):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print("")
@@ -258,7 +238,7 @@ def dnn(features,datasets):
         result = internal.predict(test_x,verbose = 0)
     save_model(internal,MODEL_PATH)
 
-def dnn2(features,datasets):
+def dnn_wigh_bayessearch(features,datasets):
     print("[*] training step")
     target_y = "is_win"
     train_x = datasets["train_x"].as_matrix()
@@ -267,56 +247,39 @@ def dnn2(features,datasets):
     test_x = datasets["test_x"].as_matrix()
     test_y = datasets["test_y"].as_matrix()
 
-    model =  create_model2()
-    internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(40):
-        model.fit(train_y,train_x,epochs = 1,batch_size = 300)
-        loss,accuracy = model.evaluate(test_y,test_x,verbose = 0)
-        print("")
-        print(loss)
-    #save_model(internal,MODEL_PATH)
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
-    inputs = Input(shape = (132,))
-    x = inputs
+    model =  KerasClassifier(create_model,epochs = 10,batch_size = 300,verbose = 0)
+    paramaters = {
+        "hidden_1" : (10,100),
+        "dropout" : (0.3,1.0)
+    }
 
-    """
-    x = Dense(units = 30)(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization()(x)
-    x = Dropout(dropout)(x)
-    """
+    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='f1_macro',n_iter = 1,verbose = 2)
+    cv.fit(train_x,train_y)
 
-    x = Dense(units = 15,name = "internal")(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization()(x)
-    x = Dropout(dropout)(x)
+    pred = cv.predict(test_x)
+    accuracy = accuracy_score(test_y,pred)
+    print("")
+    print("Accuracy: {0}".format(accuracy))
 
-    x = Dense(units = 11)(x)
-    outputs = Activation("softmax")(x)
+    print("Paramaters")
+    best_parameters = cv.best_params_
+    for pname in sorted(best_parameters.keys()):
+        print("{0} : {1}".format(pname,best_parameters[pname]))
 
-    model = Model(inputs = inputs,outputs = outputs)
+
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 40):
+    nn = Sequential()
+    nn.add(Dense(units=hidden_1,input_dim = 168))
+    nn.add(Activation(activation))
+    nn.add(BatchNormalization(name = "internal"))
+    nn.add(Dropout(dropout))
+
+    nn.add(Dense(units=11))
+    nn.add(Activation('softmax'))
     opt = keras.optimizers.Adam(lr=0.1)
-    model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
-    return model
-
-def create_model2(activation = "relu",dropout = 0.3,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
-    inputs = Input(shape = (11,))
-    x = inputs
-
-    x = Dense(units = 200, name = "internal")(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization()(x)
-    x = Dropout(dropout)(x)
-
-    outputs = Dense(units = 134)(x)
-
-    model = Model(inputs = inputs,outputs = outputs)
-    opt = keras.optimizers.Adam(lr=0.1)
-    model.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
-    return model
-
-
+    nn.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
+    return nn
 
 def others(df,idx):
     df = df[~df.index.isin([idx])]
@@ -336,15 +299,6 @@ def load_value(path):
         return v
     raise Exception ("File does not exist")
 
-def huber_loss(y_true,y_pred):
-    clip_value = 1.0
-    x = y_true - y_pred
-    condition = K.abs(x) < clip_value
-    squared_loss = K.square(x)
-    linear_loss = clip_value * (K.abs(x) -0.5*clip_value)
-    return tf.where(condition,squared_loss,linear_loss)
-
-
 def top_n_k(model,x,y,payoff):
     pred = model.predict(x,verbose = 0)
     binary_pred = to_descrete(pred)
@@ -363,4 +317,7 @@ def to_descrete(array):
     return res
 
 if __name__=="__main__":
-    main()
+    parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
+    parser.add_argument("-c","--cache",action="store_true",default=False)
+    args = parser.parse_args()
+    main(use_cache = args.cache)
