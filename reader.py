@@ -776,7 +776,7 @@ class LastInfoDatabase(BaseORM):
         c.leg_info             = to_nominal(line[46],n=3)
         c.basis_weight         = to_integer(line[65:68])
         c.field_status         = to_integer(line[69:71])
-        #c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
+        c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
         c.weather_code         = to_nominal(line[71], n=6)
         c.win_odds             = to_float(line[72:78])
         c.place_odds           = to_float(line[78:84])

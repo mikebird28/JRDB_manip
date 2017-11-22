@@ -423,6 +423,8 @@ def downcast(dataset):
     return dataset
 
 def save_cache(dataset,path):
+    if not os.path.exists(path):
+        os.makedirs(path)
     path_dict = {k:os.path.join(path,k) for k,v in dataset.items()}
     info_path = os.path.join(path,"cache_info")
     with open(info_path,"wb") as f:
