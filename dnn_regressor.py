@@ -101,7 +101,7 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
-def create_model(activation = "relu",dropout = 0.6,hidden_1 = 102,hidden_2 = 102,hidden_3 = 135):
+def create_model(activation = "relu",dropout = 0.8,hidden_1 = 102,hidden_2 = 102,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
