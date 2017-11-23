@@ -6,13 +6,13 @@ import pandas as pd
 import numpy as np
 import dataset2
 
-def top_n_k_keras(model,race_x,race_y,payoff):
+def top_n_k_keras(model,race_x,race_y,payoff,mode = "max"):
     counter = 0
     correct = 0
     rewards = 0
     for x,y,p in zip(race_x,race_y,payoff):
         pred = model.predict(x,verbose = 0)
-        binary_pred = to_descrete(pred)
+        binary_pred = to_descrete(pred,mode = mode)
 
         y = np.array(y).ravel()
         p = np.array(p).ravel()
@@ -69,9 +69,12 @@ def top_n_k_regress(model,race_x,race_y,payoff):
 
 
 
-def to_descrete(array):
+def to_descrete(array,mode = "max"):
     res = np.zeros_like(array)
-    res[array.argmax(0)] = 1
+    if mode == "min":
+        res[array.argmin(0)] = 1
+    elif mode == "max":
+        res[array.argmax(0)] = 1
     return res
 
 def plot_importance(column,importance):
