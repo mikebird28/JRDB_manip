@@ -94,7 +94,7 @@ def xgboost_test(datasets):
     """
     #test_x = pd.concat([test_x,vectors,test_c],axis = 1)
     xgbc = xgb.XGBClassifier(
-        n_estimators = 300,
+        n_estimators = 3000,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,

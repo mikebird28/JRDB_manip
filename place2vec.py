@@ -15,6 +15,7 @@ import util
 import sqlite3
 import dataset2
 import itertools
+import argparse
 
 CACHE_PATH  = "./cache/place2vec"
 MODEL_PATH = "./models/place2vec.h5"
@@ -46,14 +47,19 @@ def get_vector(x,prefix = "p2v"):
 def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
-    features = ["info_pedigree_id","info_race_course_code"]
+    features = ["info_pedigree_id","info_race_course_code","rinfo_discipline"]
+    target = "target"
+
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
+    print(x.dtypes)
+    x["target"] = x["info_race_course_code"] * 3 + x["rinfo_discipline"]
+    #y["target"] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]
 
     pairs = []
     for name,horse in con.groupby("info_pedigree_id"):
-        course_codes = list(horse["info_race_course_code"].unique())
+        course_codes = list(horse[target].unique())
         if len(course_codes) < 2:
             continue
         comb = itertools.permutations(course_codes,2)
@@ -79,16 +85,16 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 20):
+def create_model(input_dim = 28,activation = "relu",dropout = 0.2,hidden_1 = 20):
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 10,activity_regularizer = l2(0.00001)))
+    nn.add(Dense(units=hidden_1,input_dim = input_dim,activity_regularizer = l2(0.00001)))
     nn.add(Dense(units=hidden_1,input_dim = 10))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units = 10))
+    nn.add(Dense(units = input_dim))
     nn.add(Activation("softmax"))
 
     opt = keras.optimizers.Adam(lr=0.01)
@@ -117,4 +123,7 @@ def save_model(model,path):
     model.save(path)
 
 if __name__=="__main__":
-    main()
+    parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
+    parser.add_argument("-c","--cache",action="store_true",default=False)
+    args = parser.parse_args()
+    main(use_cache = args.cache)

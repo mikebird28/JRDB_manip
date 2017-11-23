@@ -16,6 +16,7 @@ tensorflow = "*"
 "51e9613" = {path = "/Users/keisuke/dev/src/github.com/JRDB_manip/numpy"}
 pandas = "*"
 k = "*"
+scikit-optimize = "*"
 
 
 [requires]

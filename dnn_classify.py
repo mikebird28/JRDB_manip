@@ -36,7 +36,8 @@ def main(use_cache = False):
     else:
         datasets = generate_dataset(predict_type,db_con,config)
         dataset2.save_cache(datasets,CACHE_PATH)
-    dnn(config.features_vector,datasets)
+    dnn(config.features, datasets)
+    #dnn(config.features_vector,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
@@ -44,7 +45,8 @@ def main(use_cache = False):
 def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
-    features = config.features_vector 
+    features = config.features 
+    #features = config.features_vector 
     x,y = dataset2.load_dataset(db_con,
         features+["info_race_course_code","pre1_race_course_code","pre2_race_course_code","pre3_race_course_code"],
         ["is_win","win_payoff","is_place","place_payoff"])

@@ -190,12 +190,17 @@ def get_dummies(x,col_dic):
         cols = ["{0}_{1}".format(k,i) for i in range(v)]
         column_name.extend(cols)
 
-    ohe = OneHotEncoder(n_values = n_values,sparse = False)
+    ohe = OneHotEncoder(sparse = False)
+    #ohe = OneHotEncoder(n_values = n_values,sparse = False)
     x.loc[:,columns] = x.loc[:,columns].fillna(0)
     tmp_x = x.loc[:,columns]
 
     ohe.fit(tmp_x)
-    print(tmp_x)
+    print(pairs)
+    print(ohe.active_features_)
+    print(ohe.feature_indices_)
+    print(ohe.n_values_)
+    print(tmp_x.dtypes)
     dummies = ohe.transform(tmp_x).astype(np.int8)
     dummies = pd.DataFrame(dummies,index = tmp_x.index,columns = column_name)
     x = x.drop(columns,axis = 1)
