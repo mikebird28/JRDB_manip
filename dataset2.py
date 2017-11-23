@@ -190,7 +190,6 @@ def get_dummies(x,col_dic):
         cols = ["{0}_{1}".format(k,i) for i in range(v)]
         column_name.extend(cols)
 
-    #ohe = OneHotEncoder(sparse = False)
     ohe = OneHotEncoder(n_values = n_values,sparse = False)
     x.loc[:,columns] = x.loc[:,columns].fillna(0)
     tmp_x = x.loc[:,columns]
@@ -301,10 +300,20 @@ def under_sampling(x,y,key = "is_win"):
     con_y = con.loc[:,y_col]
     return con_x,con_y
 
-def over_sampling(x,y):
+def over_sampling(x,y,key = "is_win"):
+    if type(x) == pd.Series:
+        x = x.to_frame()
+    if type(y) == pd.Series:
+        y = y.to_frame()
+
+    x_col = x.columns
+    y_col = y.columns
+    x.reset_index(drop = True,inplace = True)
+    y.reset_index(drop = True,inplace = True)
+ 
     con = pd.concat([y,x],axis = 1)
-    highest_frequent_value = 1
-    high_frequent_records = con.ix[con.iloc[:,0] == highest_frequent_value,:]
+    highest_frequent_value = 0
+    high_frequent_records = con.ix[con.loc[:,key] == highest_frequent_value,:]
     other_records = con.ix[con.iloc[:,0] != highest_frequent_value,:]
     under_sampled_records = other_records.sample(len(low_frequent_records))
     con = pd.concat([low_frequent_records,under_sampled_records])

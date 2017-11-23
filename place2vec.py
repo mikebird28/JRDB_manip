@@ -21,8 +21,8 @@ CACHE_PATH  = "./cache/place2vec"
 MODEL_PATH = "./models/place2vec.h5"
 
 def main(use_cache = False):
-    predict_type = "is_win"
-    #predict_type = "is_place"
+    #predict_type = "is_win"
+    predict_type = "is_place"
     config = util.get_config("config/config.json")
     db_path = "db/output_v8.db"
     db_con = sqlite3.connect(db_path)
@@ -52,8 +52,8 @@ def generate_dataset(predict_type,db_con,config):
 
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
     print(x.dtypes)
-    x["target"] = x["info_race_course_code"] * 3 + x["rinfo_discipline"]
-    #y["target"] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
+    #x["target"] = x["info_race_course_code"]
+    x["target"] = x["info_race_course_code"] * 4 + x["rinfo_discipline"]
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]
 
@@ -67,11 +67,13 @@ def generate_dataset(predict_type,db_con,config):
     pairs = pd.DataFrame(pairs,columns = ["x","y"])
     pairs = pairs.sample(frac=1.0).reset_index(drop = True)
 
-    x = pairs.loc[:,"x"].to_frame()
-    y = pairs.loc[:,"y"].to_frame()
+    x = pairs.loc[:,"x"]
+    y = pairs.loc[:,"y"]
 
-    x = pd.get_dummies(x["x"])
-    y = pd.get_dummies(y["y"])
+    x = dataset2.get_dummies(x,col_dic = {"x":44})
+    y = dataset2.get_dummies(y,col_dic = {"y":44})
+    x = x.drop(x.columns[0],axis = 1)
+    y = y.drop(y.columns[0],axis = 1)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 1000)
@@ -85,7 +87,7 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(input_dim = 28,activation = "relu",dropout = 0.2,hidden_1 = 20):
+def create_model(input_dim = 44,activation = "relu",dropout = 0.2,hidden_1 = 20):
     nn = Sequential()
 
     nn.add(Dense(units=hidden_1,input_dim = input_dim,activity_regularizer = l2(0.00001)))
@@ -111,7 +113,7 @@ def dnn(datasets):
     #model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
     model = create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(100):
+    for i in range(10):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         score = model.evaluate(test_x,test_y,verbose = 0)
         print("test loss : {0}".format(score[0]))
