@@ -50,6 +50,8 @@ def nominal_columns(db_con):
 def split_with_race(x,y,test_nums = 1000):
     x_col = x.columns
     y_col = y.columns
+    x.reset_index(drop = True,inplace = True)
+    y.reset_index(drop = True,inplace = True)
 
     con = pd.concat([y,x],axis = 1)
     race_id = con["info_race_id"].unique()
@@ -67,7 +69,6 @@ def add_race_info(x,y,race_info):
     y_col = y.columns
     con = pd.concat([x,y],axis = 1)
     con = con.merge(race_info,on = "info_race_id",how = "left")
-    #con = con.loc[:,~con.columns.duplicated()]
     _,i = np.unique(con.columns,return_index = True)
     con = con.iloc[:,i]
 
@@ -194,9 +195,11 @@ def get_dummies(x,col_dic):
 
     ohe.fit(tmp_x)
     dummies = ohe.transform(tmp_x).astype(np.int8)
-    dummies = pd.DataFrame(dummies,index = tmp_x.index,columns = column_name)
+    dummies = pd.DataFrame(dummies,columns = column_name)
     x = x.drop(columns,axis = 1)
-    x = x.merge(dummies,left_index = True,right_index = True)
+    x.reset_index(drop = True,inplace = True)
+    dummies.reset_index(drop = True,inplace = True)
+    x = pd.concat([x,dummies],axis = 1)
     return x
 
 def dummy_column(x,col_dic):

@@ -36,6 +36,11 @@ def create_db(args,is_test = False):
     db_con = sqlite3.connect(args.output)
     start = "031025"
 
+    #process about extra horse information
+    ex_orm = reader.ExpandedInfoDatabase(db_con)
+    csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test,start = start)
+
+
     ti_orm = reader.TrainingInfoDatabase(db_con)
     csv_to_db(args,"train_info","CYB",ti_orm,test_mode = is_test,start = start)
 
@@ -58,10 +63,6 @@ def create_db(args,is_test = False):
     #process about past race result
     rd_orm = reader.ResultDatabase(db_con)
     csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
-
-    #process about extra horse information
-    ex_orm = reader.ExpandedInfoDatabase(db_con)
-    csv_to_db(args,"expanded_info","KKA",ex_orm,test_mode = is_test,start = start)
 
     #create feature table
     #reader.create_feature_table(db_con)

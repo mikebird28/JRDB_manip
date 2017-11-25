@@ -41,6 +41,8 @@ def main(use_cache = False):
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
+    print(datasets["train_x"].isnull().sum().sum())
+    print(datasets["train_y"].isnull().sum().sum())
     dnn(config.features,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     xgboost_test(datasets)
@@ -51,10 +53,15 @@ def add_vector(x):
     vectors = pd.DataFrame(model.predict(matrix_x))
     x.reset_index(drop = True,inplace = True)
     vectors.reset_index(drop = True,inplace = True)
-    x = pd.concat([x,vectors],axis = 1)
+    x = concat(x,vectors)
     return x
 
-def get_vector(x):
+def get_vector(x,nom_col):
+ 
+    mean = load_value(MEAN_PATH)
+    std = load_value(STD_PATH)
+    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
+ 
     matrix_x = x.as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(matrix_x))
@@ -74,7 +81,7 @@ def xgboost_test(datasets):
     test_x = add_vector(test_x)
 
     xgbc = xgb.XGBClassifier(
-        n_estimators = 300,
+        n_estimators = 3000,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -137,18 +144,19 @@ def generate_dataset(predict_type,db_con,config):
     x,y = dataset2.load_dataset(db_con,features,["is_win","is_place","info_race_course_code","rinfo_discipline"])
     x_col = x.columns 
     y_col = y.columns
-    con = pd.concat([x,y],axis = 1)
+    con = concat(x,y)
     con = con[con["info_race_course_code"] != 0]
     con = con[con["rinfo_discipline"] != 0]
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
+
     y["info_race_course_code"] = y["info_race_course_code"] - 1
     y["rinfo_discipline"] = y["rinfo_discipline"] - 1
     y[target] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
-    features = sorted(x.columns.drop("info_race_id").values.tolist())
+    #features = sorted(x.columns.drop("info_race_id").values.tolist())
 
     print(">> separating dataset")
 
@@ -178,7 +186,7 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> converting test dataset to race panel")
 
-    con = pd.concat([train_x,train_y],axis = 1)
+    con = concat(train_x,train_y)
     con = con[con[predict_type] == 1]
     train_win_x = con.loc[:,features]
     train_win_y = con.loc[:,target]
@@ -186,7 +194,7 @@ def generate_dataset(predict_type,db_con,config):
     train_y_pred = train_y.loc[:,predict_type]
     train_x_pred,train_y_pred = dataset2.under_sampling(train_x_pred,train_y_pred,key = predict_type)
 
-    con = pd.concat([test_x,test_y],axis = 1)
+    con = concat(test_x,test_y)
     con = con[con[predict_type] == 1]
     test_win_x = con.loc[:,features]
     test_win_y = con.loc[:,target]
@@ -222,7 +230,7 @@ def dnn(features,datasets):
 
     model =  create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(20):
+    for i in range(100):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print("")
@@ -260,9 +268,9 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 50):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 20):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 170))
+    nn.add(Dense(units=hidden_1,input_dim = 216))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
@@ -307,6 +315,12 @@ def to_descrete(array):
     res = np.zeros_like(array)
     res[array.argmax(1)] = 1
     return res
+
+def concat(a,b):
+    a.reset_index(inplace = True,drop = True)
+    b.reset_index(inplace = True,drop = True)
+    return pd.concat([a,b],axis = 1)
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")

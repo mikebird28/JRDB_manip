@@ -37,7 +37,6 @@ def main(use_cache = False):
     else:
         datasets = generate_dataset(predict_type,db_con,config)
         dataset2.save_cache(datasets,CACHE_PATH)
-    print(datasets["train_x"])
     dnn(config.features, datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(config.features,datasets)
@@ -47,20 +46,21 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
     features = config.features 
-    #features = config.features_vector 
+
     x,y = dataset2.load_dataset(db_con,
         features+["info_race_course_code","rinfo_discipline","pre1_race_course_code","pre1_discipline","pre2_race_course_code","pre2_discipline","pre3_race_course_code","pre3_discipline"],
         ["is_win","win_payoff","is_place","place_payoff"])
-    #x,y = dataset2.load_dataset(db_con,
-    #    features+["info_race_course_code"],
-    #    ["is_win","win_payoff","is_place","place_payoff"])
-    con = pd.concat([x,y],axis = 1)
+    con = concat(x,y)
     x_col = x.columns
     y_col = y.columns
     con = con[con["info_race_course_code"] != 0]
     con = con[con["rinfo_discipline"] != 0]
     con = con[con["pre1_discipline"] != 0]
     con = con[con["pre1_race_course_code"] != 0]
+    con = con[con["pre2_discipline"] != 0]
+    con = con[con["pre2_race_course_code"] != 0]
+    con = con[con["pre3_discipline"] != 0]
+    con = con[con["pre3_race_course_code"] != 0]
  
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
@@ -73,11 +73,11 @@ def generate_dataset(predict_type,db_con,config):
     x = x.drop("pre1_race_course_code",axis = 1)
     x = x.drop("pre1_discipline",axis = 1)
 
-    #p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],prefix = "pre2")
+    p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],prefix = "pre2")
     x = x.drop("pre2_race_course_code",axis = 1)
     x = x.drop("pre2_discipline",axis = 1)
 
-    #p2v_3 = place2vec.get_vector(x["pre3_race_course_code"].as_matrix(),x["pre3_discipline"],prefix = "pre3")
+    p2v_3 = place2vec.get_vector(x["pre3_race_course_code"],x["pre3_discipline"],prefix = "pre3")
     x = x.drop("pre3_race_course_code",axis = 1)
     x = x.drop("pre3_discipline",axis = 1)
 
@@ -85,10 +85,11 @@ def generate_dataset(predict_type,db_con,config):
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
     features = sorted(x.columns.drop("info_race_id").values.tolist())
+
     x = concat(x,p2v_0)
-    #x = concat(x,p2v_1)
-    #x = concat(x,p2v_2)
-    #x = concat(x,p2v_3)
+    x = concat(x,p2v_1)
+    x = concat(x,p2v_2)
+    x = concat(x,p2v_3)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
@@ -96,15 +97,15 @@ def generate_dataset(predict_type,db_con,config):
     del y
 
     print(">> filling none value of train dataset")
-    #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
+
+    #c2v_x = train_x.loc[:,features]
+    #c2v_df = course2vec.get_vector(c2v_x,nom_col)
+    #train_x = concat(train_x,c2v_df)
+
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
-
-    c2v_x = train_x.loc[:,features]
-    c2v_df = course2vec.get_vector(c2v_x)
-    train_x = concat(train_x,c2v_df)
 
     print(">> under sampling train dataset")
     train_x.reset_index(inplace = True,drop = True)
@@ -112,14 +113,14 @@ def generate_dataset(predict_type,db_con,config):
     train_x,train_y = dataset2.under_sampling(train_x,train_y)
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
-
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
-    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
-    c2v_x = test_x.loc[:,features]
-    c2v_df = course2vec.get_vector(c2v_x)
-    test_x = concat(test_x,c2v_df)
+    #c2v_x = test_x.loc[:,features]
+    #c2v_df = course2vec.get_vector(c2v_x,nom_col)
+    #test_x = concat(test_x,c2v_df)
+
+    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
     print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
@@ -147,11 +148,11 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 100,hidden_2 = 250,hidden_3 = 135):
+def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 230, activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 240, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
@@ -179,9 +180,9 @@ def dnn(features,datasets):
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
     model = create_model()
-    for i in range(10):
+    for i in range(100):
         print(i)
-        model.fit(train_x,train_y,epochs = 5,batch_size = 1000)
+        model.fit(train_x,train_y,epochs = 1,batch_size = 1000)
         score = model.evaluate(test_x,test_y,verbose = 0)
 
         print("")

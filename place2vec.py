@@ -37,7 +37,11 @@ def main(use_cache = False):
     dnn(datasets)
 
 def get_vector(x1,x2,prefix = "p2v"):
-    #x = pd.DataFrame([x1,x2],columns = ["x1","x2"])
+    print("Attention")
+    x1 = x1.to_frame()
+    x2 = x2.to_frame()
+    x1.reset_index(drop = True,inplace = True)
+    x2.reset_index(drop = True,inplace = True)
     x = pd.concat([x1,x2],axis = 1)
     x.columns = ["x1","x2"]
     x["x1"] = x["x1"] - 1
@@ -45,11 +49,11 @@ def get_vector(x1,x2,prefix = "p2v"):
     x["target"] = x["x1"] * 3 + x["x2"]
  
     x = dataset2.get_dummies(x["target"],col_dic = {"target":32}).as_matrix()
-    #x = pd.get_dummies(x["target"]).as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(x))
     columns = ["{0}_{1}".format(prefix,i) for i in range(len(vectors.columns))]
     vectors.columns = columns
+    print(len(vectors) - vectors.count())
     return vectors
 
 def generate_dataset(predict_type,db_con,config):
@@ -57,15 +61,17 @@ def generate_dataset(predict_type,db_con,config):
     print(">> loading dataset")
     features = ["info_pedigree_id","info_race_course_code","rinfo_discipline"]
     target = "target"
+    print(1)
 
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
+    print(2)
     #x["target"] = x["info_race_course_code"]
     x = x[x["info_race_course_code"] != 0] 
     x = x[x["rinfo_discipline"] != 0] 
+    print(3)
     x["info_race_course_code"] = x["info_race_course_code"] - 1
     x["rinfo_discipline"] = x["rinfo_discipline"] - 1
     x["target"] = x["info_race_course_code"] * 3 + x["rinfo_discipline"]
-    print(x.sum())
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]
 
@@ -99,7 +105,7 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(input_dim = 33,activation = "relu",dropout = 0.2,hidden_1 = 10):
+def create_model(input_dim = 33,activation = "relu",dropout = 0.5,hidden_1 = 6):
     nn = Sequential()
 
     #nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal"))
