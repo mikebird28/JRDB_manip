@@ -54,8 +54,9 @@ def split_with_race(x,y,test_nums = 1000):
     y.reset_index(drop = True,inplace = True)
 
     con = pd.concat([y,x],axis = 1)
-    race_id = con["info_race_id"].unique()
-    test_id = random.sample(race_id,test_nums)
+    race_id = con["info_race_id"].sort_values().unique()
+    test_id = race_id[-test_nums:]
+    #test_id = random.sample(race_id,test_nums)
     test_con = con[con["info_race_id"].isin(test_id)]
     test_x = test_con.loc[:,x_col]
     test_y = test_con.loc[:,y_col]

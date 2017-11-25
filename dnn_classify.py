@@ -28,7 +28,7 @@ pd.set_option('display.max_columns', 500)
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v9.db"
+    db_path = "db/output_v10.db"
     db_con = sqlite3.connect(db_path)
  
     if use_cache:
@@ -48,7 +48,10 @@ def generate_dataset(predict_type,db_con,config):
     features = config.features 
 
     x,y = dataset2.load_dataset(db_con,
-        features+["info_race_course_code","rinfo_discipline","pre1_race_course_code","pre1_discipline","pre2_race_course_code","pre2_discipline","pre3_race_course_code","pre3_discipline"],
+        features+["info_race_course_code","rinfo_discipline","rinfo_distance",
+                  "pre1_race_course_code","pre1_discipline","pre1_distance",
+                  "pre2_race_course_code","pre2_discipline","pre2_distance",
+                  "pre3_race_course_code","pre3_discipline","pre3_distance"],
         ["is_win","win_payoff","is_place","place_payoff"])
     con = concat(x,y)
     x_col = x.columns
@@ -56,31 +59,37 @@ def generate_dataset(predict_type,db_con,config):
     con = con[con["info_race_course_code"] != 0]
     con = con[con["rinfo_discipline"] != 0]
     con = con[con["pre1_discipline"] != 0]
+    con = con[con["pre1_distance"] != 0]
     con = con[con["pre1_race_course_code"] != 0]
     con = con[con["pre2_discipline"] != 0]
+    con = con[con["pre2_distance"] != 0]
     con = con[con["pre2_race_course_code"] != 0]
-    con = con[con["pre3_discipline"] != 0]
+    con = con[con["pre3_distance"] != 0]
     con = con[con["pre3_race_course_code"] != 0]
     con.reset_index(drop = True,inplace = True)
  
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
 
-    p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],prefix = "pre0")
+    p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],x["rinfo_distance"],prefix = "pre0")
     x = x.drop("info_race_course_code",axis = 1)
     x = x.drop("rinfo_discipline",axis = 1)
+    x = x.drop("rinfo_distance",axis = 1)
 
-    p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],prefix = "pre1")
+    p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],x["pre1_distance"],prefix = "pre1")
     x = x.drop("pre1_race_course_code",axis = 1)
     x = x.drop("pre1_discipline",axis = 1)
+    x = x.drop("pre1_distance",axis = 1)
 
-    p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],prefix = "pre2")
+    p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],x["pre2_distance"],prefix = "pre2")
     x = x.drop("pre2_race_course_code",axis = 1)
     x = x.drop("pre2_discipline",axis = 1)
+    x = x.drop("pre2_distance",axis = 1)
 
-    p2v_3 = place2vec.get_vector(x["pre3_race_course_code"],x["pre3_discipline"],prefix = "pre3")
+    p2v_3 = place2vec.get_vector(x["pre3_race_course_code"],x["pre3_discipline"],x["pre3_distance"],prefix = "pre3")
     x = x.drop("pre3_race_course_code",axis = 1)
     x = x.drop("pre3_discipline",axis = 1)
+    x = x.drop("pre3_distance",axis = 1)
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -149,14 +158,14 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
-def create_model(activation = "relu",dropout = 0.4,hidden_1 = 100,hidden_2 =100,hidden_3 = 100):
+def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hidden_3 = 80):
 #def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
 
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 240, activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 275, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))

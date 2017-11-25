@@ -34,7 +34,7 @@ CACHE_PATH = "./cache/course2vec"
 def main(use_cache = False):
     predict_type = PREDICT_TYPE
     config = util.get_config("config/config.json")
-    db_path = "db/output_v9.db"
+    db_path = "db/output_v10.db"
     db_con = sqlite3.connect(db_path)
     if use_cache:
         print("[*] load dataset from cache")
@@ -81,7 +81,7 @@ def xgboost_test(datasets):
     test_x = add_vector(test_x)
 
     xgbc = xgb.XGBClassifier(
-        n_estimators = 300,
+        n_estimators = 1000,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -230,7 +230,7 @@ def dnn(features,datasets):
 
     model =  create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(100):
+    for i in range(50):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print("")
@@ -268,9 +268,9 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 25):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 40):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 216))
+    nn.add(Dense(units=hidden_1,input_dim = 251))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))

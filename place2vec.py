@@ -36,42 +36,45 @@ def main(use_cache = False):
         dataset2.save_cache(datasets,CACHE_PATH)
     dnn(datasets)
 
-def get_vector(x1,x2,prefix = "p2v"):
-    print("Attention")
+def get_vector(x1,x2,x3,prefix = "p2v"):
     x1 = x1.to_frame()
     x2 = x2.to_frame()
+    x3 = x3.to_frame()
+    x3 = dist_to_norm(x3)
+
     x1.reset_index(drop = True,inplace = True)
     x2.reset_index(drop = True,inplace = True)
+    x3.reset_index(drop = True,inplace = True)
     x = pd.concat([x1,x2],axis = 1)
-    x.columns = ["x1","x2"]
+    x.columns = ["x1","x2","x3"]
     x["x1"] = x["x1"] - 1
     x["x2"] = x["x2"] - 1
-    x["target"] = x["x1"] * 3 + x["x2"]
+    x["x3"] = x["x3"] - 1
+    x["target"] = x["x3"] * 33 +x["x1"] * 3 + x["x2"]
  
-    x = dataset2.get_dummies(x["target"],col_dic = {"target":32}).as_matrix()
+    x = dataset2.get_dummies(x["target"],col_dic = {"target":165}).as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(x))
     columns = ["{0}_{1}".format(prefix,i) for i in range(len(vectors.columns))]
     vectors.columns = columns
-    print(len(vectors) - vectors.count())
     return vectors
 
 def generate_dataset(predict_type,db_con,config):
 
     print(">> loading dataset")
-    features = ["info_pedigree_id","info_race_course_code","rinfo_discipline"]
+    features = ["info_pedigree_id","info_race_course_code","rinfo_discipline","rinfo_distance"]
     target = "target"
-    print(1)
 
     x,y = dataset2.load_dataset(db_con,features,[predict_type])
-    print(2)
-    #x["target"] = x["info_race_course_code"]
+    x["rinfo_distance"] = dist_to_norm(x["rinfo_distance"])
     x = x[x["info_race_course_code"] != 0] 
     x = x[x["rinfo_discipline"] != 0] 
-    print(3)
+    x = x[x["rinfo_distance"] != 0] 
+
     x["info_race_course_code"] = x["info_race_course_code"] - 1
     x["rinfo_discipline"] = x["rinfo_discipline"] - 1
-    x["target"] = x["info_race_course_code"] * 3 + x["rinfo_discipline"]
+    x["rinfo_distance"] = x["rinfo_distance"] - 1
+    x["target"] = x["rinfo_distance"] * 33 + x["info_race_course_code"] * 3 + x["rinfo_discipline"]
     con = pd.concat([x,y],axis = 1)
     con = con[con[predict_type] == 1]
 
@@ -88,10 +91,8 @@ def generate_dataset(predict_type,db_con,config):
     x = pairs.loc[:,"x"]
     y = pairs.loc[:,"y"]
 
-    x = dataset2.get_dummies(x,col_dic = {"x":32})
-    y = dataset2.get_dummies(y,col_dic = {"y":32})
-    print(x)
-    print(y)
+    x = dataset2.get_dummies(x,col_dic = {"x":164})
+    y = dataset2.get_dummies(y,col_dic = {"y":164})
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = train_test_split(x,y,test_size = 1000)
@@ -105,14 +106,15 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(input_dim = 33,activation = "relu",dropout = 0.5,hidden_1 = 6):
+def create_model(input_dim = 165,activation = "relu",dropout = 0.5,hidden_1 = 15):
     nn = Sequential()
 
     #nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal"))
     nn.add(Dense(units=hidden_1,input_dim = input_dim,activity_regularizer = l2(0.0)))
-    nn.add(Activation(activation))
-    nn.add(BatchNormalization(name = "internal"))
-    nn.add(Dropout(dropout))
+    nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal"))
+    #nn.add(Activation(activation))
+    #nn.add(BatchNormalization(name = "internal"))
+    #nn.add(Dropout(dropout))
 
     nn.add(Dense(units = input_dim))
     nn.add(Activation("softmax"))
@@ -131,12 +133,28 @@ def dnn(datasets):
     #model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
     model = create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(40):
+    for i in range(10):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         score = model.evaluate(test_x,test_y,verbose = 0)
         print("test loss : {0}".format(score[0]))
-        show_similarity(33,internal)
+    show_similarity(165,internal)
     save_model(internal,MODEL_PATH)
+
+def dist_to_norm(dist_array):
+    def f(x):
+        if x < 1400:
+            return 1
+        elif x<1800:
+            return 2
+        elif x < 2200:
+            return 3
+        elif x < 2800:
+            return 4
+        elif x >= 2800:
+            return 5
+        else:
+            return 0
+    return dist_array.apply(f)
 
 def save_model(model,path):
     print("Save model")

@@ -9,10 +9,12 @@ import dataset2
 def show_similarity(target_idx,vectors):
     columns_name = []
     dic_1 = [u"芝",u"ダート",u"障害"]
-    for i in range(33):
-        d = i//3
-        a = i%3
-        columns_name.append(u"{0}-{1}".format(d,dic_1[a]))
+    dic_2 = [u"短距離",u"短中距離",u"中距離",u"中長距離",u"長距離"]
+    for i in range(165):
+        dist = i//5
+        typ = i%3
+        course = i%11
+        columns_name.append(u"{0}-{1:<3}-{2:<4}".format(course,dic_1[typ],dic_2[dist]))
     results = []
     for i in range(len(vectors)):
         cs = cos_similarity(vectors[target_idx],vectors[i])
