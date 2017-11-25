@@ -194,8 +194,10 @@ def get_dummies(x,col_dic):
     tmp_x = x.loc[:,columns]
 
     ohe.fit(tmp_x)
+    print(tmp_x.index)
     dummies = ohe.transform(tmp_x).astype(np.int8)
     dummies = pd.DataFrame(dummies,columns = column_name)
+    print(dummies.index)
     x = x.drop(columns,axis = 1)
     x.reset_index(drop = True,inplace = True)
     dummies.reset_index(drop = True,inplace = True)

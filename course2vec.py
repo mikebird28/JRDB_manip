@@ -61,7 +61,7 @@ def get_vector(x,nom_col):
     mean = load_value(MEAN_PATH)
     std = load_value(STD_PATH)
     x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
- 
+
     matrix_x = x.as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(matrix_x))
@@ -81,7 +81,7 @@ def xgboost_test(datasets):
     test_x = add_vector(test_x)
 
     xgbc = xgb.XGBClassifier(
-        n_estimators = 3000,
+        n_estimators = 300,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -268,7 +268,7 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 20):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 25):
     nn = Sequential()
     nn.add(Dense(units=hidden_1,input_dim = 216))
     nn.add(Activation(activation))

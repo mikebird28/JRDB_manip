@@ -61,6 +61,7 @@ def generate_dataset(predict_type,db_con,config):
     con = con[con["pre2_race_course_code"] != 0]
     con = con[con["pre3_discipline"] != 0]
     con = con[con["pre3_race_course_code"] != 0]
+    con.reset_index(drop = True,inplace = True)
  
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
@@ -148,10 +149,13 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
+def create_model(activation = "relu",dropout = 0.4,hidden_1 = 100,hidden_2 =100,hidden_3 = 100):
+#def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
+
     nn = Sequential()
+
     nn.add(Dense(units=hidden_1,input_dim = 240, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
@@ -161,6 +165,13 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
+
+    depth = 6
+    for i in range(depth):
+        nn.add(Dense(units=hidden_3,activity_regularizer = l2(0.0)))
+        nn.add(Activation(activation))
+        nn.add(BatchNormalization())
+        nn.add(Dropout(dropout))
 
     nn.add(Dense(units=1))
     nn.add(Activation('sigmoid'))
@@ -188,6 +199,7 @@ def dnn(features,datasets):
         print("")
 
         print("test loss : {0}".format(score[0]))
+        print("test acc : {0}".format(score[1]))
         win_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_win,test_rp_win)
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_place,test_rp_place)
