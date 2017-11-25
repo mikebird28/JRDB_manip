@@ -22,12 +22,13 @@ import course2vec
 import place2vec
 
 CACHE_PATH = "./cache/dnn_classify"
+pd.options.display.max_rows = 80
+pd.set_option('display.max_columns', 500)
 
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v7.db"
-    db_path = "db/output_v8.db"
+    db_path = "db/output_v9.db"
     db_con = sqlite3.connect(db_path)
  
     if use_cache:
@@ -36,10 +37,10 @@ def main(use_cache = False):
     else:
         datasets = generate_dataset(predict_type,db_con,config)
         dataset2.save_cache(datasets,CACHE_PATH)
+    print(datasets["train_x"])
     dnn(config.features, datasets)
-    #dnn(config.features_vector,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
-    #dnn_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
+    #dnn_wigh_gridsearch(config.features,datasets)
 
 
 def generate_dataset(predict_type,db_con,config):
@@ -48,34 +49,46 @@ def generate_dataset(predict_type,db_con,config):
     features = config.features 
     #features = config.features_vector 
     x,y = dataset2.load_dataset(db_con,
-        features+["info_race_course_code","pre1_race_course_code","pre2_race_course_code","pre3_race_course_code"],
+        features+["info_race_course_code","rinfo_discipline","pre1_race_course_code","pre1_discipline","pre2_race_course_code","pre2_discipline","pre3_race_course_code","pre3_discipline"],
         ["is_win","win_payoff","is_place","place_payoff"])
     #x,y = dataset2.load_dataset(db_con,
     #    features+["info_race_course_code"],
     #    ["is_win","win_payoff","is_place","place_payoff"])
+    con = pd.concat([x,y],axis = 1)
+    x_col = x.columns
+    y_col = y.columns
+    con = con[con["info_race_course_code"] != 0]
+    con = con[con["rinfo_discipline"] != 0]
+    con = con[con["pre1_discipline"] != 0]
+    con = con[con["pre1_race_course_code"] != 0]
+ 
+    x = con.loc[:,x_col]
+    y = con.loc[:,y_col]
 
-
-
-    p2v_0 = place2vec.get_vector(x["info_race_course_code"].as_matrix(),prefix = "pre0")
+    p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],prefix = "pre0")
     x = x.drop("info_race_course_code",axis = 1)
+    x = x.drop("rinfo_discipline",axis = 1)
 
-    p2v_1 = place2vec.get_vector(x["pre1_race_course_code"].as_matrix(),prefix = "pre1")
+    p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],prefix = "pre1")
     x = x.drop("pre1_race_course_code",axis = 1)
+    x = x.drop("pre1_discipline",axis = 1)
 
-    p2v_2 = place2vec.get_vector(x["pre2_race_course_code"].as_matrix(),prefix = "pre2")
+    #p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],prefix = "pre2")
     x = x.drop("pre2_race_course_code",axis = 1)
+    x = x.drop("pre2_discipline",axis = 1)
 
-    p2v_3 = place2vec.get_vector(x["pre3_race_course_code"].as_matrix(),prefix = "pre3")
+    #p2v_3 = place2vec.get_vector(x["pre3_race_course_code"].as_matrix(),x["pre3_discipline"],prefix = "pre3")
     x = x.drop("pre3_race_course_code",axis = 1)
+    x = x.drop("pre3_discipline",axis = 1)
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
     features = sorted(x.columns.drop("info_race_id").values.tolist())
     x = concat(x,p2v_0)
-    x = concat(x,p2v_1)
-    x = concat(x,p2v_2)
-    x = concat(x,p2v_3)
+    #x = concat(x,p2v_1)
+    #x = concat(x,p2v_2)
+    #x = concat(x,p2v_3)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
@@ -134,16 +147,16 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 102,hidden_2 = 53,hidden_3 = 135):
+def create_model(activation = "relu",dropout = 0.3,hidden_1 = 100,hidden_2 = 250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 252, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 230, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units=hidden_2, kernel_initializer = "he_normal",activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_2,activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
@@ -165,11 +178,10 @@ def dnn(features,datasets):
     test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
-    #model = KerasClassifier(create_model,batch_size = 300,verbose = 1)
     model = create_model()
     for i in range(10):
         print(i)
-        model.fit(train_x,train_y,epochs = 5,batch_size = 300)
+        model.fit(train_x,train_y,epochs = 5,batch_size = 1000)
         score = model.evaluate(test_x,test_y,verbose = 0)
 
         print("")
@@ -185,25 +197,25 @@ def dnn(features,datasets):
 
 
 def dnn_wigh_gridsearch(features,datasets):
-    train_x = datasets["train_x"]
-    train_y = datasets["train_y"]
-    test_x  = datasets["test_x"]
-    test_y  = datasets["test_y"]
-    test_rx = datasets["test_rx"]
-    test_ry = datasets["test_ry"]
-    test_r_win = datasets["test_r_win"]
-    test_r_place = datasets["test_r_place"]
-    test_rp_win = datasets["test_rp_win"]
-    test_rp_place = datasets["test_rp_place"]
+    train_x = np.array(datasets["train_x"])
+    train_y = np.array(datasets["train_y"])
+    test_x  = np.array(datasets["test_x"])
+    test_y  = np.array(datasets["test_y"])
+    test_rx = dataset2.races_to_numpy(datasets["test_rx"])
+    test_ry = dataset2.races_to_numpy(datasets["test_ry"])
+    test_r_win = dataset2.races_to_numpy(datasets["test_r_win"])
+    test_r_place = dataset2.races_to_numpy(datasets["test_r_place"])
+    test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
+    test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
-    model =  KerasClassifier(create_model,nb_epoch = 6)
+    model =  KerasClassifier(create_model,nb_epoch = 6,batch_size = 500)
     paramaters = {
-        hidden_1 : [50,100],
-        hidden_2 : [50],
-        dropout  : [1.0],
+        "hidden_1" : [50,100,200,300],
+        "hidden_2" : [50,100,200,300],
+        "dropout"  : [0.3,0.4,0.5],
     }
 
-    cv = GridSearchCV(model,paramaters,cv = 2,scoring='accuracy',verbose = 2)
+    cv = GridSearchCV(model,paramaters,cv = 3,scoring='accuracy',verbose = 3)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)
@@ -240,10 +252,11 @@ def dnn_wigh_bayessearch(features,datasets):
     paramaters = {
         "hidden_1" : (10,500),
         "hidden_2" : (10,500),
-        "dropout" : (0.3,0.6)
+        "dropout" : (0.3,0.9),
+        "batch_size" : (10,2000),
     }
 
-    cv = BayesSearchCV(model,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 2)
+    cv = BayesSearchCV(model,paramaters,cv = 5,n_iter = 10,verbose = 3)
     cv.fit(train_x,train_y)
 
     pred = cv.predict(test_x)
@@ -263,6 +276,73 @@ def dnn_wigh_bayessearch(features,datasets):
     best_parameters = cv.best_params_
     for pname in sorted(best_parameters.keys()):
         print("{0} : {1}".format(pname,best_parameters[pname]))
+
+"""
+def dnn_wigh_bayessearch2(features,datasets):
+    train_x = np.array(datasets["train_x"])
+    train_y = np.array(datasets["train_y"])
+    test_x  = np.array(datasets["test_x"])
+    test_y  = np.array(datasets["test_y"])
+    test_rx = dataset2.races_to_numpy(datasets["test_rx"])
+    test_ry = dataset2.races_to_numpy(datasets["test_ry"])
+    test_r_win = dataset2.races_to_numpy(datasets["test_r_win"])
+    test_r_place = dataset2.races_to_numpy(datasets["test_r_place"])
+    test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
+    test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
+
+    def data():
+        return (train_x,train_y,test_x,test_y)
+
+    def create_model_for_keras(train_x,train_y,test_x,test_y):
+        nn = Sequential()
+        nn.add(Dense(units={choice,input_dim = 294, activity_regularizer = l2(0.0)))
+        nn.add(Activation(activation))
+        nn.add(BatchNormalization())
+        nn.add(Dropout(dropout))
+
+        nn.add(Dense(units=hidden_2,activity_regularizer = l2(0.0)))
+        nn.add(Activation(activation))
+        nn.add(BatchNormalization())
+        nn.add(Dropout(dropout))
+
+        nn.add(Dense(units=1))
+        nn.add(Activation('sigmoid'))
+        nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
+        return nn
+
+
+        model = 
+        return 
+ 
+    model =  KerasClassifier(create_model,epochs = 6,verbose = 0)
+    paramaters = {
+        "hidden_1" : (10,500),
+        "hidden_2" : (10,500),
+        "dropout" : (0.3,0.9),
+        "batch_size" : (10,2000),
+    }
+
+    cv = BayesSearchCV(model,paramaters,cv = 5,scoring='accuracy',n_iter = 10,verbose = 10)
+    cv.fit(train_x,train_y)
+
+    pred = cv.predict(test_x)
+    accuracy = accuracy_score(test_y,pred)
+    print("")
+    print("Accuracy: {0}".format(accuracy))
+
+    win_eval  = evaluate.top_n_k(cv,test_rx,test_r_win,test_rp_win)
+    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+    place_eval  = evaluate.top_n_k(cv,test_rx,test_r_place,test_rp_place)
+    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
+
+    report = classification_report(test_y,pred)
+    print(report)
+
+    print("Paramaters")
+    best_parameters = cv.best_params_
+    for pname in sorted(best_parameters.keys()):
+        print("{0} : {1}".format(pname,best_parameters[pname]))
+"""
 
 
 def dataset_for_pca(x,y,mean = None,std = None):

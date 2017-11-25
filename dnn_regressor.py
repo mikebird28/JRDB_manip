@@ -25,9 +25,8 @@ CACHE_PATH = "./cache/dnn_regressor"
 
 def main(use_cache = False):
     predict_type = "pre0_finishing_time"
-    config = util.get_config("config/config_small.json")
-    #db_path = "db/output_v7.db"
-    db_path = "db/output_v8.db"
+    config = util.get_config("config/config.json")
+    db_path = "db/output_v9.db"
     db_con = sqlite3.connect(db_path)
  
     if use_cache:
@@ -101,7 +100,11 @@ def generate_dataset(predict_type,db_con,config):
     }
     return datasets
 
+<<<<<<< HEAD
 def create_model(activation = "relu",dropout = 0.8,hidden_1 = 102,hidden_2 = 102,hidden_3 = 135):
+=======
+def create_model(activation = "relu",dropout = 0.6,hidden_1 = 210,hidden_2 = 210,hidden_3 = 135):
+>>>>>>> 40820e8ef77f1c2aca27e9dc8fb99f589782b233
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     nn = Sequential()
@@ -132,7 +135,7 @@ def dnn(features,datasets):
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
     model = create_model()
-    for i in range(30):
+    for i in range(100):
         print(i)
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         score = model.evaluate(test_x,test_y,verbose = 0)

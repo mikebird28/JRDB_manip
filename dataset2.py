@@ -103,9 +103,7 @@ def pad_race(x,y,n=18):
         ls.extend([new_row for i in range(pad_num)])
     #dtype_dict = df.dtypes.to_dict()
     #dtype_ls = [(k,dtype_dict[k].type) for k in df.columns]
-    #print(dtype_ls)
     df = df.append(pd.DataFrame(ls))
-    #print(df.dtypes)
     del ls
     df = df.sort_values(by = "info_race_id")
     return (df.loc[:,x_col],df.loc[:,y_col])
@@ -190,7 +188,6 @@ def get_dummies(x,col_dic):
         cols = ["{0}_{1}".format(k,i) for i in range(v)]
         column_name.extend(cols)
 
-    #ohe = OneHotEncoder(sparse = False)
     ohe = OneHotEncoder(n_values = n_values,sparse = False)
     x.loc[:,columns] = x.loc[:,columns].fillna(0)
     tmp_x = x.loc[:,columns]
@@ -275,6 +272,7 @@ def __normalize_horse(dataset,mean = None,std = None,remove = []):
         m = mean[col]
         s = std[col]
         dataset[col] = (dataset[col] - m)/s
+    dataset = dataset.fillna(0.0)
     return dataset
 
 def __normalize_race(dataset,mean = None,std = None):
@@ -301,10 +299,20 @@ def under_sampling(x,y,key = "is_win"):
     con_y = con.loc[:,y_col]
     return con_x,con_y
 
-def over_sampling(x,y):
+def over_sampling(x,y,key = "is_win"):
+    if type(x) == pd.Series:
+        x = x.to_frame()
+    if type(y) == pd.Series:
+        y = y.to_frame()
+
+    x_col = x.columns
+    y_col = y.columns
+    x.reset_index(drop = True,inplace = True)
+    y.reset_index(drop = True,inplace = True)
+ 
     con = pd.concat([y,x],axis = 1)
-    highest_frequent_value = 1
-    high_frequent_records = con.ix[con.iloc[:,0] == highest_frequent_value,:]
+    highest_frequent_value = 0
+    high_frequent_records = con.ix[con.loc[:,key] == highest_frequent_value,:]
     other_records = con.ix[con.iloc[:,0] != highest_frequent_value,:]
     under_sampled_records = other_records.sample(len(low_frequent_records))
     con = pd.concat([low_frequent_records,under_sampled_records])

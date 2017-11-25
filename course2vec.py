@@ -24,7 +24,7 @@ import dataset2, util, evaluate, feature
 
 BATCH_SIZE = 36
 PREDICT_TYPE = "is_win"
-#PREDICT_TYPE = "place_payoff"
+#PREDICT_TYPE = "is_place"
 MODEL_PATH = "./models/course2vec.h5"
 PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
 MEAN_PATH = "./models/dqn_mean.pickle"
@@ -34,7 +34,7 @@ CACHE_PATH = "./cache/course2vec"
 def main(use_cache = False):
     predict_type = PREDICT_TYPE
     config = util.get_config("config/config.json")
-    db_path = "db/output_v7.db"
+    db_path = "db/output_v9.db"
     db_con = sqlite3.connect(db_path)
     if use_cache:
         print("[*] load dataset from cache")
@@ -72,29 +72,9 @@ def xgboost_test(datasets):
 
     train_x = add_vector(train_x)
     test_x = add_vector(test_x)
-    """
-    model = load_model(MODEL_PATH)
 
-    vectors = model.predict(train_x.as_matrix())
-    vectors = pd.DataFrame(vectors)
-    train_x.reset_index(drop = True,inplace = True)
-    train_c.reset_index(drop = True,inplace = True)
-    vectors.reset_index(drop = True,inplace = True)
-    train_x = pd.concat([train_x,vectors],axis = 1)
-    #train_x = pd.concat([train_x,vectors,train_c],axis = 1)
-    """
-
-    """
-    vectors = model.predict(test_x.as_matrix())
-    vectors = pd.DataFrame(vectors)
-    test_x.reset_index(drop = True,inplace = True)
-    test_c.reset_index(drop = True,inplace = True)
-    vectors.reset_index(drop = True,inplace = True)
-    test_x = pd.concat([test_x,vectors],axis = 1)
-    """
-    #test_x = pd.concat([test_x,vectors,test_c],axis = 1)
     xgbc = xgb.XGBClassifier(
-        n_estimators = 3000,
+        n_estimators = 300,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -150,9 +130,21 @@ def predict(x):
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-    #features = config.features_vector
+
     features = config.features
-    x,y = dataset2.load_dataset(db_con,features,["is_win","is_place","info_race_course_code"])
+    target = "target"
+
+    x,y = dataset2.load_dataset(db_con,features,["is_win","is_place","info_race_course_code","rinfo_discipline"])
+    x_col = x.columns 
+    y_col = y.columns
+    con = pd.concat([x,y],axis = 1)
+    con = con[con["info_race_course_code"] != 0]
+    con = con[con["rinfo_discipline"] != 0]
+    x = con.loc[:,x_col]
+    y = con.loc[:,y_col]
+    y["info_race_course_code"] = y["info_race_course_code"] - 1
+    y["rinfo_discipline"] = y["rinfo_discipline"] - 1
+    y[target] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -189,21 +181,21 @@ def generate_dataset(predict_type,db_con,config):
     con = pd.concat([train_x,train_y],axis = 1)
     con = con[con[predict_type] == 1]
     train_win_x = con.loc[:,features]
-    train_win_y = con.loc[:,"info_race_course_code"]
+    train_win_y = con.loc[:,target]
     train_x_pred = train_x.loc[:,features]
     train_y_pred = train_y.loc[:,predict_type]
-    train_x_pred,train_y_pred = dataset2.under_sampling(train_x_pred,train_y_pred)
+    train_x_pred,train_y_pred = dataset2.under_sampling(train_x_pred,train_y_pred,key = predict_type)
 
     con = pd.concat([test_x,test_y],axis = 1)
     con = con[con[predict_type] == 1]
     test_win_x = con.loc[:,features]
-    test_win_y = con.loc[:,"info_race_course_code"]
+    test_win_y = con.loc[:,target]
     test_x_pred = test_x.loc[:,features]
     test_y_pred = test_y.loc[:,predict_type]
-    test_x_pred,test_y_pred = dataset2.under_sampling(test_x_pred,test_y_pred)
+    test_x_pred,test_y_pred = dataset2.under_sampling(test_x_pred,test_y_pred,key = predict_type)
 
-    train_win_y = dataset2.get_dummies(train_win_y,col_dic)
-    test_win_y = dataset2.get_dummies(test_win_y,col_dic)
+    train_win_y = dataset2.get_dummies(train_win_y,{target:32})
+    test_win_y = dataset2.get_dummies(test_win_y,{target:32})
 
     datasets = {
         "train_x" : train_win_x,
@@ -230,7 +222,7 @@ def dnn(features,datasets):
 
     model =  create_model()
     internal = Model(inputs = model.input,outputs = model.get_layer("internal").output)
-    for i in range(10):
+    for i in range(20):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print("")
@@ -268,14 +260,14 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 40):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 50):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 168))
+    nn.add(Dense(units=hidden_1,input_dim = 170))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units=11))
+    nn.add(Dense(units=33))
     nn.add(Activation('softmax'))
     opt = keras.optimizers.Adam(lr=0.1)
     nn.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])

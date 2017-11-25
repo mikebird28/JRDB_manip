@@ -1,10 +1,29 @@
-#-*- cofing:utf-8 -*-
+#-*- coding:utf-8 -*-
 
 from keras.wrappers.scikit_learn import KerasClassifier,KerasRegressor
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import dataset2
+
+def show_similarity(target_idx,vectors):
+    columns_name = []
+    dic_1 = [u"芝",u"ダート",u"障害"]
+    for i in range(33):
+        d = i//3
+        a = i%3
+        columns_name.append(u"{0}-{1}".format(d,dic_1[a]))
+    results = []
+    for i in range(len(vectors)):
+        cs = cos_similarity(vectors[target_idx],vectors[i])
+        results.append((i,cs))
+    results = sorted(results,key = lambda x: x[1])
+    for t in results:
+        print(u"{0} : {1}".format(columns_name[t[0]],t[1]))
+
+def cos_similarity(x1,x2):
+    cs = np.dot(x1,x2)/(np.linalg.norm(x1) * np.linalg.norm(x2))
+    return cs
 
 def top_n_k_keras(model,race_x,race_y,payoff,mode = "max"):
     counter = 0
@@ -68,7 +87,6 @@ def top_n_k_regress(model,race_x,race_y,payoff):
     return (float(correct)/counter,float(rewards)/counter)
 
 
-
 def to_descrete(array,mode = "max"):
     res = np.zeros_like(array)
     if mode == "min":
@@ -96,4 +114,9 @@ def show_importance(column,importance,sort = True,top_n = None):
         print("{0:<25} : {1:.5f}".format(f,i))
         counter += 1
 
+if __name__ =="__main__":
+    array = np.array([[1,2,3],[4,5,6],[7,8,9]])
+    print(array)
+    show_similarity(0,array)
+    pass
 
