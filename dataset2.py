@@ -54,9 +54,13 @@ def split_with_race(x,y,test_nums = 1000):
     y.reset_index(drop = True,inplace = True)
 
     con = pd.concat([y,x],axis = 1)
-    race_id = con["info_race_id"].sort_values().unique()
-    test_id = race_id[-test_nums:]
+    race_id = pd.DataFrame(con["info_race_id"].unique(),columns = ["info_race_id"])
+    race_id["sort_key"] = race_id["info_race_id"].apply(lambda x:x[2:])
+    race_id = race_id.sort_values(by = "sort_key")["info_race_id"]
+
     #test_id = random.sample(race_id,test_nums)
+    test_id = race_id[-test_nums:]
+    print(test_id)
     test_con = con[con["info_race_id"].isin(test_id)]
     test_x = test_con.loc[:,x_col]
     test_y = test_con.loc[:,y_col]
@@ -195,10 +199,8 @@ def get_dummies(x,col_dic):
     tmp_x = x.loc[:,columns]
 
     ohe.fit(tmp_x)
-    print(tmp_x.index)
     dummies = ohe.transform(tmp_x).astype(np.int8)
     dummies = pd.DataFrame(dummies,columns = column_name)
-    print(dummies.index)
     x = x.drop(columns,axis = 1)
     x.reset_index(drop = True,inplace = True)
     dummies.reset_index(drop = True,inplace = True)
@@ -284,7 +286,7 @@ def __normalize_horse(dataset,mean = None,std = None,remove = []):
 def __normalize_race(dataset,mean = None,std = None):
     pass
 
-def under_sampling(x,y,key = "is_win"):
+def under_sampling(x,y,key = "is_win",magnif = 1):
     if type(x) == pd.Series:
         x = x.to_frame()
     if type(y) == pd.Series:
@@ -297,8 +299,13 @@ def under_sampling(x,y,key = "is_win"):
     con = pd.concat([y,x],axis = 1)
     lowest_frequent_value = 1
     low_frequent_records = con.ix[con.loc[:,key] == lowest_frequent_value,:]
+
+    #over sampling
+    low_frequent_records = pd.concat([low_frequent_records for i in range(magnif)])
+
     other_records = con.ix[con.loc[:,key] != lowest_frequent_value,:]
     under_sampled_records = other_records.sample(len(low_frequent_records))
+
     con = pd.concat([low_frequent_records,under_sampled_records])
     con.sample(frac=1.0).reset_index(drop=True)
     con_x = con.loc[:,x_col]

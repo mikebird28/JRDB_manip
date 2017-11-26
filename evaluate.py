@@ -11,9 +11,9 @@ def show_similarity(target_idx,vectors):
     dic_1 = [u"芝",u"ダート",u"障害"]
     dic_2 = [u"短距離",u"短中距離",u"中距離",u"中長距離",u"長距離"]
     for i in range(165):
-        dist = i//5
-        typ = i%3
-        course = i%11
+        dist = i//33
+        course = (i%33)//3
+        typ = (i%33)%3
         columns_name.append(u"{0}-{1:<3}-{2:<4}".format(course,dic_1[typ],dic_2[dist]))
     results = []
     for i in range(len(vectors)):

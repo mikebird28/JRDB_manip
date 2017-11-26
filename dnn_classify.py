@@ -27,6 +27,7 @@ pd.set_option('display.max_columns', 500)
 
 def main(use_cache = False):
     predict_type = "is_win"
+    predict_type = "is_place"
     config = util.get_config("config/config.json")
     db_path = "db/output_v10.db"
     db_con = sqlite3.connect(db_path)
@@ -71,22 +72,24 @@ def generate_dataset(predict_type,db_con,config):
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
 
-    p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],x["rinfo_distance"],prefix = "pre0")
+    p2v_0 = place2vec.get_vector(x["rinfo_discipline"],x["info_race_course_code"],x["rinfo_distance"],prefix = "pre0")
+    #p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],x["rinfo_distance"],prefix = "pre0")
     x = x.drop("info_race_course_code",axis = 1)
     x = x.drop("rinfo_discipline",axis = 1)
     x = x.drop("rinfo_distance",axis = 1)
 
-    p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],x["pre1_distance"],prefix = "pre1")
+    p2v_1 = place2vec.get_vector(x["pre1_discipline"],x["pre1_race_course_code"],x["pre1_distance"],prefix = "pre1")
+    #p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],x["pre1_distance"],prefix = "pre1")
     x = x.drop("pre1_race_course_code",axis = 1)
     x = x.drop("pre1_discipline",axis = 1)
     x = x.drop("pre1_distance",axis = 1)
 
-    p2v_2 = place2vec.get_vector(x["pre2_race_course_code"],x["pre2_discipline"],x["pre2_distance"],prefix = "pre2")
+    p2v_2 = place2vec.get_vector(x["pre2_discipline"],x["pre2_race_course_code"],x["pre2_distance"],prefix = "pre2")
     x = x.drop("pre2_race_course_code",axis = 1)
     x = x.drop("pre2_discipline",axis = 1)
     x = x.drop("pre2_distance",axis = 1)
 
-    p2v_3 = place2vec.get_vector(x["pre3_race_course_code"],x["pre3_discipline"],x["pre3_distance"],prefix = "pre3")
+    p2v_3 = place2vec.get_vector(x["pre3_discipline"],x["pre3_race_course_code"],x["pre3_distance"],prefix = "pre3")
     x = x.drop("pre3_race_course_code",axis = 1)
     x = x.drop("pre3_discipline",axis = 1)
     x = x.drop("pre3_distance",axis = 1)
@@ -100,9 +103,13 @@ def generate_dataset(predict_type,db_con,config):
     x = concat(x,p2v_1)
     x = concat(x,p2v_2)
     x = concat(x,p2v_3)
+    x = dataset2.downcast(x)
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
+    train_x = dataset2.downcast(train_x)
+    test_x = dataset2.downcast(test_x)
+
     del x
     del y
 
@@ -120,7 +127,7 @@ def generate_dataset(predict_type,db_con,config):
     print(">> under sampling train dataset")
     train_x.reset_index(inplace = True,drop = True)
     train_y.reset_index(inplace = True,drop = True)
-    train_x,train_y = dataset2.under_sampling(train_x,train_y)
+    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type)
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
     print(">> filling none value of test dataset")
@@ -165,7 +172,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
 
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 275, activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 397, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
@@ -175,7 +182,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
 
-    depth = 6
+    depth = 4
     for i in range(depth):
         nn.add(Dense(units=hidden_3,activity_regularizer = l2(0.0)))
         nn.add(Activation(activation))

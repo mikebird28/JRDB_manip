@@ -76,7 +76,26 @@ def xgboost_test(datasets):
     test_y = datasets["test_y_pred"]
     test_c = datasets["test_y"]
 
+    print("predicting without course fitness")
+    xgbc = xgb.XGBClassifier(
+        n_estimators = 1000,
+        colsample_bytree =  0.5,
+        gamma = 1.0,
+        learning_rate = 0.07,
+        max_depth = 3,
+        min_child_weight = 2.0,
+        subsample = 1.0
+        )
+    xgbc.fit(train_x,train_y)
 
+    pred = xgbc.predict(test_x)
+    accuracy = accuracy_score(test_y,pred)
+    print("")
+    print("Accuracy: {0}".format(accuracy))
+
+
+    print("")
+    print("predicting with course fitness")
     train_x = add_vector(train_x)
     test_x = add_vector(test_x)
 
@@ -268,9 +287,9 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 40):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 70):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 251))
+    nn.add(Dense(units=hidden_1,input_dim = 237))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))

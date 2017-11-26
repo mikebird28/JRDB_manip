@@ -24,7 +24,6 @@
         "linfo_horse_weight",
         "linfo_weight_delta",
         "linfo_basis_weight",
-        "linfo_leg_info",
         "linfo_equipment_change",
         "linfo_paddok_sign",
         "linfo_paddock_score",
@@ -35,7 +34,6 @@
         "rinfo_head_count",
 
         "tinfo_training_code",
-        "tinfo_course_type",
         "tinfo_course_distance",
         "tinfo_training_weight",
         "tinfo_chasing_score",
