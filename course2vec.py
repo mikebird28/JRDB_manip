@@ -41,8 +41,6 @@ def main(use_cache = False):
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    print(datasets["train_x"].isnull().sum().sum())
-    print(datasets["train_y"].isnull().sum().sum())
     dnn(config.features,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     xgboost_test(datasets)
@@ -57,7 +55,6 @@ def add_vector(x):
     return x
 
 def get_vector(x,nom_col):
- 
     mean = load_value(MEAN_PATH)
     std = load_value(STD_PATH)
     x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
@@ -165,13 +162,14 @@ def generate_dataset(predict_type,db_con,config):
     y_col = y.columns
     con = concat(x,y)
     con = con[con["info_race_course_code"] != 0]
-    con = con[con["rinfo_discipline"] != 0]
+    #con = con[con["rinfo_discipline"] != 0]
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
 
     y["info_race_course_code"] = y["info_race_course_code"] - 1
-    y["rinfo_discipline"] = y["rinfo_discipline"] - 1
-    y[target] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
+    #y["rinfo_discipline"] = y["rinfo_discipline"] - 1
+    #y[target] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
+    y[target] = y["info_race_course_code"]
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -221,8 +219,8 @@ def generate_dataset(predict_type,db_con,config):
     test_y_pred = test_y.loc[:,predict_type]
     test_x_pred,test_y_pred = dataset2.under_sampling(test_x_pred,test_y_pred,key = predict_type)
 
-    train_win_y = dataset2.get_dummies(train_win_y,{target:32})
-    test_win_y = dataset2.get_dummies(test_win_y,{target:32})
+    train_win_y = dataset2.get_dummies(train_win_y,{target:9})
+    test_win_y = dataset2.get_dummies(test_win_y,{target:9})
 
     datasets = {
         "train_x" : train_win_x,
@@ -289,12 +287,12 @@ def dnn_wigh_bayessearch(features,datasets):
 
 def create_model(activation = "relu",dropout = 0.2,hidden_1 = 70):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 237))
+    nn.add(Dense(units=hidden_1,input_dim = 240))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units=33))
+    nn.add(Dense(units=10))
     nn.add(Activation('softmax'))
     opt = keras.optimizers.Adam(lr=0.1)
     nn.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])

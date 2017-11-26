@@ -27,7 +27,6 @@ pd.set_option('display.max_columns', 500)
 
 def main(use_cache = False):
     predict_type = "is_win"
-    predict_type = "is_place"
     config = util.get_config("config/config.json")
     db_path = "db/output_v10.db"
     db_con = sqlite3.connect(db_path)
@@ -73,13 +72,11 @@ def generate_dataset(predict_type,db_con,config):
     y = con.loc[:,y_col]
 
     p2v_0 = place2vec.get_vector(x["rinfo_discipline"],x["info_race_course_code"],x["rinfo_distance"],prefix = "pre0")
-    #p2v_0 = place2vec.get_vector(x["info_race_course_code"],x["rinfo_discipline"],x["rinfo_distance"],prefix = "pre0")
     x = x.drop("info_race_course_code",axis = 1)
     x = x.drop("rinfo_discipline",axis = 1)
     x = x.drop("rinfo_distance",axis = 1)
 
     p2v_1 = place2vec.get_vector(x["pre1_discipline"],x["pre1_race_course_code"],x["pre1_distance"],prefix = "pre1")
-    #p2v_1 = place2vec.get_vector(x["pre1_race_course_code"],x["pre1_discipline"],x["pre1_distance"],prefix = "pre1")
     x = x.drop("pre1_race_course_code",axis = 1)
     x = x.drop("pre1_discipline",axis = 1)
     x = x.drop("pre1_distance",axis = 1)
@@ -116,9 +113,9 @@ def generate_dataset(predict_type,db_con,config):
     print(">> filling none value of train dataset")
     train_x = dataset2.fillna_mean(train_x,"horse")
 
-    #c2v_x = train_x.loc[:,features]
-    #c2v_df = course2vec.get_vector(c2v_x,nom_col)
-    #train_x = concat(train_x,c2v_df)
+    c2v_x = train_x.loc[:,features]
+    c2v_df = course2vec.get_vector(c2v_x,nom_col)
+    train_x = concat(train_x,c2v_df)
 
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
@@ -127,15 +124,15 @@ def generate_dataset(predict_type,db_con,config):
     print(">> under sampling train dataset")
     train_x.reset_index(inplace = True,drop = True)
     train_y.reset_index(inplace = True,drop = True)
-    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type)
+    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 2)
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
 
-    #c2v_x = test_x.loc[:,features]
-    #c2v_df = course2vec.get_vector(c2v_x,nom_col)
-    #test_x = concat(test_x,c2v_df)
+    c2v_x = test_x.loc[:,features]
+    c2v_df = course2vec.get_vector(c2v_x,nom_col)
+    test_x = concat(test_x,c2v_df)
 
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
@@ -172,7 +169,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
 
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 397, activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 470, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
@@ -188,6 +185,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
         nn.add(Activation(activation))
         nn.add(BatchNormalization())
         nn.add(Dropout(dropout))
+
 
     nn.add(Dense(units=1))
     nn.add(Activation('sigmoid'))
@@ -207,7 +205,7 @@ def dnn(features,datasets):
     test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
  
     model = create_model()
-    for i in range(100):
+    for i in range(1000):
         print(i)
         model.fit(train_x,train_y,epochs = 1,batch_size = 1000)
         score = model.evaluate(test_x,test_y,verbose = 0)
