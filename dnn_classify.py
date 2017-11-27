@@ -20,6 +20,7 @@ import util
 import evaluate
 import course2vec
 import place2vec
+import field_fitness
 
 CACHE_PATH = "./cache/dnn_classify"
 pd.options.display.max_rows = 80
@@ -28,7 +29,7 @@ pd.set_option('display.max_columns', 500)
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v10.db"
+    db_path = "db/output_v11.db"
     db_con = sqlite3.connect(db_path)
  
     if use_cache:
@@ -94,7 +95,7 @@ def generate_dataset(predict_type,db_con,config):
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
-    features = sorted(x.columns.drop("info_race_id").values.tolist())
+    features = sorted(x.columns.drop(["info_race_id","pre1_distance","pre2_distance","pre3_distance"]).values.tolist())
 
     x = concat(x,p2v_0)
     x = concat(x,p2v_1)
@@ -113,9 +114,18 @@ def generate_dataset(predict_type,db_con,config):
     print(">> filling none value of train dataset")
     train_x = dataset2.fillna_mean(train_x,"horse")
 
+    ff_x = train_x.loc[:,features]
+    ff_df = field_fitness.get_vector(ff_x,nom_col)
+    train_x = concat(train_x,ff_df)
+    del ff_x
+    del ff_df
+
+
     c2v_x = train_x.loc[:,features]
     c2v_df = course2vec.get_vector(c2v_x,nom_col)
     train_x = concat(train_x,c2v_df)
+    del c2v_x
+    del c2v_df
 
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
@@ -130,6 +140,11 @@ def generate_dataset(predict_type,db_con,config):
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
 
+    ff_x = test_x.loc[:,features]
+    ff_df = field_fitness.get_vector(ff_x,nom_col)
+    test_x = concat(test_x,ff_df)
+    del ff_x
+ 
     c2v_x = test_x.loc[:,features]
     c2v_df = course2vec.get_vector(c2v_x,nom_col)
     test_x = concat(test_x,c2v_df)
@@ -169,7 +184,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
 
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = 470, activity_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = 436, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))

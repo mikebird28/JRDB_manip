@@ -45,7 +45,7 @@ def to_unicode(x,illegal_value = None):
 def to_nominal(x,converter = nominal.nominal_int, n = 1):
     x = x.strip()
     v,n = converter(x,n)
-    if v >= n:
+    if v > n:
         return Maybe("NOM",(0,n))
     return Maybe("NOM",(v,n))
 

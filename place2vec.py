@@ -26,7 +26,7 @@ def main(use_cache = False):
     #predict_type = "is_win"
     predict_type = "is_place"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v10.db"
+    db_path = "db/output_v11.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:

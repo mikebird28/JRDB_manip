@@ -1,4 +1,3 @@
-#-*- coding:utf-8 -*-
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
@@ -23,13 +22,13 @@ import dataset2, util, evaluate, feature
 
 
 BATCH_SIZE = 36
-#PREDICT_TYPE = "is_win"
-PREDICT_TYPE = "is_place"
-MODEL_PATH = "./models/course2vec.h5"
-PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
-MEAN_PATH = "./models/dqn_mean.pickle"
-STD_PATH = "./models/dqn_std.pickle"
-CACHE_PATH = "./cache/course2vec"
+PREDICT_TYPE = "is_win"
+#PREDICT_TYPE = "is_place"
+MODEL_PATH = "./models/field_fitness.h5"
+PREDICT_MODEL_PATH = "./models/field_fitness.h5"
+MEAN_PATH = "./models/field_fitness.pickle"
+STD_PATH = "./models/field_fitness.pickle"
+CACHE_PATH = "./cache/field_fitness"
 
 def main(use_cache = False):
     predict_type = PREDICT_TYPE
@@ -55,7 +54,7 @@ def add_vector(x):
     x = concat(x,vectors)
     return x
 
-def get_vector(x,nom_col,prefix = "c2v"):
+def get_vector(x,nom_col,prefix = "ff"):
     mean = load_value(MEAN_PATH)
     std = load_value(STD_PATH)
     x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
@@ -65,7 +64,6 @@ def get_vector(x,nom_col,prefix = "c2v"):
     vectors = pd.DataFrame(model.predict(matrix_x))
     columns = ["{0}_{1}".format(prefix,i) for i in range(len(vectors.columns))]
     vectors.columns = columns
- 
     return vectors
 
 def xgboost_test(datasets):
@@ -160,24 +158,22 @@ def generate_dataset(predict_type,db_con,config):
 
     features = config.features
     target = "target"
+    class_num = 3
 
-    x,y = dataset2.load_dataset(db_con,features,["is_win","is_place","info_race_course_code","rinfo_discipline"])
+    x,y = dataset2.load_dataset(db_con,features,["is_win","is_place","rinfo_discipline"])
     x_col = x.columns 
     y_col = y.columns
     con = concat(x,y)
-    con = con[con["info_race_course_code"] != 0]
-    #con = con[con["rinfo_discipline"] != 0]
+    con = con[con["rinfo_discipline"] != 0]
+    print(con[con["rinfo_discipline"] == 3])
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
 
-    y["info_race_course_code"] = y["info_race_course_code"] - 1
-    #y["rinfo_discipline"] = y["rinfo_discipline"] - 1
-    #y[target] = y["info_race_course_code"] * 3 + y["rinfo_discipline"]
-    y[target] = y["info_race_course_code"]
+    y["rinfo_discipline"] = y["rinfo_discipline"] - 1
+    y[target] = y["rinfo_discipline"]
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
-    #features = sorted(x.columns.drop("info_race_id").values.tolist())
 
     print(">> separating dataset")
 
@@ -223,8 +219,9 @@ def generate_dataset(predict_type,db_con,config):
     test_y_pred = test_y.loc[:,predict_type]
     test_x_pred,test_y_pred = dataset2.under_sampling(test_x_pred,test_y_pred,key = predict_type)
 
-    train_win_y = dataset2.get_dummies(train_win_y,{target:9})
-    test_win_y = dataset2.get_dummies(test_win_y,{target:9})
+    train_win_y = dataset2.get_dummies(train_win_y,{target:class_num-1})
+    test_win_y = dataset2.get_dummies(test_win_y,{target:class_num-1})
+    print(train_win_y.sum())
 
     datasets = {
         "train_x" : train_win_x,
@@ -265,6 +262,7 @@ def xgb_checking(features,datasets):
     x_col = datasets["train_x"].columns
     train_x = datasets["train_x"].as_matrix()
     train_y = datasets["train_y"].as_matrix().argmax(axis = 1)
+    print(train_y)
 
     test_x = datasets["test_x"].as_matrix()
     test_y = datasets["test_y"].as_matrix()
@@ -316,14 +314,14 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 30):
+def create_model(activation = "relu",dropout = 0.2,hidden_1 = 10):
     nn = Sequential()
     nn.add(Dense(units=hidden_1,input_dim = 236))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
 
-    nn.add(Dense(units=10))
+    nn.add(Dense(units=3))
     nn.add(Activation('softmax'))
     opt = keras.optimizers.Adam(lr=0.1)
     nn.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])

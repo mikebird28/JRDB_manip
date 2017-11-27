@@ -18,7 +18,6 @@
         "info_running_style",
         "info_downgrading_flag",
         "info_rotation",
-        "info_transport_class",
         "info_brinker",
 
         "linfo_horse_weight",
@@ -31,7 +30,6 @@
         "linfo_field_code",
 
         "rinfo_first_prize",
-        "rinfo_head_count",
 
         "tinfo_training_code",
         "tinfo_course_distance",
@@ -95,8 +93,6 @@
 
         "exinfo_jockey_dist_track_win_per",
         "exinfo_jockey_dist_track_place_per",
-        "exinfo_jockey_dist_track_total",
-        "exinfo_jockey_dist_track_lose",
 
         "exinfo_jockey_trainer_win_per",
         "exinfo_jockey_trainer_place_per",
