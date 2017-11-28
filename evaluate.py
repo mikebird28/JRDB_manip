@@ -32,13 +32,14 @@ def top_n_k_keras(model,race_x,race_y,payoff,mode = "max"):
     correct = 0
     rewards = 0
     for x,y,p in zip(race_x,race_y,payoff):
+        #x = x.reshape([1,x.shape[0],x.shape[1]])
         pred = model.predict(x,verbose = 0)
         binary_pred = to_descrete(pred,mode = mode)
-
+        b = np.array(binary_pred).ravel()
         y = np.array(y).ravel()
         p = np.array(p).ravel()
-        c = np.dot(y,binary_pred)
-        ret = np.dot(p,binary_pred)
+        c = np.dot(y,b)
+        ret = np.dot(p,b)
         if c > 0:
             correct +=1
             rewards += ret

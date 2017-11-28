@@ -1,9 +1,5 @@
 #-*- coding:utf-8 -*-
 
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
-from sklearn.metrics import accuracy_score
 from skopt import BayesSearchCV
 from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
@@ -11,49 +7,44 @@ from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,Z
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Lambda,Reshape,Flatten
 from keras.wrappers.scikit_learn import KerasRegressor
-import random
 import keras.backend as K
 import keras.optimizers
 import tensorflow as tf
 import numpy as np
 import pandas as pd
 import sqlite3, pickle
-import dataset2, util, evaluate, feature
+import dataset2, util, evaluate
+import argparse
 
 
-USE_CACHE = True
-LOOSE_VALUE = -100
-DONT_BUY_VALUE = -20.0
-REWARD_THREHOLD = -10
 EVALUATE_INTERVAL = 10
 MAX_ITERATION = 50000
 BATCH_SIZE = 36
 REFRESH_INTERVAL = 50 
 PREDICT_TYPE = "win_payoff"
 #PREDICT_TYPE = "place_payoff"
-MODEL_PATH = "./models/dqn_model2.h5"
-PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
-MEAN_PATH = "./models/dqn_mean.pickle"
-STD_PATH = "./models/dqn_std.pickle"
+MODEL_PATH = "./models/mlp_model.h5"
+MEAN_PATH = "./models/mlp_mean.pickle"
+STD_PATH = "./models/mlp_std.pickle"
 CACHE_PATH = "./cache/multiclass"
 
-def main():
+def main(use_cache = False):
     #predict_type = "place_payoff"
     predict_type = PREDICT_TYPE
-    config = util.get_config("config/config.json")
+    config = util.get_config("config/config_small.json")
     db_path = "db/output_v7.db"
 
     db_con = sqlite3.connect(db_path)
-    if USE_CACHE:
+    if use_cache:
         print("[*] load dataset from cache")
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    dnn(config.features_vector,datasets)
+    dnn(config.features,datasets)
 
 def predict(db_con,config):
     add_col = ["info_horse_name"]
-    features = config.features_vector+add_col
+    features = config.features+add_col
     raw_x = dataset2.load_x(db_con,features)
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(raw_x,col_dic)
@@ -74,7 +65,7 @@ def predict(db_con,config):
     x = dataset2.to_race_panel(x)[0]
 
     inputs = x.loc[:,:,target_columns]
-    model = load_model(PREDICT_MODEL_PATH)
+    model = load_model(MODEL_PATH)
     actions = []
     for i in range(len(inputs)):
         rx = x.iloc[i,:,:]
@@ -93,7 +84,7 @@ def predict(db_con,config):
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-    features = config.features_vector
+    features = config.features
     x,y = dataset2.load_dataset(db_con,features,["is_win","win_payoff","is_place","place_payoff"])
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -117,9 +108,6 @@ def generate_dataset(predict_type,db_con,config):
     train_x = dataset2.downcast(train_x)
     train_y = dataset2.downcast(train_y)
     train_x,train_y = dataset2.pad_race(train_x,train_y)
-    train_y["win_payoff"] = train_y["win_payoff"] + LOOSE_VALUE
-    train_y["place_payoff"] = train_y["place_payoff"] + LOOSE_VALUE
-    train_y["dont_buy"] = pd.DataFrame(np.zeros(len(train_y.index))+DONT_BUY_VALUE,dtype = np.float32)
     train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
     train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)
 
@@ -133,9 +121,6 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> converting test dataset to race panel")
     test_x,test_y = dataset2.pad_race(test_x,test_y)
-    test_y["win_payoff"] = test_y["win_payoff"] + LOOSE_VALUE
-    test_y["place_payoff"] = test_y["place_payoff"] + LOOSE_VALUE
-    test_y["dont_buy"] = np.zeros(len(test_y.index),dtype = np.float32)+DONT_BUY_VALUE
     test_y["is_win"] = test_y["win_payoff"].clip(lower = 0,upper = 1)
     test_y["is_place"] = test_y["place_payoff"].clip(lower = 0,upper = 1)
 
@@ -155,57 +140,48 @@ def generate_dataset(predict_type,db_con,config):
 def dnn(features,datasets):
     print("[*] training step")
     target_y = "is_win"
-    train_x = datasets["train_x"]
-    train_y = datasets["train_y"].loc[:,:,target_y]
-    train_payoff = datasets["train_y"].loc[:,:,"win_payoff"]
+    train_x = datasets["train_x"].as_matrix()
+    train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
+    test_x = datasets["test_x"].as_matrix()
+    test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
+    test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
+    test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
 
-    test_x = datasets["test_x"]
-    test_y = datasets["test_y"].loc[:,:,target_y]
-    test_payoff = datasets["test_y"].loc[:,:,"win_payoff"]
-
-
-    train_x = train_x.as_matrix()
-    train_y = train_y.as_matrix().reshape([18,-1]).T
-
-    test_x = test_x.as_matrix()
-    test_y = test_y.as_matrix().reshape([18,-1]).T
     model =  create_model()
     for i in range(1000):
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print(loss)
         print(accuracy)
-
+        #win_eval  = evaluate.top_n_k_keras(model,test_x,test_y,test_r_win)
+        #print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
+        #place_eval  = evaluate.top_n_k_keras(model,test_x,test_r_place,test_r_place)
+        #print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
     print("")
     print("Accuracy: {0}".format(accuracy))
 
-    #win_eval  = evaluate.top_n_k(model,test_rx,test_r_win,test_rp_win)
-    print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
-    #place_eval  = evaluate.top_n_k(model,test_rx,test_r_place,test_rp_place)
-    print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 
-
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 120,hidden_2 = 120,hidden_3 = 120):
+def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
     inputs = Input(shape = (18,132,))
     x = inputs
     x = Reshape([18,132,1],input_shape = (132*18,))(x)
 
+    depth = 64
     x = ZeroPadding2D([[1,1],[0,0]])(x)
-    x = Conv2D(128,(3,132),padding = "valid")(x)
+    x = Conv2D(depth,(3,132),padding = "valid")(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
-    for i in range(2):
+    for i in range(5):
         tmp = x
-
         x = ZeroPadding2D([[1,0],[0,0]])(x)
-        x = Conv2D(128,(2,1),padding = "valid")(x)
+        x = Conv2D(depth,(2,1),padding = "valid")(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
 
         x = ZeroPadding2D([[1,0],[0,0]])(x)
-        x = Conv2D(128,(2,1),padding = "valid")(x)
+        x = Conv2D(depth,(2,1),padding = "valid")(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
 
@@ -237,49 +213,6 @@ def dataset_generator(batch_size,*datasets):
             ret.append(sample.loc[:,:,columns[i]])
         yield ret
 
-
-def get_q_value(model,x,y,is_predict = False,action_threhold = 0.01):
-    x = x.as_matrix()
-    y = y.as_matrix()
- 
-    pred,_ = model.predict(x)
-    idx = pred.argmax(1)
-    if not is_predict:
-        for i in range(len(idx)):
-            prob = np.random.rand()
-            if prob < action_threhold:
-                idx[i] = np.random.randint(2)
-    pred = pred[idx]
-    return np.sum(pred)
-
-
-def get_reward(model,x,y,is_predict = False,action_threhold = 0.01):
-    x = x.as_matrix()
-    y = y.as_matrix()
-    action = get_action(model,x,is_predict = is_predict,threhold = action_threhold)
-    rewards = (y*action).sum()
-    return rewards
-
-def get_action(model,x,is_predict = False,threhold = 0.01):
-    pred,_ = model.predict(x)
-    action = pred.argmax(1)
-    if not is_predict:
-        for i in range(len(action)):
-            prob = np.random.rand()
-            if prob < threhold:
-                action[i] = np.random.randint(2)
-    action = np.eye(2)[action]
-    return action
-
-def clip(y):
-    y = y/100.0
-    #y = y/100.0
-    y[y<=REWARD_THREHOLD] = 0
-    y[y>REWARD_THREHOLD] = 1
-    #y = y.clip(lower = -5.0,upper = 5.0)
-    #y = y.clip(upper = 5.0)
-    return y
-
 def others(df,idx):
     df = df[~df.index.isin([idx])]
     return df
@@ -306,23 +239,13 @@ def huber_loss(y_true,y_pred):
     linear_loss = clip_value * (K.abs(x) -0.5*clip_value)
     return tf.where(condition,squared_loss,linear_loss)
 
-
-def top_n_k(model,x,y,payoff):
-    pred = model.predict(x,verbose = 0)
-    binary_pred = to_descrete(pred)
-    print(pred[0])
-    print(binary_pred[0])
-    c = y*binary_pred
-    correct = np.sum(c)
-    ret = payoff.T*binary_pred
-    reward = np.sum(ret)
-
-    return correct,reward
-
 def to_descrete(array):
     res = np.zeros_like(array)
     res[array.argmax(1)] = 1
     return res
 
 if __name__=="__main__":
-    main()
+    parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
+    parser.add_argument("-c","--cache",action="store_true",default=False)
+    args = parser.parse_args()
+    main(use_cache = args.cache)

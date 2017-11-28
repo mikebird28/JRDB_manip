@@ -144,10 +144,13 @@ def generate_dataset(predict_type,db_con,config):
     ff_df = field_fitness.get_vector(ff_x,nom_col)
     test_x = concat(test_x,ff_df)
     del ff_x
+    del ff_df
  
     c2v_x = test_x.loc[:,features]
     c2v_df = course2vec.get_vector(c2v_x,nom_col)
     test_x = concat(test_x,c2v_df)
+    del c2v_x
+    del c2v_df
 
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
@@ -178,7 +181,7 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hidden_3 = 80):
-#def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
+    #def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
 
@@ -200,8 +203,6 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
         nn.add(Activation(activation))
         nn.add(BatchNormalization())
         nn.add(Dropout(dropout))
-
-
     nn.add(Dense(units=1))
     nn.add(Activation('sigmoid'))
     nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
@@ -213,7 +214,7 @@ def dnn(features,datasets):
     test_x  = np.array(datasets["test_x"])
     test_y  = np.array(datasets["test_y"])
     test_rx = dataset2.races_to_numpy(datasets["test_rx"])
-    test_ry = dataset2.races_to_numpy(datasets["test_ry"])
+    #test_ry = dataset2.races_to_numpy(datasets["test_ry"])
     test_r_win = dataset2.races_to_numpy(datasets["test_r_win"])
     test_r_place = dataset2.races_to_numpy(datasets["test_r_place"])
     test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
@@ -233,10 +234,6 @@ def dnn(features,datasets):
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_place,test_rp_place)
         print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
-
-    report = classification_report(test_y,pred)
-    print(report)
-
 
 def dnn_wigh_gridsearch(features,datasets):
     train_x = np.array(datasets["train_x"])

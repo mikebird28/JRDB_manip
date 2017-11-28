@@ -1,33 +1,26 @@
+#-*- coding:utf-8 -*-
 
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model,load_model
-from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add
+from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Lambda,Reshape,Flatten
-from keras.wrappers.scikit_learn import KerasRegressor,KerasClassifier
+from keras.wrappers.scikit_learn import KerasClassifier
 import argparse
 import xgboost as xgb
-import random
-import keras.backend as K
 import keras.optimizers
-import tensorflow as tf
 import numpy as np
 import pandas as pd
 import sqlite3, pickle
-import dataset2, util, evaluate, feature
+import dataset2, util, evaluate
 
 
 BATCH_SIZE = 36
-PREDICT_TYPE = "is_win"
-#PREDICT_TYPE = "is_place"
-MODEL_PATH = "./models/field_fitness.h5"
-PREDICT_MODEL_PATH = "./models/field_fitness.h5"
-MEAN_PATH = "./models/field_fitness.pickle"
-STD_PATH = "./models/field_fitness.pickle"
+PREDICT_TYPE = "is_place"
+MODEL_PATH = "./models/ff_model.h5"
+MEAN_PATH = "./models/ff_mean.pickle"
+STD_PATH = "./models/ff_std.pickle"
 CACHE_PATH = "./cache/field_fitness"
 
 def main(use_cache = False):
@@ -42,7 +35,6 @@ def main(use_cache = False):
         datasets = generate_dataset(predict_type,db_con,config)
     xgb_checking(config.features,datasets)
     dnn(config.features,datasets)
-    #dnn_wigh_bayessearch(config.features,datasets)
     xgboost_test(datasets)
 
 def add_vector(x):
@@ -69,11 +61,8 @@ def get_vector(x,nom_col,prefix = "ff"):
 def xgboost_test(datasets):
     train_x = datasets["train_x_pred"]
     train_y = datasets["train_y_pred"]
-    train_c = datasets["train_y"]
-
     test_x = datasets["test_x_pred"]
     test_y = datasets["test_y_pred"]
-    test_c = datasets["test_y"]
 
     print("predicting without course fitness")
     xgbc = xgb.XGBClassifier(
@@ -155,7 +144,6 @@ def predict(x):
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
-
     features = config.features
     target = "target"
     class_num = 3
@@ -165,9 +153,9 @@ def generate_dataset(predict_type,db_con,config):
     y_col = y.columns
     con = concat(x,y)
     con = con[con["rinfo_discipline"] != 0]
-    print(con[con["rinfo_discipline"] == 3])
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
+    del con
 
     y["rinfo_discipline"] = y["rinfo_discipline"] - 1
     y[target] = y["rinfo_discipline"]
@@ -176,14 +164,13 @@ def generate_dataset(predict_type,db_con,config):
     nom_col = dataset2.dummy_column(x,col_dic)
 
     print(">> separating dataset")
-
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y,test_nums = 1000)
+    del x
+    del y
+
     train_x = dataset2.get_dummies(train_x,col_dic)
     test_x = dataset2.get_dummies(test_x,col_dic)
     features = sorted(train_x.columns.drop("info_race_id").values.tolist())
-
-    del x
-    del y
 
     print(">> filling none value of train dataset")
     train_x = dataset2.fillna_mean(train_x,"horse")
@@ -202,7 +189,6 @@ def generate_dataset(predict_type,db_con,config):
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
     print(">> converting test dataset to race panel")
-
     con = concat(train_x,train_y)
     con = con[con[predict_type] == 1]
     train_win_x = con.loc[:,features]
@@ -239,7 +225,6 @@ def generate_dataset(predict_type,db_con,config):
 
 def dnn(features,datasets):
     print("[*] training step")
-    target_y = "is_win"
     train_x = datasets["train_x"].as_matrix()
     train_y = datasets["train_y"].as_matrix()
 
@@ -253,19 +238,14 @@ def dnn(features,datasets):
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print("")
         print(loss)
-        result = internal.predict(test_x,verbose = 0)
+        #result = internal.predict(test_x,verbose = 0)
     save_model(internal,MODEL_PATH)
 
 def xgb_checking(features,datasets):
     print("[*] training step")
-    target_y = "is_win"
     x_col = datasets["train_x"].columns
     train_x = datasets["train_x"].as_matrix()
     train_y = datasets["train_y"].as_matrix().argmax(axis = 1)
-    print(train_y)
-
-    test_x = datasets["test_x"].as_matrix()
-    test_y = datasets["test_y"].as_matrix()
 
     xgbc = xgb.XGBClassifier(
         n_estimators = 100,
@@ -278,21 +258,16 @@ def xgb_checking(features,datasets):
         objective='multi:softmax'
         )
     xgbc.fit(train_x,train_y)
-    print("OK")
-
     importances = xgbc.feature_importances_
     features = x_col
     evaluate.show_importance(features,importances)
 
 def dnn_wigh_bayessearch(features,datasets):
     print("[*] training step")
-    target_y = "is_win"
     train_x = datasets["train_x"].as_matrix()
     train_y = datasets["train_y"].as_matrix()
-
     test_x = datasets["test_x"].as_matrix()
     test_y = datasets["test_y"].as_matrix()
-
 
     model =  KerasClassifier(create_model,epochs = 10,batch_size = 300,verbose = 0)
     paramaters = {
@@ -366,7 +341,6 @@ def concat(a,b):
     a.reset_index(inplace = True,drop = True)
     b.reset_index(inplace = True,drop = True)
     return pd.concat([a,b],axis = 1)
-
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")

@@ -1,34 +1,27 @@
 #-*- coding:utf-8 -*-
 
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Lambda,Reshape,Flatten
-from keras.wrappers.scikit_learn import KerasRegressor,KerasClassifier
+from keras.wrappers.scikit_learn import KerasClassifier
 import argparse
 import xgboost as xgb
-import random
-import keras.backend as K
 import keras.optimizers
-import tensorflow as tf
 import numpy as np
 import pandas as pd
 import sqlite3, pickle
-import dataset2, util, evaluate, feature
+import dataset2, util, evaluate
 
 
 BATCH_SIZE = 36
 #PREDICT_TYPE = "is_win"
 PREDICT_TYPE = "is_place"
 MODEL_PATH = "./models/course2vec.h5"
-PREDICT_MODEL_PATH = "./models/dqn_model2.h5"
-MEAN_PATH = "./models/dqn_mean.pickle"
-STD_PATH = "./models/dqn_std.pickle"
+MEAN_PATH = "./models/c2v_mean.pickle"
+STD_PATH = "./models/c2v_std.pickle"
 CACHE_PATH = "./cache/course2vec"
 
 def main(use_cache = False):
@@ -71,11 +64,9 @@ def get_vector(x,nom_col,prefix = "c2v"):
 def xgboost_test(datasets):
     train_x = datasets["train_x_pred"]
     train_y = datasets["train_y_pred"]
-    train_c = datasets["train_y"]
 
     test_x = datasets["test_x_pred"]
     test_y = datasets["test_y_pred"]
-    test_c = datasets["test_y"]
 
     print("predicting without course fitness")
     xgbc = xgb.XGBClassifier(
