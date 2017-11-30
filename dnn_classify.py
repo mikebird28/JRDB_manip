@@ -94,7 +94,8 @@ def generate_dataset(predict_type,db_con,config):
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
-    features = sorted(x.columns.drop(["info_race_id","pre1_distance","pre2_distance","pre3_distance"]).values.tolist())
+    features = sorted(x.columns.drop(["info_race_id"]).values.tolist())
+    #features = sorted(x.columns.drop(["info_race_id","pre1_distance","pre2_distance","pre3_distance"]).values.tolist())
 
     x = concat(x,p2v_0)
     x = concat(x,p2v_1)
@@ -118,7 +119,6 @@ def generate_dataset(predict_type,db_con,config):
     train_x = concat(train_x,ff_df)
     del ff_x
     del ff_df
-
 
     c2v_x = train_x.loc[:,features]
     c2v_df = course2vec.get_vector(c2v_x,nom_col)
