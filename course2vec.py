@@ -34,7 +34,7 @@ def main(use_cache = False):
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    xgb_checking(config.features,datasets)
+    #xgb_checking(config.features,datasets)
     dnn(config.features,datasets)
     #dnn_wigh_bayessearch(config.features,datasets)
     xgboost_test(datasets)

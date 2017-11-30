@@ -23,15 +23,14 @@ import place2vec
 import field_fitness
 
 CACHE_PATH = "./cache/dnn_classify"
-pd.options.display.max_rows = 80
-pd.set_option('display.max_columns', 500)
+pd.options.display.max_rows = 1000
 
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
     db_path = "db/output_v11.db"
     db_con = sqlite3.connect(db_path)
- 
+
     if use_cache:
         print("[*] load dataset from cache")
         datasets = dataset2.load_cache(CACHE_PATH)

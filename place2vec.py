@@ -194,7 +194,7 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(input_dim = 165,activation = "relu",dropout = 0.5,hidden_1 = 40):
+def create_model(input_dim = 165,activation = "relu",dropout = 0.5,hidden_1 = 20):
     nn = Sequential()
 
     #nn.add(Dense(units=hidden_1,input_dim = input_dim,activity_regularizer = l2(0.0)))
