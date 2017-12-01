@@ -1,4 +1,4 @@
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 
 from skopt import BayesSearchCV
 from keras.regularizers import l1,l2
@@ -171,7 +171,7 @@ def generate_dataset(predict_type,db_con,config):
 
     ff_x = train_x.loc[:,raw_features]
     ff_df = field_fitness.get_vector(ff_x,nom_col)
-    test_x = concat(train_x,ff_df)
+    train_x = concat(train_x,ff_df)
     test_y.reset_index(drop = True,inplace = True)
     del ff_x
     del ff_df
@@ -265,14 +265,14 @@ def dnn(features,datasets):
 
 
 def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
-    feature_size = 346
+    feature_size = 356
     l2_coef = 0.0
     inputs = Input(shape = (18,feature_size,))
     x = inputs
     x = GaussianNoise(0.01)(x)
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
 
-    depth = 100 
+    depth = 64 
     x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
@@ -280,7 +280,7 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
 
     for i in range(1):
         res = x
-        race_depth = 20
+        race_depth = 8
         tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
         tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
         tmp = Activation(activation)(tmp)
