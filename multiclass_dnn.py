@@ -291,15 +291,16 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
     x = Concatenate(axis = 3)([x,tmp])
 
     depth = depth + race_depth
-    for i in range(1):
+    for i in range(16):
         res = x
-        x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
-        x = Dropout(dropout)(x)
-        x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
-        x = Dropout(dropout)(x)
         x = BatchNormalization()(x)
+        x = Activation(activation)(x)
+        x = Dropout(dropout)(x)
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
+        x = BatchNormalization()(x)
+        x = Activation(activation)(x)
+        x = Dropout(dropout)(x)
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
         x = Add()([x,res])
 
     x = Conv2D(1,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
