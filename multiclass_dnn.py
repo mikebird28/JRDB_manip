@@ -252,6 +252,7 @@ def dnn(features,datasets):
 
     model =  create_model()
     for i in range(1000):
+        print("Epoch : {0}".format(i))
         model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print(loss)
@@ -278,7 +279,7 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
-    for i in range(1):
+    for i in range(4):
         res = x
         race_depth = 8
         tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
