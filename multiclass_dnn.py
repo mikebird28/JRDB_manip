@@ -281,26 +281,26 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
-    for i in range(4):
+    race_depth = 8
+    tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
+    tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
+    tmp = Activation(activation)(tmp)
+    tmp = Conv2D(race_depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
+    tmp = Dropout(0.8)(tmp)
+    tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
+    x = Concatenate(axis = 3)([x,tmp])
+
+    depth = depth + race_depth
+    for i in range(1):
         res = x
-        race_depth = 8
-        tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
-        tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-        tmp = Activation(activation)(tmp)
-        tmp = Conv2D(race_depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-        tmp = Dropout(0.8)(tmp)
-
-        tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
-        x = Concatenate(axis = 3)([x,tmp])
-
         x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
         x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
-        x = Add()([x,res])
         x = BatchNormalization()(x)
+        x = Add()([x,res])
 
     x = Conv2D(1,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
