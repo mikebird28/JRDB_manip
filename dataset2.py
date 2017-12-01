@@ -388,39 +388,11 @@ def to_race_panel(*args):
 
     cc = df.groupby("info_race_id").cumcount()
     df = df.set_index(["info_race_id",cc]).sort_index(1,level = 1)
-    type_dict = df.dtypes.to_dict()
+    del cc
 
-    panel = None
-    batch_size = 10
-    iter_times = len(df.columns)//batch_size + 1
-    df_columns = df.columns
-
-    """
-    for i in range(iter_times):
-        starts = i*batch_size
-        ends   = min((i+1)*batch_size,len(df_columns))
-        target = df_columns[range(starts,ends)]
-        partial_panel = df.loc[:,target].to_panel()
-        df.drop(target,axis = 1,inplace = True)
-        for col in partial_panel.axes[0]:
-            typ = type_dict[col]
-            partial_panel.loc[col,:,:] = partial_panel.loc[col,:,:].astype(typ)
-        if type(panel) != type(None):
-            panel = pd.concat([panel,partial_panel],axis = 0)
-        else:
-            panel = partial_panel
-    """
     df = df.to_panel()
-    #print(df.loc["dont_buy",:,:])
-    remove = ["info_horse_name","info_race_name"]
-    #for col in df.axes[0]:
-    #    if col not in remove:
-    #        df.loc[col,:,:] = df.loc[col,:,:].astype(np.float32)
-    #print(df.loc["dont_buy",:,:])
     df = df.swapaxes(0,1,copy = False)
     df = df.swapaxes(1,2,copy = False)
-
-    #return [panel.loc[:,:,col] for col in columns]
     return [df.loc[:,:,col] for col in columns]
 
 

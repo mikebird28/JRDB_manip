@@ -116,6 +116,7 @@ def generate_dataset(predict_type,db_con,config):
     con.reset_index(drop = True,inplace = True)
     x = con.loc[:,x_col]
     y = con.loc[:,y_col]
+    del con
 
     p2v_0 = place2vec.get_vector(x["rinfo_discipline"],x["info_race_course_code"],x["rinfo_distance"],prefix = "pre0")
     x = x.drop("info_race_course_code",axis = 1)
