@@ -177,7 +177,6 @@ def generate_dataset(predict_type,db_con,config):
     del ff_x
     del ff_df
 
-
     print(">> filling none value of train dataset")
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
@@ -190,6 +189,8 @@ def generate_dataset(predict_type,db_con,config):
     train_x = dataset2.downcast(train_x)
     train_y = dataset2.downcast(train_y)
     train_x,train_y = dataset2.pad_race(train_x,train_y)
+    train_x = dataset2.downcast(train_x)
+    train_y = dataset2.downcast(train_y)
     train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
     train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)
 
