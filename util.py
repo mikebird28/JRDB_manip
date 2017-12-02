@@ -40,10 +40,15 @@ class Nominal:
     pass
 
 
-class Config(object):
+class Config(dict):
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+
     def __init__(self,js):
-        self.config = js["config"]
-        self.features = js["features"]
+        keys = js.keys()
+        for k in keys:
+            self[k] = js[k]
+
 
 def get_config(path):
     fp = open(path,"r")
@@ -51,4 +56,4 @@ def get_config(path):
     return Config(js)
 
 if __name__=="__main__":
-    print(get_config("./config.json").features)
+    print(get_config("./config/config_lstm.json").previous)
