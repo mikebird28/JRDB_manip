@@ -280,6 +280,7 @@ class HorseInfoDatabase(BaseORM):
     def parse_line(self,line):
         c = Container()
         c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code) #場コード
+        c.year                 = to_integer(line[2:4])
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
         c.horse_id             = to_string(line[0:10])   #馬キー
