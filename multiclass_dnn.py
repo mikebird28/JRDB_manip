@@ -267,9 +267,10 @@ def dnn(features,datasets):
     print("Accuracy: {0}".format(accuracy))
 
 
-def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
+def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
     feature_size = 356
     l2_coef = 0.0
+    bn_axis = 1
     inputs = Input(shape = (18,feature_size,))
     x = inputs
     x = GaussianNoise(0.01)(x)
@@ -278,9 +279,10 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
     depth = 64 
     x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
-    x = BatchNormalization()(x)
+    x = BatchNormalization(axis = bn_axis,momentum = 0.0)(x)
     x = Dropout(dropout)(x)
 
+    """
     race_depth = 8
     tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
     tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
@@ -289,15 +291,15 @@ def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 = 80,h
     tmp = Dropout(0.8)(tmp)
     tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
     x = Concatenate(axis = 3)([x,tmp])
-
     depth = depth + race_depth
-    for i in range(16):
+    """
+    for i in range(1):
         res = x
-        x = BatchNormalization()(x)
+        x = BatchNormalization(axis = bn_axis,momentum = 0.0)(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
         x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
-        x = BatchNormalization()(x)
+        x = BatchNormalization(axis = bn_axis,momentum = 0.0)(x)
         x = Activation(activation)(x)
         x = Dropout(dropout)(x)
         x = Conv2D(depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(x)
