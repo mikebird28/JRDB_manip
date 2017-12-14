@@ -22,12 +22,12 @@ import course2vec
 import place2vec
 import field_fitness
 
-CACHE_PATH = "./cache/dnn_classify"
-MODEL_PATH = "./models/dnn_classify"
+CACHE_PATH = "./cache/dnn_regressor2"
+MODEL_PATH = "./models/dnn_regressor2"
 pd.options.display.max_rows = 1000
 
 def main(use_cache = False):
-    predict_type = "is_win"
+    predict_type = "win_payoff"
     config = util.get_config("config/config.json")
     db_path = "db/output_v12.db"
     db_con = sqlite3.connect(db_path)
@@ -121,7 +121,7 @@ def generate_dataset(predict_type,db_con,config):
     print(">> under sampling train dataset")
     train_x.reset_index(inplace = True,drop = True)
     train_y.reset_index(inplace = True,drop = True)
-    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 2)
+    #train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 2)
     train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
 
     sorted_features = sorted(train_x.columns.values.tolist())
@@ -144,7 +144,7 @@ def generate_dataset(predict_type,db_con,config):
         test_y["is_place"],
         test_y["place_payoff"]
     )
-    test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
+    #test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
     test_x,test_y = dataset2.for_use(test_x,test_y,predict_type)
     test_x = test_x.loc[:,features]
 
@@ -168,18 +168,17 @@ def load_datasets_with_p2v():
 def normalize(x,y):
     pass
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hidden_3 = 80):
+def create_model(activation = "relu",dropout = 0.8,hidden_1 = 80,hidden_2 =80,hidden_3 = 80):
     #def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
     l2_lambda = 0.0
-    hidden_1 = hidden_2 = hidden_3 = 60
+    hidden_1 = hidden_2 = hidden_3 = 80
 
     nn = Sequential()
     nn.add(GaussianNoise(0.001,input_shape = (316,)))
 
     nn.add(Dense(units=hidden_1 , W_regularizer = l2(l2_lambda)))
-    #nn.add(Dense(units=hidden_1,input_dim = 316, activity_regularizer = l2(0.0)))
     nn.add(Activation(activation))
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
@@ -189,22 +188,25 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hi
     nn.add(BatchNormalization())
     nn.add(Dropout(dropout))
 
-    depth = 4
+    depth = 2
     for i in range(depth):
         nn.add(Dense(units=hidden_3,W_regularizer = l2(l2_lambda)))
         nn.add(Activation(activation))
         nn.add(BatchNormalization())
         nn.add(Dropout(dropout))
     nn.add(Dense(units=1))
-    nn.add(Activation('sigmoid'))
+    #nn.add(Activation('sigmoid'))
     nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
     return nn
 
 def dnn(features,datasets):
     train_x = np.array(datasets["train_x"])
-    train_y = np.array(datasets["train_y"])
+    train_y = (datasets["train_y"]/100.0).clip(upper = 30.0)
+    train_y = np.array(train_y)
+    #train_win = np.array(datasets["train_y"])
     test_x  = np.array(datasets["test_x"])
-    test_y  = np.array(datasets["test_y"])
+    test_y  = np.array(datasets["test_y"])/100.0
+    #test_win  = np.array(datasets["test_y"])
     test_rx = dataset2.races_to_numpy(datasets["test_rx"])
     #test_ry = dataset2.races_to_numpy(datasets["test_ry"])
     test_r_win = dataset2.races_to_numpy(datasets["test_r_win"])
@@ -221,7 +223,7 @@ def dnn(features,datasets):
         print("")
 
         print("test loss : {0}".format(score[0]))
-        print("test acc : {0}".format(score[1]))
+        #print("test acc : {0}".format(score[1]))
         win_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_win,test_rp_win)
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = evaluate.top_n_k_keras(model,test_rx,test_r_place,test_rp_place)
@@ -339,13 +341,11 @@ def dnn_wigh_bayessearch2(features,datasets):
 
         nn.add(Dense(units=1))
         nn.add(Activation('sigmoid'))
-        nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
+        nn.compile(loss = "mean_squared_loss",optimizer="adam",metrics=["accuracy"])
+        #nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
         return nn
 
 
-        model = 
-        return 
- 
     model =  KerasClassifier(create_model,epochs = 6,verbose = 0)
     paramaters = {
         "hidden_1" : (10,500),

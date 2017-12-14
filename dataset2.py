@@ -84,6 +84,9 @@ def pad_race(x,y,n=18):
     x_col = x.columns.tolist()
     y_col = y.columns.tolist()
     columns = y_col + x_col
+    x.reset_index(inplace = True,drop = True)
+    y.reset_index(inplace = True,drop = True)
+
     df = pd.concat([y,x],axis = 1)
     df = df.sort_values(by = "info_race_id",ascending = True)
     df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
@@ -217,8 +220,6 @@ def dummy_column(x,col_dic):
     if len(pairs) == 0:
         return x
     pairs = sorted(pairs)
-    columns = map(lambda x:x[0], pairs)
-    n_values = map(lambda x:x[1], pairs)
     column_name = []
     for k,v in pairs:
         cols = ["{0}_{1}".format(k,i) for i in range(v)]
@@ -377,6 +378,7 @@ def to_race_panel(*args):
     for dataset in args:
         if type(dataset) == pd.DataFrame and "info_race_id" in dataset.columns:
             dataset["info_race_id"] = dataset["info_race_id"].astype(str)
+        dataset.reset_index(inplace = True,drop = True)
 
     df = pd.concat(args,axis = 1)
     columns = [dataset.columns for dataset in args]
