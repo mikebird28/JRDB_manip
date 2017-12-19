@@ -32,9 +32,11 @@ def top_n_k_keras(model,race_x,race_y,payoff,mode = "max"):
     correct = 0
     rewards = 0
     for x,y,p in zip(race_x,race_y,payoff):
-        #x = x.reshape([1,x.shape[0],x.shape[1]])
+        x = x.reshape([1,x.shape[0],x.shape[1]])
         pred = model.predict(x,verbose = 0)
+        #print(pred)
         binary_pred = to_descrete(pred,mode = mode)
+        #print(binary_pred)
         b = np.array(binary_pred).ravel()
         y = np.array(y).ravel()
         p = np.array(p).ravel()
@@ -94,8 +96,10 @@ def to_descrete(array,mode = "max"):
     res = np.zeros_like(array)
     if mode == "min":
         res[array.argmin(0)] = 1
+        #res[array.argmin(1)] = 1
     elif mode == "max":
-        res[array.argmax(0)] = 1
+        #res[array.argmax(0)] = 1
+        res[0,array.argmax(1)] = 1
     return res
 
 def plot_importance(column,importance):

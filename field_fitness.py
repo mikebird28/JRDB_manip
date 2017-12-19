@@ -33,7 +33,7 @@ def main(use_cache = False):
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    xgb_checking(config.features,datasets)
+    #xgb_checking(config.features,datasets)
     dnn(config.features,datasets)
     xgboost_test(datasets)
 
@@ -47,9 +47,9 @@ def add_vector(x):
     return x
 
 def get_vector(x,nom_col,prefix = "ff"):
-    mean = load_value(MEAN_PATH)
-    std = load_value(STD_PATH)
-    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
+    #mean = load_value(MEAN_PATH)
+    #std = load_value(STD_PATH)
+    #x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
 
     matrix_x = x.as_matrix()
     model = load_model(MODEL_PATH)
@@ -239,7 +239,7 @@ def dnn(features,datasets):
         print("")
         print(loss)
         #result = internal.predict(test_x,verbose = 0)
-    save_model(internal,MODEL_PATH)
+        save_model(internal,MODEL_PATH)
 
 def xgb_checking(features,datasets):
     print("[*] training step")
@@ -291,7 +291,7 @@ def dnn_wigh_bayessearch(features,datasets):
 
 def create_model(activation = "relu",dropout = 0.2,hidden_1 = 10):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 236))
+    nn.add(Dense(units=hidden_1,input_dim = 247))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))

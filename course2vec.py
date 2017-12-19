@@ -27,7 +27,7 @@ CACHE_PATH = "./cache/course2vec"
 def main(use_cache = False):
     predict_type = PREDICT_TYPE
     config = util.get_config("config/config.json")
-    db_path = "db/output_v11.db"
+    db_path = "db/output_v12.db"
     db_con = sqlite3.connect(db_path)
     if use_cache:
         print("[*] load dataset from cache")
@@ -49,16 +49,15 @@ def add_vector(x):
     return x
 
 def get_vector(x,nom_col,prefix = "c2v"):
-    mean = load_value(MEAN_PATH)
-    std = load_value(STD_PATH)
-    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
+    #mean = load_value(MEAN_PATH)
+    #std = load_value(STD_PATH)
+    #x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col)
 
     matrix_x = x.as_matrix()
     model = load_model(MODEL_PATH)
     vectors = pd.DataFrame(model.predict(matrix_x))
     columns = ["{0}_{1}".format(prefix,i) for i in range(len(vectors.columns))]
     vectors.columns = columns
- 
     return vectors
 
 def xgboost_test(datasets):
@@ -248,7 +247,7 @@ def dnn(features,datasets):
         print("")
         print(loss)
         result = internal.predict(test_x,verbose = 0)
-    save_model(internal,MODEL_PATH)
+        save_model(internal,MODEL_PATH)
 
 def xgb_checking(features,datasets):
     print("[*] training step")
@@ -307,9 +306,9 @@ def dnn_wigh_bayessearch(features,datasets):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
 
-def create_model(activation = "relu",dropout = 0.2,hidden_1 = 30):
+def create_model(activation = "relu",dropout = 0.4,hidden_1 = 10):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 236))
+    nn.add(Dense(units=hidden_1,input_dim = 247))
     nn.add(Activation(activation))
     nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))

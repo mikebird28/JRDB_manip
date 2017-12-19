@@ -293,8 +293,6 @@ class HorseInfoDatabase(BaseORM):
         c.composite_score      = to_float(line[84:89])   #総合指数
 
         c.running_style        = to_nominal(line[89],n=6) #脚質
-        if c.running_style.value[0] > 6: 
-            print(c.running_style.value)
         c.distance_fitness     = to_nominal(line[90],n=6) #距離適性
         c.condiction_score     = to_nominal(line[91],converter = nominal.nominal_condiction_score)     #上昇度
         c.rotation             = to_integer(line[92:95],0)  #ローテーション

@@ -9,6 +9,7 @@ from keras.models import Sequential,Model,load_model
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Dense,Activation,Dropout
 from keras.wrappers.scikit_learn import KerasRegressor
+import mutual_preprocess
 import argparse
 import random
 import keras.backend as K
@@ -48,90 +49,15 @@ def main(use_cache = False):
         datasets = generate_dataset(predict_type,db_con,config)
     dnn(config.features,datasets)
 
-def predict(db_con,config):
-    add_col = ["info_horse_name"]
-    features = config.features_light+add_col
-    raw_x = dataset2.load_x(db_con,features)
-    col_dic = dataset2.nominal_columns(db_con)
-    nom_col = dataset2.dummy_column(raw_x,col_dic)
-    raw_x = dataset2.get_dummies(raw_x,col_dic)
-
-    target_columns = []
-    remove = ["info_race_id","info_horse_name","info_race_name"]
-    for col in raw_x.columns:
-        if col not in remove:
-            target_columns.append(col)
-    target_columns = sorted(target_columns)
-
-    x = dataset2.fillna_mean(raw_x,"horse")
-    mean = load_value(MEAN_PATH)
-    std = load_value(STD_PATH)
-    x = dataset2.normalize(x,mean = mean,std = std,remove = nom_col+add_col)
-    x = dataset2.pad_race_x(x)
-    x = dataset2.to_race_panel(x)[0]
-
-    inputs = x.loc[:,:,target_columns]
-    model = load_model(PREDICT_MODEL_PATH)
-    actions = []
-    for i in range(len(inputs)):
-        rx = x.iloc[i,:,:]
-        ri = inputs.iloc[i,:,:]
-
-        a = get_action(model,ri.as_matrix(),is_predict = True)
-        a = pd.DataFrame(a,columns = ["dont_buy","buy"])
-        rx = pd.concat([rx,a],axis = 1)
-        print(rx.loc[:,["info_horse_name","buy"]])
-        #print(rx.loc[:,["info_horse_name","info_horse_number","buy"]])
-        print("")
-        if i > 12:
-            break
-    actions = pd.Panel(actions)
-
-    print(actions)
-
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
     predict_features = config.features
-    additional_features = ["info_race_course_code","rinfo_discipline","rinfo_distance",
-                  "pre1_race_course_code","pre1_discipline","pre1_distance",
-                  "pre2_race_course_code","pre2_discipline","pre2_distance",
-                  "pre3_race_course_code","pre3_discipline","pre3_distance"]
-    odds_features = ["linfo_win_odds","linfo_place_odds"]
-
-    x,y = dataset2.load_dataset(db_con,predict_features+odds_features+additional_features,["is_win","win_payoff","is_place","place_payoff"])
-    x_race_id = x.loc[:,"info_race_id"]
-    x_odds = x.loc[:,odds_features]
-    x = x.loc[:,predict_features+additional_features]
- 
-    p2v_0 = place2vec.get_vector(x["rinfo_discipline"],x["info_race_course_code"],x["rinfo_distance"],prefix = "pre0")
-    x = x.drop("info_race_course_code",axis = 1)
-    x = x.drop("rinfo_discipline",axis = 1)
-    x = x.drop("rinfo_distance",axis = 1)
-
-    p2v_1 = place2vec.get_vector(x["pre1_discipline"],x["pre1_race_course_code"],x["pre1_distance"],prefix = "pre1")
-    x = x.drop("pre1_race_course_code",axis = 1)
-    x = x.drop("pre1_discipline",axis = 1)
-    x = x.drop("pre1_distance",axis = 1)
-
-    p2v_2 = place2vec.get_vector(x["pre2_discipline"],x["pre2_race_course_code"],x["pre2_distance"],prefix = "pre2")
-    x = x.drop("pre2_race_course_code",axis = 1)
-    x = x.drop("pre2_discipline",axis = 1)
-    x = x.drop("pre2_distance",axis = 1)
-
-    p2v_3 = place2vec.get_vector(x["pre3_discipline"],x["pre3_race_course_code"],x["pre3_distance"],prefix = "pre3")
-    x = x.drop("pre3_race_course_code",axis = 1)
-    x = x.drop("pre3_discipline",axis = 1)
-    x = x.drop("pre3_distance",axis = 1)
-
+    x,p2v,y = mutual_preprocess.load_datasets_with_p2v(db_con,config)
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
-
-    x = concat(x,p2v_0)
-    x = concat(x,p2v_1)
-    x = concat(x,p2v_2)
-    x = concat(x,p2v_3)
+    x = concat(x,p2v)
 
     predict_features = sorted(x.columns.values.tolist())
     additional_features = sorted(additional_features)
@@ -142,8 +68,7 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y,test_nums = 1000)
-    del x
-    del y
+    del x,y
 
     print(">> filling none value of train dataset")
     train_x = dataset2.fillna_mean(train_x,"horse")

@@ -6,10 +6,12 @@ from sklearn.metrics import accuracy_score
 from sklearn.decomposition import PCA
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model
-from keras.layers import Dense,Activation,Dropout,GaussianNoise
+from keras.layers import Dense,Activation,Dropout,GaussianNoise,Input,Add
 from keras.layers.normalization import BatchNormalization
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.regularizers import l1,l2
+import xgboost as xgb
+import keras.optimizers
 import argparse
 import numpy as np
 import pandas as pd
@@ -38,7 +40,9 @@ def main(use_cache = False):
     else:
         datasets = generate_dataset(predict_type,db_con,config)
         dataset2.save_cache(datasets,CACHE_PATH)
+    #xgbc(config.features, datasets)
     dnn(config.features, datasets)
+
     #dnn_wigh_bayessearch(config.features,datasets)
     #dnn_wigh_gridsearch(config.features,datasets)
 
@@ -118,24 +122,13 @@ def generate_dataset(predict_type,db_con,config):
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
 
-    print(">> under sampling train dataset")
-    train_x.reset_index(inplace = True,drop = True)
-    train_y.reset_index(inplace = True,drop = True)
-    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 2)
-    train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
-
-    sorted_features = sorted(train_x.columns.values.tolist())
-    train_x = train_x.loc[:,sorted_features]
-
-
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
-    sorted_features = sorted(test_x.columns.values.tolist())
+    print(">> convert test dataset to race panel")
+    sorted_features = sorted(train_x.columns.values.tolist())
     test_x = test_x.loc[:,sorted_features]
-
-    print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
         test_x,
         test_y[predict_type],
@@ -144,9 +137,21 @@ def generate_dataset(predict_type,db_con,config):
         test_y["is_place"],
         test_y["place_payoff"]
     )
+
+    print(">> under sampling train dataset")
+    sorted_features = sorted(train_x.columns.drop("info_race_id").values.tolist())
+    train_x.reset_index(inplace = True,drop = True)
+    train_y.reset_index(inplace = True,drop = True)
+    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 3)
+    train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
+    train_x = train_x.loc[:,sorted_features]
+
+    print(">> under sampling train dataset")
+    test_x.reset_index(inplace = True,drop = True)
+    test_y.reset_index(inplace = True,drop = True)
     test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
     test_x,test_y = dataset2.for_use(test_x,test_y,predict_type)
-    test_x = test_x.loc[:,features]
+    test_x = test_x.loc[:,sorted_features]
 
     datasets = {
         "train_x"      : train_x,
@@ -168,37 +173,43 @@ def load_datasets_with_p2v():
 def normalize(x,y):
     pass
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 =80,hidden_3 = 80):
+def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,hidden_3 = 80):
     #def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
     #Best Paramater of 2 hidden layer : h1 = 50, h2  = 250, dropout = 0.38
     #Best Paramater of 3 hidden layer : h1 = 138, h2  = 265, h3 = 135 dropout = 0.33 
-    l2_lambda = 0.0
+    l2_lambda = 0.000
     hidden_1 = hidden_2 = hidden_3 = 60
 
-    nn = Sequential()
-    nn.add(GaussianNoise(0.001,input_shape = (316,)))
+    inputs = Input(shape = (254,))
+    x = GaussianNoise(0.001)(inputs)
 
-    nn.add(Dense(units=hidden_1 , W_regularizer = l2(l2_lambda)))
-    #nn.add(Dense(units=hidden_1,input_dim = 316, activity_regularizer = l2(0.0)))
-    nn.add(Activation(activation))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(dropout))
+    x = Dense(units=hidden_1 , W_regularizer = l1(l2_lambda))(x)
+    x = Activation(activation)(x)
+    x = Dropout(dropout)(x)
+    x = BatchNormalization()(x)
 
-    nn.add(Dense(units=hidden_2,W_regularizer = l2(l2_lambda)))
-    nn.add(Activation(activation))
-    nn.add(BatchNormalization())
-    nn.add(Dropout(dropout))
-
-    depth = 4
+    depth = 2
     for i in range(depth):
-        nn.add(Dense(units=hidden_3,W_regularizer = l2(l2_lambda)))
-        nn.add(Activation(activation))
-        nn.add(BatchNormalization())
-        nn.add(Dropout(dropout))
-    nn.add(Dense(units=1))
-    nn.add(Activation('sigmoid'))
-    nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
-    return nn
+        tmp = x
+        x = Dense(units=hidden_3)(x)
+        #x = Dense(units=hidden_3,W_regularizer = l1(l2_lambda))(x)
+        x = Activation(activation)(x)
+        x = BatchNormalization()(x)
+        x = Dropout(dropout)(x)
+
+        x = Dense(units=hidden_3)(x)
+        #x = Dense(units=hidden_3,W_regularizer = l1(l2_lambda))(x)
+        x = Activation(activation)(x)
+        x = Dropout(dropout)(x)
+        x = Add()([x,tmp])
+        x = BatchNormalization()(x)
+
+    x = Dense(units=1)(x)
+    x = Activation('sigmoid')(x)
+    model = Model(inputs = inputs,outputs = x)
+    opt = keras.optimizers.Adam(lr=0.01,epsilon = 1e-3)
+    model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
+    return model 
 
 def dnn(features,datasets):
     train_x = np.array(datasets["train_x"])
@@ -215,7 +226,7 @@ def dnn(features,datasets):
     model = create_model()
     for i in range(1000):
         print(i)
-        model.fit(train_x,train_y,epochs = 1,batch_size = 1000)
+        model.fit(train_x,train_y,epochs = 1,batch_size = 300)
         score = model.evaluate(test_x,test_y,verbose = 0)
 
         print("")
@@ -309,72 +320,47 @@ def dnn_wigh_bayessearch(features,datasets):
     for pname in sorted(best_parameters.keys()):
         print("{0} : {1}".format(pname,best_parameters[pname]))
 
-"""
-def dnn_wigh_bayessearch2(features,datasets):
-    train_x = np.array(datasets["train_x"])
-    train_y = np.array(datasets["train_y"])
-    test_x  = np.array(datasets["test_x"])
-    test_y  = np.array(datasets["test_y"])
-    test_rx = dataset2.races_to_numpy(datasets["test_rx"])
-    test_ry = dataset2.races_to_numpy(datasets["test_ry"])
-    test_r_win = dataset2.races_to_numpy(datasets["test_r_win"])
-    test_r_place = dataset2.races_to_numpy(datasets["test_r_place"])
-    test_rp_win = dataset2.races_to_numpy(datasets["test_rp_win"])
-    test_rp_place = dataset2.races_to_numpy(datasets["test_rp_place"])
+def xgboost_evaluation():
+    pass
 
-    def data():
-        return (train_x,train_y,test_x,test_y)
+def xgbc(features,datasets):
+    train_x = datasets["train_x"]
+    train_y = datasets["train_y"]
+    test_x  = datasets["test_x"]
+    test_y  = datasets["test_y"]
+    test_rx = datasets["test_rx"]
+    test_ry = datasets["test_ry"]
+    test_r_win = datasets["test_r_win"]
+    test_r_place = datasets["test_r_place"]
+    test_rp_win = datasets["test_rp_win"]
+    test_rp_place = datasets["test_rp_place"]
+    
+    xgbc = xgb.XGBClassifier(
+        n_estimators = 1000,
+        colsample_bytree =  0.5,
+        gamma = 1.0,
+        learning_rate = 0.07,
+        max_depth = 3,
+        min_child_weight = 2.0,
+        subsample = 1.0
+        )
+    xgbc.fit(train_x,train_y)
 
-    def create_model_for_keras(train_x,train_y,test_x,test_y):
-        nn = Sequential()
-        nn.add(Dense(units={choice,input_dim = 294, activity_regularizer = l2(0.0)))
-        nn.add(Activation(activation))
-        nn.add(BatchNormalization())
-        nn.add(Dropout(dropout))
-
-        nn.add(Dense(units=hidden_2,activity_regularizer = l2(0.0)))
-        nn.add(Activation(activation))
-        nn.add(BatchNormalization())
-        nn.add(Dropout(dropout))
-
-        nn.add(Dense(units=1))
-        nn.add(Activation('sigmoid'))
-        nn.compile(loss = "binary_crossentropy",optimizer="adam",metrics=["accuracy"])
-        return nn
-
-
-        model = 
-        return 
- 
-    model =  KerasClassifier(create_model,epochs = 6,verbose = 0)
-    paramaters = {
-        "hidden_1" : (10,500),
-        "hidden_2" : (10,500),
-        "dropout" : (0.3,0.9),
-        "batch_size" : (10,2000),
-    }
-
-    cv = BayesSearchCV(model,paramaters,cv = 5,scoring='accuracy',n_iter = 10,verbose = 10)
-    cv.fit(train_x,train_y)
-
-    pred = cv.predict(test_x)
+    pred = xgbc.predict(test_x)
     accuracy = accuracy_score(test_y,pred)
     print("")
     print("Accuracy: {0}".format(accuracy))
 
-    win_eval  = evaluate.top_n_k(cv,test_rx,test_r_win,test_rp_win)
+    win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
     print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
-    place_eval  = evaluate.top_n_k(cv,test_rx,test_r_place,test_rp_place)
+    place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
     print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
 
     report = classification_report(test_y,pred)
     print(report)
 
-    print("Paramaters")
-    best_parameters = cv.best_params_
-    for pname in sorted(best_parameters.keys()):
-        print("{0} : {1}".format(pname,best_parameters[pname]))
-"""
+    importances = xgbc.feature_importances_
+    evaluate.show_importance(train_x.columns,importances)
 
 def save_model(model,path):
     print("Save model")

@@ -80,7 +80,58 @@ def add_race_info(x,y,race_info):
     ret_y = con.loc[:,y_col]
     return ret_x,ret_y
 
-def pad_race(x,y,n=18):
+def pad_race(x,y,*additional):
+    n = 18
+
+    x_col = x.columns.tolist()
+    y_col = y.columns.tolist()
+    columns = x_col + y_col
+    add_col = []
+    for a in additional:
+        col = a.columns.tolist()
+        add_col.append(col)
+        columns += col
+ 
+    x.reset_index(inplace = True,drop = True)
+    y.reset_index(inplace = True,drop = True)
+    for a in additional:
+        a.reset_index(inplace = True,drop = True)
+ 
+    con = pd.concat([x,y]+list(additional) ,axis = 1)
+    con = con.sort_values(by = "info_race_id",ascending = True)
+    con = con.groupby("info_race_id").filter(lambda x:len(x) <= 18)
+
+    size = con.groupby("info_race_id").size().reset_index(name = "counts")
+    mean = con.groupby("info_race_id").mean().reset_index()
+    mean.loc[:,y_col] = 0.0
+
+    merged = mean.merge(size,on = "info_race_id",how="inner")
+    for col in merged.columns:
+        if col != "info_race_id" and col != "counts":
+            merged[col] = merged[col].astype(np.float32)
+
+    del mean
+    del size
+
+    ls = []
+    for i,row in merged.iterrows():
+        pad_num = n - row["counts"]
+        new_row = row[columns]
+        ls.extend([new_row for i in range(pad_num)])
+    con = con.append(pd.DataFrame(ls))
+    del ls
+    con = con.sort_values(by = "info_race_id")
+    ret_x = con.loc[:,x_col]
+    ret_y = con.loc[:,y_col]
+    ret_add = []
+    for cols in add_col:
+        ret_add.append(con.loc[:,cols])
+    return [ret_x,ret_y] + ret_add
+
+
+"""
+def pad_race(x,y):
+    n = 18
     x_col = x.columns.tolist()
     y_col = y.columns.tolist()
     columns = y_col + x_col
@@ -109,12 +160,11 @@ def pad_race(x,y,n=18):
         pad_num = n - row["counts"]
         new_row = row[target_columns]
         ls.extend([new_row for i in range(pad_num)])
-    #dtype_dict = df.dtypes.to_dict()
-    #dtype_ls = [(k,dtype_dict[k].type) for k in df.columns]
     df = df.append(pd.DataFrame(ls))
     del ls
     df = df.sort_values(by = "info_race_id")
     return (df.loc[:,x_col],df.loc[:,y_col])
+"""
 
 def pad_race_x(df,n = 18):
     x_col = df.columns.tolist()
