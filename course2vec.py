@@ -308,9 +308,10 @@ def dnn_wigh_bayessearch(features,datasets):
 
 def create_model(activation = "relu",dropout = 0.4,hidden_1 = 10):
     nn = Sequential()
-    nn.add(Dense(units=hidden_1,input_dim = 247))
-    nn.add(Activation(activation))
-    nn.add(BatchNormalization(name = "internal"))
+    nn.add(Dense(units=hidden_1,input_dim = 247,name = "internal"))
+    #nn.add(Dense(units=hidden_1,input_dim = 247))
+    #nn.add(Activation(activation))
+    #nn.add(BatchNormalization(name = "internal"))
     nn.add(Dropout(dropout))
 
     nn.add(Dense(units=10))

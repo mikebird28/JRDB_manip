@@ -197,13 +197,13 @@ def generate_dataset(predict_type,db_con,config):
 def create_model(input_dim = 165,activation = "relu",dropout = 0.9,hidden_1 = 5):
     nn = Sequential()
 
-    nn.add(Dense(units=hidden_1,input_dim = input_dim,W_regularizer = l2(0.0)))
-    #nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal",W_regularizer = l2(1e-4)))
+    #nn.add(Dense(units=hidden_1,input_dim = input_dim,W_regularizer = l2(0.0)))
+    nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal",W_regularizer = l2(0.0)))
     #nn.add(Dropout(dropout))
-    nn.add(Activation(activation,name = "internal"))
+    #nn.add(Activation(activation,name = "internal"))
     #nn.add(BatchNormalization(name = "internal"))
 
-    nn.add(Dense(units = input_dim,activity_regularizer = l2(1e-4)))
+    nn.add(Dense(units = input_dim,W_regularizer = l2(1e-4)))
     nn.add(Activation("softmax"))
 
     opt = keras.optimizers.Adam(lr=0.01)

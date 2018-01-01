@@ -21,16 +21,15 @@ BATCH_SIZE = 36
 REFRESH_INTERVAL = 50 
 PREDICT_TYPE = "win_payoff"
 #PREDICT_TYPE = "place_payoff"
-MODEL_PATH = "./models/mlp_model3.h5"
-MEAN_PATH = "./models/mlp_mean3.pickle"
-STD_PATH = "./models/mlp_std3.pickle"
-CACHE_PATH = "./cache/multiclass3"
+MODEL_PATH = "./models/montecarlo.h5"
+MEAN_PATH = "./models/montecarlo.pickle"
+STD_PATH = "./models/montecarlo.pickle"
+CACHE_PATH = "./cache/montecarlo"
 
 pd.set_option('display.height', 1000)
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_rows', 1000)
 pd.set_option('display.max_columns', 1000)
-np.set_printoptions(threshold=np.nan)
  
 def main(use_cache = False):
     #predict_type = "place_payoff"
@@ -85,15 +84,22 @@ def generate_dataset(predict_type,db_con,config):
     
     print(">> filling none value of datasets")
     mean = train_x.mean(numeric_only = True)
-    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
+    std = train_x.std(numeric_only = True).clip(lower = 1e-2)
+    mean_odds = train_add_x.mean(numeric_only = True)
+    #mean_std = train_add_x.std(numeric_only = True).clip(lower = 1e-2)
     save_value(mean,MEAN_PATH)
     save_value(std,STD_PATH)
+
     train_x = fillna_mean(train_x,mean)
+    train_add_x = fillna_mean(train_add_x,mean_odds)
     test_x = fillna_mean(test_x,mean)
+    test_add_x = fillna_mean(test_add_x,mean_odds)
 
     print(">> normalizing datasets")
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
+    train_add_x = (train_add_x/100.0).clip(upper = 50)
+    test_add_x = (test_add_x/100.0).clip(upper = 50)
 
     print(">> adding extra information to datasets")
     train_x,train_y = add_c2v(train_x,train_y,main_features_dropped,nom_col)
@@ -116,22 +122,38 @@ def generate_dataset(predict_type,db_con,config):
     train_x,train_y,train_add_x = dataset2.to_race_panel(train_x,train_y,train_add_x)
     test_x,test_y,test_add_x = dataset2.to_race_panel(test_x,test_y,test_add_x)
 
-    train_x1 = train_x.ix[:20000,:,features]
-    train_x2 = train_x.ix[20000:,:,features]
+    train_x = train_x.loc[:,:,features]
     train_add_x = train_add_x.loc[:,:,additional_features]
     train_y = train_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
     test_x = test_x.loc[:,:,features]
     test_add_x = test_add_x.loc[:,:,additional_features]
     test_y = test_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
-    del train_x
+
+    print(">> prediting with dnn ")
+    train_race_idx = train_x.axes[0]
+    test_race_idx = test_x.axes[0]
+    train_x = train_x.as_matrix()
+    test_x = test_x.as_matrix()
+    pred_model = load_model("./models/mlp_model3.h5")
+
+    train_x = pred_model.predict(train_x)
+    train_x = pd.Panel({"pred":pd.DataFrame(train_x,index = train_race_idx)})
+    train_x = train_x.swapaxes(0,1,copy = False)
+    train_x = train_x.swapaxes(1,2,copy = False)
+    train_x = pd.concat([train_x,train_add_x],axis = 2)
+
+    test_x = pred_model.predict(test_x)
+    test_x = pd.Panel({"pred":pd.DataFrame(test_x,index = test_race_idx)})
+    test_x = test_x.swapaxes(0,1,copy = False)
+    test_x = test_x.swapaxes(1,2,copy = False)
+    test_x = pd.concat([test_x,test_add_x],axis = 2)
+    print(train_x.shape)
+    print(test_x.shape)
 
     datasets = {
-        "train_x1" : train_x1,
-        "train_x2" : train_x2,
-        "train_add_x" : train_add_x,
+        "train_x" : train_x,
         "train_y" : train_y,
         "test_x"  : test_x,
-        "test_add_x" : test_add_x,
         "test_y"  : test_y,
     }
     dataset2.save_cache(datasets,CACHE_PATH)
@@ -140,15 +162,9 @@ def generate_dataset(predict_type,db_con,config):
 def dnn(features,datasets):
     print("[*] training step")
     target_y = "is_win"
-    #train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0).as_matrix()
-    train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0)
-    train_x = train_x.as_matrix()
-    #train_add_x = datasets["train_add_x"].as_matrix()
-    test_x = datasets["test_x"].as_matrix()
+    train_x = datasets["train_x"].as_matrix()
     train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
-    print(train_y)
-    #test_add_x = datasets["test_add_x"].loc[:,:,"linfo_place_odds"].as_matrix().T
-    test_add_x = datasets["test_add_x"].loc[:,:,"linfo_win_odds"].as_matrix().T
+    test_x = datasets["test_x"].as_matrix()
     test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
     test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
@@ -164,58 +180,20 @@ def dnn(features,datasets):
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = evaluate.top_n_k_keras(model,test_x,test_r_place,test_r_place)
         print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
-        save_model(model,MODEL_PATH)
-
-        #index_simulator(model,test_x,test_r_win,test_add_x)
     print("")
     print("Accuracy: {0}".format(accuracy))
 
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
-    feature_size = 287
-    l2_coef = 0.0
-    bn_axis = -1
-    momentum = 0
-    inputs = Input(shape = (18,feature_size,))
+def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
+    inputs = Input(shape = (18,3))
     x = inputs
-    x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
-    x = GaussianNoise(0.01)(x)
-
-    depth = 32
-    x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
-    x = Dropout(dropout)(x)
-
-    """
-    race_depth = 8
-    tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
-    tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Activation(activation)(tmp)
-    tmp = Conv2D(race_depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Dropout(0.8)(tmp)
-    tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
-    x = Concatenate(axis = 3)([x,tmp])
-    depth = depth + race_depth
-    """
-
-    for i in range(1):
-        res = x
-        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
-        x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
-
-        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
-        x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
-        x = Dropout(dropout)(x)
-        x = Add()([x,res])
-
-    x = BatchNormalization(axis = 1,momentum = momentum)(x)
-    x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
-    #x = Dense(units = 18)(x)
-    #x = GlobalMaxPooling2D(data_format = "channels_first")(x)
+    x = Dense(units = 54)(x)
+    outputs = Activation(activation)(x)
+    x = Dense(units = 36)(x)
+    #x = Dropout(0.8)(x)
+    outputs = Activation(activation)(x)
+    x = Dense(units = 18)(x)
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
@@ -272,31 +250,6 @@ def fillna_mean(df,mean = None):
     else:
         df = df.fillna(mean)
     return df
-
-def index_simulator(model,x,y,odds):
-    index = mk_index(model,x,odds)
-    minimum = 0.0
-    maximum = np.max(index)
-    delta = (maximum - minimum)/20
-    for i in drange(minimum,maximum,delta):
-        descrete = np.zeros_like(index)
-        descrete[index>i] = 1
-        buy_num = np.sum(descrete)
-        hit = np.sum(np.clip(descrete * y,0,1))/buy_num
-        rewards = np.sum(descrete * y)
-        rewards_per = rewards/buy_num
-        print("[*] index {0} : buy {1}, hit {2}, rewards_per {3}".format(i,buy_num,hit,rewards_per)) 
-
-def mk_index(model,x,odds):
-    offset = 0.5
-    #offset = np.e
-    clipped = np.clip(odds,1e-8,20) + offset
-    #log_odds = np.log(clipped)
-    log_odds = np.log(clipped)/np.log(3)
-    pred = model.predict(x)
-    ret = log_odds * pred
-    return ret
-
 def drange(begin, end, step):
     n = begin
     while n+step < end:

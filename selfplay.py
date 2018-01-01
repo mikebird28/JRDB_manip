@@ -1,16 +1,20 @@
 # -*- coding:utf-8 -*-
 
+#
+#Let us pray the success of experiments
+#
+
 from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
-from keras.models import model_from_config
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
+from keras.models import model_from_config
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Reshape,Flatten,Permute,Lambda
 from keras.layers.pooling import GlobalAveragePooling2D,GlobalMaxPooling2D
 import keras.optimizers
 import numpy as np
 import pandas as pd
-import sqlite3, pickle,argparse,decimal
+import sqlite3, pickle,argparse,sys,random
 import dataset2, util, evaluate
 import place2vec, course2vec,field_fitness
 import mutual_preprocess
@@ -173,88 +177,201 @@ def dnn(features,datasets):
     test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T-100
     #test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
 
-    model =  create_model()
-    old_model = clone_model(model)
-    gene = dataset_generator(train_x,train_r_win,batch_size = 100)
-    
+   
     #constants
-    max_iterate = 1000
+    max_iterate = 300000
+    max_sampling = 3000
     log_interval = 10
-    model_swap_interval = 5
+    model_swap_interval = 20
+    batch_size = 200
+    hist = None
 
     #variables
     skip_count = 0 
+    swap_count = 0
     hit_count = 0
 
-    for i in range(50000):
+    model =  create_model()
+    old_model = clone_model(model)
+    gene = dataset_generator(train_x,train_r_win,batch_size = batch_size)
+    sampler = ActionSampler(train_x,train_r_win)
+ 
+    for i in range(max_iterate):
+        sampler.get_sample(mode,target_size,batch_size)
+
+        """
         x,y = next(gene)
         x = x.as_matrix()
         y = y.as_matrix()
         y = y.reshape([-1,18],order='F')
 
-        sample_count = 0
-        count = 0
         pred = old_model.predict(x)
-        while True:
-            count += 1
-
-            noise = (float(count)/max_iterate)/3
-            n_pred = np.clip(pred,0.1,0.9)
-            #n_pred = np.clip(pred,noise,1-noise)
-            act = np.random.binomial(1,n_pred)
-            eval_v = eval_action(act,y,100,)
-            if eval_v == 1:
-                sample_count += 1
-                model.fit(x,act,epochs = 1,verbose = 0)
-                hit_count += 1
-            if sample_count == 1:
-                break
-            if count >= max_iterate:
-                skip_count += 1
-                break
-        test_pred = model.predict(test_x)
-        test_pred = np.round(test_pred)
-        total_reward = np.sum(test_pred*test_r_win)
-        buy = np.sum(test_pred)
-        reward_per = float(total_reward/buy)
+        pred_act = np.round(pred)
+        pred_v = eval_action(pred_act,y,batch_size)
+        best_value = pred_v
+        best_act = pred_act
+        best_count = 1
+        should_train = False
+        for j in range(max_sampling):
+            dice = random.random()
+            if dice < 0.95:
+                #random_act = np.random.randint(2,size = pred.shape)
+                #random_act = random_inverts(0.03,pred_act)
+                max_value = 10000.0
+                prob = max((max_value-i)/max_value, 5e-2)
+                random_act = random_inverts(prob,pred_act)
+            else:
+                noise = (float(j)/max_iterate)/3
+                n_pred = np.clip(pred,noise,0.99-noise)
+                random_act = np.random.binomial(1,n_pred)
+            eval_v = eval_action(random_act,y,batch_size)
+            if eval_v > best_value:
+                best_count += 1
+                best_value = eval_v
+                best_act = random_act
+                #best_act += random_act
+                should_train = True
+        if should_train:
+            #best_act = best_act/best_count
+            #print(best_act[-1,:])
+            #if i < 200:
+            #    best_act = np.clip(y,0,1)
+            hist = model.fit(x,best_act,epochs = 1,verbose = 0,batch_size = batch_size)
+            loss = hist.history["loss"]
+            swap_count += 1
+        else:
+            skip_count += 1
+        """
+         
         if i%log_interval == 0:
-            print("Epoch {0}, Buy : {1}, RewardPer : {2}".format(i,buy,reward_per))
-            print("Skip Count: {0}".format(skip_count))
+            test_pred = model.predict(test_x)
+            test_pred = np.round(test_pred)
+            reward_matrix = test_pred*test_r_win
+            hit_matrix = np.clip(reward_matrix,0,1)
+            total_hit = np.sum(hit_matrix)
+            total_reward = np.sum(reward_matrix)
+            buy = np.sum(test_pred)
+            reward_per = float(total_reward/buy)
+            print("Epoch {0}, Hit : {1}/{2}, Reward Per : {3}, Total Reward : {4}".format(i,total_hit,buy,reward_per,total_reward))
+            print("skip_count : {0}".format(skip_count))
             skip_count = 0
-        if hit_count == model_swap_interval:
+            #print("loss : {0}".format(loss))
+
+        if swap_count == model_swap_interval:
+            print("swap")
             old_model = clone_model(model)
-            hit_count = 0
+            swap_count = 0
+
+class ActionSampler():
+
+    def __init__(self,x,y,max_sampling = 1000):
+        self.max_sampling = max_sampling
+        self.x = x
+        self.y = y
+        self.con = pd.concat([self.x,self.y],axis = 2)
+
+        self.x_col = x.axes[0]
+        self.y_col = y.axes[0]
+        self.y.axes[0] = self.axes[0]
+        self.y.axes[1] = self.axes[1]
+ 
+    def get_sample(self,model,target_size,batch_size):
+        if target_size%batch_size != 0:
+            raise Exception("target_size should be multiples of batch_size")
+        n = target_size/batch_size
+
+        sample_list_x = []
+        sample_list_y = []
+        for i in range(n):
+            x,y = self.__random_sample(batch_size)
+            pred = model.predict(x)
+            pred_act = np.round(pred)
+            pred_value = eval_action(pred_act,y,batch_size)
+
+            best_value = pred_value
+            best_act = pred_act
+            should_push = False
+            for j in range(self.max_sampling):
+                random_act = self.__generate_action(pred)
+                eval_value = eval_action(random_act,y,batch_size)
+                if eval_value > best_value:
+                    best_value = eval_value
+                    best_act = random_act
+                    should_push = True
+            if should_push:
+                sample_list_x.append(x)
+                sample_list_y.append(best_act)
+        ret_x = pd.concat(sample_list_x,axis = 0)
+        ret_y = pd.concat(sample_list_y,axis = 0)
+        print(ret_y.shape)
+        return (ret_x,ret_y)
+
+    def __generate_action(pred):
+        #pred_act = np.round(pred)
+        dice = random.random()
+        if dice < 0.95:
+            random_act = np.random.randint(2,size = pred.shape)
+            #random_act = random_inverts(0.03,pred_act)
+            #max_value = 10000.0
+            #prob = max((max_value-i)/max_value, 5e-2)
+            #random_act = random_inverts(prob,pred_act)
+        else:
+            #noise = (float(j)/max_iterate)/3
+            noise = 0.1
+            n_pred = np.clip(pred,noise,0.99-noise)
+            random_act = np.random.binomial(1,n_pred)
+        return random_act
+
+    def __random_sample(self,batch_size):
+        sample = self.con.sample(n = batch_size,axis = 0)
+        x = sample.loc[:,:,self.x_col]
+        y = sample.loc[:,:,self.y_col]
+        yield (x,y)
 
 
 def eval_action(action,payoff,batch_size):
-    buy = np.sum(action)
+    #buy = np.sum(action)
     reward_matrix = action*payoff
-    hit_matrix = np.clip(reward_matrix,0,1)
+    #hit_matrix = np.clip(reward_matrix,0,1)
     total_reward = np.sum(reward_matrix)
-    total_hit = np.sum(hit_matrix)
-    reward_per = total_reward/buy
-    hit_per = total_hit/batch_size
-    if total_reward > 10000.0:
-        return 1
-    else:
-        return 0
+    #total_hit = np.sum(hit_matrix)
+    #reward_per = total_reward/buy
+    #hit_per = total_hit/batch_size
+    return total_reward
+    #return max(total_reward,000)
 
 def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
+    l2_coef = 0.01
+    feature_size = 3
     inputs = Input(shape = (18,3))
     x = inputs
-    x = Flatten()(x)
-    x = Dense(units = 36)(x)
-    #outputs = Activation(activation)(x)
-    #x = Activation(activation)(x)
+
+    x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
+    x = Conv2D(32,(1,3),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization(momentum = 0)(x)
     x = Dropout(0.8)(x)
+    x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Flatten()(x)
+
+    """
+    x = Flatten()(inputs)
+    #x = GaussianNoise(0.01)(x)
+
+    x = Dense(units = 36)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization(momentum = 0)(x)
+    x = Dropout(0.6)(x)
+
     x = Dense(units = 18)(x)
+    """
     outputs = Activation("sigmoid")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
-    opt = keras.optimizers.Adam(lr=1e-3)
-    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
-    model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
-    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    opt = keras.optimizers.Adam(lr=1e-2)
+    #model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
+    model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    #model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
 
 def save_model(model,path):
@@ -313,6 +430,13 @@ def drange(begin, end, step):
         yield n
         n += step
 
+def random_inverts(p,matrix):
+    matrix = matrix.astype(bool)
+    random_mask = np.random.binomial(1,p,size = matrix.shape).astype(bool)
+    random_value = np.random.randint(2,size = matrix.shape)
+    ret = np.where(random_mask == True,random_value,matrix).astype(np.int32)
+    return ret
+
 def dataset_generator(x,y,batch_size = 100):
     x_col = x.axes[2].tolist()
     y_col = y.axes[2].tolist()
@@ -336,9 +460,14 @@ def clone_model(model,custom_objects = {}):
     return clone
 
 
-
 if __name__=="__main__":
+    """
+    array = np.array([1,1,1,1,0,0,0,0])
+    for i in range(10):
+        print(random_inverts(0.9,array))
+    """
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
     parser.add_argument("-c","--cache",action="store_true",default=False)
     args = parser.parse_args()
     main(use_cache = args.cache)
+

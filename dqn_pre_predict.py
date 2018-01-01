@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
+from keras.models import model_from_config
 from skopt import BayesSearchCV
 from keras.models import Sequential,Model,load_model
 from keras.layers.normalization import BatchNormalization
@@ -24,7 +25,7 @@ import dataset2, util
 LOOSE_VALUE = -100
 DONT_BUY_VALUE = 0.0
 REWARD_THREHOLD = 0
-EVALUATE_INTERVAL = 10
+EVALUATE_INTERVAL = 5
 MAX_ITERATION = 50000
 BATCH_SIZE = 512
 REFRESH_INTERVAL = 200 
@@ -228,11 +229,9 @@ def dnn(features,datasets):
     train_action = datasets["train_action"]
     test_x  = datasets["test_x"]
     test_action  = datasets["test_action"]
-    print(train_x.iloc[1,:,:])
-    print(train_action.iloc[1,:,:])
 
     model =  create_model()
-    old_model = keras.models.clone_model(model)
+    old_model = clone_model(model)
 
     #main_loop
     batch_size = BATCH_SIZE
@@ -268,8 +267,7 @@ def dnn(features,datasets):
             print(hist.history["loss"])
             save_model(model,MODEL_PATH)
         if count % REFRESH_INTERVAL == 0:
-            old_model = keras.models.clone_model(model)
-            pass
+            old_model = clone_model(model)
 
 def create_model(activation = "relu",dropout = 0.6,hidden_1 = 30,hidden_2 = 250,hidden_3 = 80):
     nn = Sequential()
@@ -283,10 +281,7 @@ def create_model(activation = "relu",dropout = 0.6,hidden_1 = 30,hidden_2 = 250,
 
     nn.add(Dense(units=2))
 
-    opt = keras.optimizers.Adam(lr=1e-4)
-    #nn.compile(loss = "mean_squared_error",optimizer=opt,metrics=["accuracy"])
-    #nn.compile(loss = "squared_hinge",optimizer=opt,metrics=["accuracy"])
-    #nn.compile(loss = log_loss,optimizer=opt,metrics=["accuracy"])
+    opt = keras.optimizers.Adam(lr=1e-3)
     nn.compile(loss = huber_loss,optimizer=opt,metrics=["accuracy"])
     return nn
 
@@ -359,7 +354,7 @@ def clip(y):
     #y = y.clip(lower = 0.0,upper = 1.0)
     #y = y.clip(lower = 0.0,upp)
     #y = y.clip(lower = -2.0,upper = 10.0)
-    y = y.clip(upper = 30.0)
+    y = y.clip(upper = 20)
     return y
 
 def others(df,idx):
@@ -396,6 +391,16 @@ def concat(a,b):
     a.reset_index(inplace = True,drop = True)
     b.reset_index(inplace = True,drop = True)
     return pd.concat([a,b],axis = 1)
+
+def clone_model(model,custom_objects = {}):
+    config = {
+        'class_name': model.__class__.__name__,
+        'config': model.get_config(),
+    }
+    clone = model_from_config(config, custom_objects=custom_objects)
+    clone.set_weights(model.get_weights())
+    return clone
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")

@@ -264,6 +264,7 @@ def dataset_generator(x,y,batch_size = 100):
 def get_reward(model,x,y,is_predict = False,action_threhold = 0.01):
     x = x.as_matrix()
     y = y.as_matrix()
+    print(y)
     action = get_action(model,x,is_predict = is_predict,threhold = action_threhold)
     rewards = (y*action).sum()
     #rewards = sum(np.amax(model.predict(x),axis = 1))
