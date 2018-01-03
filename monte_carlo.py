@@ -197,7 +197,6 @@ def dnn(features,datasets):
         pred = old_model.predict(x)
         while True:
             count += 1
-
             noise = (float(count)/max_iterate)/3
             n_pred = np.clip(pred,0.1,0.9)
             #n_pred = np.clip(pred,noise,1-noise)
@@ -232,9 +231,9 @@ def eval_action(action,payoff,batch_size):
     hit_matrix = np.clip(reward_matrix,0,1)
     total_reward = np.sum(reward_matrix)
     total_hit = np.sum(hit_matrix)
-    reward_per = total_reward/buy
+    reward_per = total_reward/buy if buy != 0 else 0
     hit_per = total_hit/batch_size
-    if total_reward > 10000.0:
+    if reward_per > 10.0:
         return 1
     else:
         return 0
@@ -252,9 +251,8 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,h
 
     model = Model(inputs = inputs,outputs = outputs)
     opt = keras.optimizers.Adam(lr=1e-3)
-    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
-    model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
-    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    #model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
 
 def save_model(model,path):

@@ -4,6 +4,7 @@
 #Let us pray the success of experiments
 #
 
+import keras.backend as K
 from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
@@ -171,33 +172,30 @@ def dnn(features,datasets):
     target_y = "win_payoff"
     train_x = datasets["train_x"]
     train_y = datasets["train_y"].loc[:,:,[target_y]] -100
+    print(train_y.shape)
     test_x = datasets["test_x"].as_matrix()
     #test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T-100
-    test_y = datasets["test_y"].loc[:,:,target_y].as_matrix()-100
-    test_y = test_y.reshape([-1,18],order='F')
+    test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().T-100
+    print(test_y.shape)
+    print(test_y[0,:])
+    #test_y = test_y.reshape([-1,18])
+    #print(test_y[0,:])
    
     max_iterate = 300000
     log_interval = 5
-    model_swap_interval = 5
+    model_swap_interval = 10
     model =  create_model()
     old_model = clone_model(model)
-    sampler = ActionSampler(train_x,train_y)
+    sampler = ActionSampler(train_x,train_y,max_sampling = 2000)
  
-    pre_x = None
-    pre_y = None
     for i in range(max_iterate):
-        target_size = 5
-        batch_size = 300
+        target_size = 10
+        batch_size = 500
         x,y,act = sampler.get_sample(old_model,target_size,batch_size)
         model.fit(x,act,epochs = 1,batch_size = batch_size,verbose = 0)
         if i%log_interval == 0:
             log(i,model,x,y)
             log(i,model,test_x,test_y)
-            if pre_x is not None:
-                log(i,model,pre_x,pre_y)
-            pre_x = x
-            pre_y = y
-            #print(pre_y.shape)
         if i%model_swap_interval == 0:
             print("swap")
             old_model = clone_model(model)
@@ -226,15 +224,16 @@ class ActionSampler():
             pred_act = np.round(pred)
             pred_value = eval_action(pred_act,y,target_size)
 
-            best_value = pred_value
+            #best_value = pred_value
             best_act = pred_act
             should_push = False
             hit_count = 1.0
             for j in range(self.max_sampling):
                 random_act = self.__generate_action(pred)
                 eval_value = eval_action(random_act,y,target_size)
-                if eval_value > best_value:
-                    best_value = eval_value
+                if eval_value > pred_value:
+                #if eval_value > best_value:
+                    #best_value = eval_value
                     best_act += random_act
                     #best_act = random_act
                     hit_count += 1
@@ -255,21 +254,11 @@ class ActionSampler():
         return (ret_x,ret_y,ret_act)
 
     def __generate_action(self,pred):
-        pred_act = np.round(pred)
         dice = random.random()
-        if dice < 0.2:
-            random_act = np.random.randint(2,size = pred.shape)
-            #random_act = random_inverts(0.03,pred_act)
-            #max_value = 10000.0
-            #prob = max((max_value-i)/max_value, 5e-2)
-            #random_act = random_inverts(prob,pred_act)
-        elif dice < 0.4:
-            random_act = random_inverts(0.03,pred_act)
+        if dice < 0.80:
+            random_act = random_choice(pred)
         else:
-            #noise = (float(j)/max_iterate)/3
-            noise = 0.1
-            n_pred = np.clip(pred,noise,0.99-noise)
-            random_act = np.random.binomial(1,n_pred)
+            random_act = random_choice_equally(pred)
         return random_act
 
     def __random_sample(self,batch_size):
@@ -292,11 +281,15 @@ def eval_action(action,payoff,batch_size):
     reward_per = total_reward/buy if buy != 0 else 0
     #hit_per = total_hit/batch_size
     return max(reward_per,0.0)
+    #return reward_per
     #return max(total_reward,0.0)
 
 def log(epoch,model,x,y):
     pred = model.predict(x)
-    pred_act = np.round(pred)
+    print(pred[0,:])
+    #pred_act = np.round(pred)
+    pred_act = to_descrete(pred)
+    #print(pred)
     reward_matrix = pred_act*y
     hit_matrix = np.clip(reward_matrix,0,1)
     total_hit = np.sum(hit_matrix)
@@ -310,41 +303,41 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,h
     l2_coef = 0.01
     feature_size = 3
     inputs = Input(shape = (18,3))
+    bn_axis = 1
+    depth = 12
     x = inputs
+    x = GaussianNoise(0.01)(x)
 
-    """
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
-    x = Conv2D(32,(1,3),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-    x = Activation(activation)(x)
+    x = Conv2D(depth,(1,3),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = BatchNormalization(momentum = 0)(x)
-    x = Dropout(0.5)(x)
 
-    x = Conv2D(32,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-    x = Activation(activation)(x)
-    x = BatchNormalization(momentum = 0)(x)
-    x = Dropout(0.5)(x)
-
+    for i in range(3):
+        tmp = x
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        x = BatchNormalization(axis = bn_axis,momentum = 0)(x)
+        x = Activation(activation)(x)
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        x = BatchNormalization(axis = bn_axis,momentum = 0)(x)
+        x = Dropout(0.7)(x)
+        x = Add()([tmp,x])
+        x = Activation(activation)(x)
 
     x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    #x = BatchNormalization(momentum = 0)(x)
+    #x = Activation(activation)(x)
     x = Flatten()(x)
 
-    """
-    x = Flatten()(inputs)
-    #x = GaussianNoise(0.01)(x)
+    #x = Dense(units = 18,kernel_regularizer = l2(l2_coef),bias_regularizer = l2(l2_coef))(x)
 
-    x = Dense(units = 36,kernel_regularizer = l2(l2_coef))(x)
-    #x = Activation(activation)(x)
-    x = BatchNormalization(momentum = 0)(x)
-    x = Dropout(0.6)(x)
-
-    x = Dense(units = 18,kernel_regularizer = l2(l2_coef),bias_regularizer = l2(l2_coef))(x)
-    outputs = Activation("sigmoid")(x)
+    outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
-    opt = keras.optimizers.Adam(lr=1e-2)
+    opt = keras.optimizers.Adam(lr=1e-1)
     #opt = keras.optimizers.SGD(lr=1e-1)
     #model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
-    model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
+    model.compile(loss = log_loss,optimizer=opt,metrics=["accuracy"])
     #model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
 
@@ -364,7 +357,7 @@ def load_value(path):
 
 def to_descrete(array):
     res = np.zeros_like(array)
-    res[array.argmax(1)] = 1
+    res[range(len(array)),array.argmax(1)] = 1
     return res
 
 def concat(a,b):
@@ -411,6 +404,17 @@ def random_inverts(p,matrix):
     ret = np.where(random_mask == True,random_value,matrix).astype(np.int32)
     return ret
 
+def random_choice(matrix):
+    matrix = matrix - 0.001
+    def f(p):
+        return np.random.multinomial(1,p)
+    ret = np.apply_along_axis(f,1,matrix)
+    return ret
+
+def random_choice_equally(matrix):
+    a = np.ones(matrix.shape)/18.
+    return random_choice(a)
+
 def clone_model(model,custom_objects = {}):
     config = {
         'class_name': model.__class__.__name__,
@@ -420,13 +424,11 @@ def clone_model(model,custom_objects = {}):
     clone.set_weights(model.get_weights())
     return clone
 
+def log_loss(y_true,y_pred):
+    y_pred = K.clip(y_pred,1e-8,1.0)
+    return -y_true * K.log(y_pred)
 
 if __name__=="__main__":
-    """
-    array = np.array([1,1,1,1,0,0,0,0])
-    for i in range(10):
-        print(random_inverts(0.9,array))
-    """
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
     parser.add_argument("-c","--cache",action="store_true",default=False)
     args = parser.parse_args()

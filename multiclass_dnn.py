@@ -140,6 +140,7 @@ def generate_dataset(predict_type,db_con,config):
 def dnn(features,datasets):
     print("[*] training step")
     target_y = "is_win"
+    #target_y = "is_place"
     #train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0).as_matrix()
     train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0)
     train_x = train_x.as_matrix()
@@ -156,7 +157,7 @@ def dnn(features,datasets):
     model =  create_model()
     for i in range(1000):
         print("Epoch : {0}".format(i))
-        model.fit(train_x,train_y,epochs = 1,batch_size = 300)
+        model.fit(train_x,train_y,epochs = 1,batch_size = 2000)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print(loss)
         print(accuracy)
@@ -199,17 +200,18 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     depth = depth + race_depth
     """
 
-    for i in range(1):
+    for i in range(3):
         res = x
         x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
+        x = Activation(activation)(x)
 
         x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        x = Activation(activation)(x)
+        #x = Activation(activation)(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
         x = Dropout(dropout)(x)
         x = Add()([x,res])
+        x = Activation(activation)(x)
 
     x = BatchNormalization(axis = 1,momentum = momentum)(x)
     x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
