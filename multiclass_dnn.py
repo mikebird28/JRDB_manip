@@ -147,7 +147,6 @@ def dnn(features,datasets):
     #train_add_x = datasets["train_add_x"].as_matrix()
     test_x = datasets["test_x"].as_matrix()
     train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
-    print(train_y)
     #test_add_x = datasets["test_add_x"].loc[:,:,"linfo_place_odds"].as_matrix().T
     test_add_x = datasets["test_add_x"].loc[:,:,"linfo_win_odds"].as_matrix().T
     test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
@@ -200,7 +199,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     depth = depth + race_depth
     """
 
-    for i in range(3):
+    for i in range(19):
         res = x
         x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
