@@ -4,8 +4,10 @@ from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
 from keras.layers.normalization import BatchNormalization
+from keras.layers.merge import Multiply
 from keras.layers.core import Reshape,Flatten,Permute,Lambda
 from keras.layers.pooling import GlobalAveragePooling2D,GlobalMaxPooling2D
+import keras.backend as K
 import keras.optimizers
 import numpy as np
 import pandas as pd
@@ -165,7 +167,6 @@ def dnn(features,datasets):
         place_eval  = evaluate.top_n_k_keras(model,test_x,test_r_place,test_r_place)
         print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
         save_model(model,MODEL_PATH)
-        train_x,train_y = shuffle_dataset(train_x,train_y)
 
         #index_simulator(model,test_x,test_r_win,test_add_x)
     print("")
@@ -174,59 +175,62 @@ def dnn(features,datasets):
 
 def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
     feature_size = 287
-    l2_coef = 0.0
+    l2_coef = 1e-3
     bn_axis = -1
     momentum = 0
+    dropout = 0.8
     inputs = Input(shape = (18,feature_size,))
     x = inputs
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
     x = GaussianNoise(0.01)(x)
 
-    depth = 32
+    depth = 36
+    #x= Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
-    x = Dropout(dropout)(x)
 
-    """
-    race_depth = 8
-    tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
-    tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Activation(activation)(tmp)
-    tmp = Conv2D(race_depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Dropout(0.8)(tmp)
-    tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
-    x = Concatenate(axis = 3)([x,tmp])
-    depth = depth + race_depth
-    """
-
-    for i in range(2):
-        res = x
-
-        x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
-        x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
+    for i in range(4):
+        #tmp = x
+        x = ZeroPadding2D(padding = ((0,i+1),(0,0)))(x)
+        sigmoid_out = Conv2D(depth,(2,1),dilation_rate = i+1,padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        sigmoid_out = Activation("sigmoid")(sigmoid_out)
+        tanh_out = Conv2D(depth,(2,1),dilation_rate = i+1,padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        tanh_out = Activation("tanh")(tanh_out)
+        x = Multiply()([sigmoid_out,tanh_out])
+        #shared_weights(conv1,conv2,x1._keras_shape,x2._keras_shape)
+        #shared_weights(conv1,conv3,x1._keras_shape,x3._keras_shape)
+        #x = Concatenate()([x1,x2,x3])
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
         x = Activation(activation)(x)
-
-        x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
-        x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
-        #x = Activation(activation)(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
-        x = Dropout(dropout)(x)
-        x = Add()([x,res])
-        x = Activation(activation)(x)
+        x = Dropout(0.3)(x)
 
-    x = BatchNormalization(axis = 1,momentum = momentum)(x)
+    x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    #x = Add()([tmp,x])
+    x = Activation(activation)(x)
+    x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
+
+
     x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
-    #x = Dense(units = 18)(x)
-    #x = GlobalMaxPooling2D(data_format = "channels_first")(x)
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
-    opt = keras.optimizers.Adam(lr=1e-3)
+    opt = keras.optimizers.Adam(lr=1e-2)
     model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
+
+def shared_weights(conv1, conv2, input_shape1,input_shape2):
+    with K.name_scope(conv1.name):
+        conv1.build(input_shape1)
+    with K.name_scope(conv2.name):
+        conv2.build(input_shape2)
+    conv2.kernel = conv1.kernel
+    conv2.bias = conv1.bias
+    conv2._trainable_weights = []
+    conv2._trainable_weights.append(conv2.kernel)
+    conv2._trainable_weights.append(conv2.bias)
 
 def save_model(model,path):
     print("Save model")
@@ -307,12 +311,6 @@ def drange(begin, end, step):
     while n+step < end:
         yield n
         n += step
-
-def shuffle_dataset(np_x,np_y):
-    idx = np.random.permutation(18)
-    np_x = np_x[:,idx,:]
-    np_y = np_y[:,idx]
-    return (np_x,np_y)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")

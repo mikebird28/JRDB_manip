@@ -184,7 +184,7 @@ def dnn(features,datasets):
     #print(test_y[0,:])
    
     max_iterate = 300000
-    log_interval = 5
+    log_interval = 2
     model_swap_interval = 10
     model =  create_model()
     old_model = clone_model(model)
@@ -223,25 +223,25 @@ class ActionSampler():
         for i in range(timeout):
             x,y = self.__random_sample(target_size)
             pred = model.predict(x)
-            pred_act = np.round(pred)
+            pred_act = np.eye(2)[pred_to_act(pred)]
             pred_value = eval_action(pred_act,y,target_size)
 
             best_value = pred_value
             best_act = pred_act
             should_push = False
-            hit_count = 1.0
+            hit_count = 1.
             for j in range(self.max_sampling):
                 random_act = self.__generate_action(pred)
                 eval_value = eval_action(random_act,y,target_size)
-                #if eval_value > pred_value:
-                if eval_value > best_value:
-                    best_value = eval_value
-                    #best_act += random_act
-                    best_act = random_act
+                if eval_value > pred_value:
+                #if eval_value > best_value:
+                    #best_value = eval_value
+                    #best_act = random_act
+                    best_act += random_act
                     hit_count += 1
                     should_push = True
             if should_push:
-                #best_act = best_act/hit_count
+                best_act = best_act/hit_count
                 sample_list_x.append(x)
                 sample_list_y.append(y)
                 sample_list_act.append(best_act)
@@ -251,14 +251,16 @@ class ActionSampler():
         ret_x = np.concatenate(sample_list_x,axis = 0)
         ret_y = np.concatenate(sample_list_y,axis = 0)
         ret_act = np.concatenate(sample_list_act,axis = 0)
+        #ret_act = np.eye(2)[ret_act]
         return (ret_x,ret_y,ret_act)
 
     def __generate_action(self,pred):
         dice = random.random()
-        if dice < 0.80:
+        if dice < 0.7:
             random_act = random_choice(pred)
         else:
             random_act = random_choice_equally(pred)
+        random_act = np.eye(2)[random_act]
         return random_act
 
     def __random_sample(self,batch_size):
@@ -273,22 +275,24 @@ class ActionSampler():
 
 
 def eval_action(action,payoff,batch_size):
-    buy = np.sum(action)
+    action = np.argmax(action,2)
+    #buy = np.sum(action)
     reward_matrix = action*payoff
     #hit_matrix = np.clip(reward_matrix,0,1)
     total_reward = np.sum(reward_matrix)
     #total_hit = np.sum(hit_matrix)
-    reward_per = total_reward/buy if buy != 0 else 0
+    #reward_per = total_reward/buy if buy != 0 else 0
     #hit_per = total_hit/batch_size
-    return max(reward_per,10.0)
+    #return max(reward_per,10.0)
     #return reward_per
-    #return max(total_reward,0.0)
+    return max(total_reward,0.0)
 
 def log(epoch,model,x,y):
     pred = model.predict(x)
     print(pred[0,:])
     #pred_act = np.round(pred)
-    pred_act = to_descrete(pred)
+    #pred_act = to_descrete(pred)
+    pred_act = pred_to_act(pred)
     #print(pred)
     reward_matrix = pred_act*y
     hit_matrix = np.clip(reward_matrix,0,1)
@@ -325,27 +329,19 @@ def create_model(activation = "relu",dropout = 0.4,hidden_1 = 80,hidden_2 = 80,h
         x = Activation(activation)(x)
 
     x = BatchNormalization(axis = 1,momentum = 0)(x)
-    x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Conv2D(2,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    #x = Dense(units = 36)(x)
+    #x = Reshape([18,2],input_shape = (18*2,))(x)
+
+    x = Permute((1,3,2))(x)
+    x = Reshape([18,2],input_shape = (18,2,1))(x)
     #x = Activation(activation)(x)
-    x = Flatten()(x)
-
-    #x = BatchNormalization(axis = bn_axis,momentum = 0)(x)
-    """
-    x = Dropout(0.8)(x)
-    x = Dense(units = 18,kernel_regularizer = l2(l2_coef),bias_regularizer = l2(l2_coef))(x)
-    x = Activation(activation)(x)
-    x = Dense(units = 18,kernel_regularizer = l2(l2_coef),bias_regularizer = l2(l2_coef))(x)
-    """
-
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)
     opt = keras.optimizers.Adam(lr=1e-3)
-    #opt = keras.optimizers.Adam(lr=1e-2)
-    #opt = keras.optimizers.SGD(lr=1e-2)
-    #model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
-    #model.compile(loss = "mse",optimizer=opt,metrics=["accuracy"])
-    model.compile(loss = log_loss,optimizer=opt,metrics=["accuracy"])
+    model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
+    #model.compile(loss = log_loss,optimizer=opt,metrics=["accuracy"])
     #model.compile(loss = "categorical_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model
 
@@ -405,6 +401,15 @@ def drange(begin, end, step):
         yield n
         n += step
 
+
+def pred_to_act(pred):
+    act = np.argmax(pred,2)
+    return act
+
+def binomial_action(pred):
+    act = np.random.binomial(1,pred)
+    return act
+
 def random_inverts(p,matrix):
     matrix = matrix.astype(bool)
     random_mask = np.random.binomial(1,p,size = matrix.shape).astype(bool)
@@ -416,11 +421,12 @@ def random_choice(matrix):
     matrix = matrix - 0.001
     def f(p):
         return np.random.multinomial(1,p)
-    ret = np.apply_along_axis(f,1,matrix)
+    ret = np.apply_along_axis(f,2,matrix)
+    ret = np.argmax(ret,2)
     return ret
 
 def random_choice_equally(matrix):
-    a = np.ones(matrix.shape)/18.
+    a = np.ones(matrix.shape)/2.
     return random_choice(a)
 
 def clone_model(model,custom_objects = {}):
