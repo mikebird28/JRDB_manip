@@ -1,82 +1,67 @@
 
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
-from sklearn.decomposition import PCA
 from skopt import BayesSearchCV
 import xgboost as xgb
-import numpy as np
+#import numpy as np
 import pandas as pd
 import sqlite3
-import feature
+import argparse
 import dataset2
 import util
 import evaluate
 
 
-def main():
-    config = util.get_config("config/config.json")
-    #generate dataset
-    db_path = "db/output_v7.db"
-    predict_type = "is_win"
-    pca = PCA(n_components = 100)
+CACHE_PATH = "./cache/xgbc"
+MODEL_PATH = "./models/xgbc"
+pd.options.display.max_rows = 1000
+past_n = 3
+predict_type = "is_win"
 
+def main(use_cache = False):
+    predict_type = "is_win"
+    config = util.get_config("config/xgbc_config.json")
+    db_path = "db/output_v13.db"
+    db_con = sqlite3.connect(db_path)
+
+    if use_cache:
+        print("[*] load dataset from cache")
+        datasets = dataset2.load_cache(CACHE_PATH)
+    else:
+        datasets = generate_dataset(predict_type,db_con,config)
+        dataset2.save_cache(datasets,CACHE_PATH)
+    xgbc(config.features,datasets)
+
+
+def generate_dataset(predict_type,db_con,config):
     print(">> loading dataset")
-    x,y = dataset2.load_dataset(db_path,config.features,["is_win","win_payoff","is_place","place_payoff"])
-    col_dic = dataset2.nominal_columns(db_path)
-    nom_col = dataset2.dummy_column(x,col_dic)
-    x = dataset2.get_dummies(x,col_dic)
+    main_features = config.features
+
+    categorical_dic = dataset2.nominal_columns(db_con)
+    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"])
+    categorical_dic = dataset2.nominal_columns(db_con)
+    dummy_col = dataset2.dummy_column(x,categorical_dic)
+    x = dataset2.get_dummies(x,categorical_dic)
+
+    main_features = sorted(x.columns.values.tolist())
+    main_features_dropped = sorted(x.columns.drop("info_race_id").values.tolist())
 
     print(">> separating dataset")
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
-    del x
-    del y
+    train_x = dataset2.downcast(train_x)
+    test_x = dataset2.downcast(test_x)
 
     print(">> filling none value of train dataset")
-    #train_x = dataset2.fillna_mean(train_x,"race")
     train_x = dataset2.fillna_mean(train_x,"horse")
     mean = train_x.mean(numeric_only = True)
     std = train_x.std(numeric_only = True).clip(lower = 1e-4)
-    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
-    #train_x = dataset2.normalize(train_x,typ = "race")
-
-    """
-    print(">> generating pca dataset")
-    pca_x,pca_y = dataset_for_pca(train_x,train_y)
-    #pca_idx = pca.index
-    pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
-
-    print(">> fitting with pca")
-    pca.fit(pca_x)
-    print(sum(pca.explained_variance_ratio_))
-    print(pca.explained_variance_ratio_)
-    pca_df = pd.DataFrame(pca.transform(pca_x).astype(np.float32))
-    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    train_x,train_y = dataset2.add_race_info(train_x,train_y,pca_df)
-    """
-
-    print(">> under sampling train dataset")
-    train_x,train_y = dataset2.under_sampling(train_x,train_y)
-    train_x,train_y = dataset2.for_use(train_x,train_y,predict_type)
+    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = dummy_col)
 
     print(">> filling none value of test dataset")
-    #test_x = dataset2.fillna_mean(test_x,"race")
     test_x = dataset2.fillna_mean(test_x,"horse")
-    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
+    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = dummy_col)
 
-    """
-    print(">> generating test pca dataset")
-    pca_x,pca_y = dataset_for_pca(test_x,test_y,mean = mean,std = std)
-    pca_idx = pca_x["info_race_id"]
-    pca_x,pca_y = dataset2.for_use(pca_x,pca_y,predict_type)
-    pca_df = pca.transform(pca_x).astype(np.float32)
-    pca_df = pd.concat([pd.DataFrame(pca_df),pca_idx],axis = 1)
-    test_x,test_y = dataset2.add_race_info(test_x,test_y,pca_df)
-    """
-
-    print(">> under sampling test dataset")
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
         test_x,
         test_y[predict_type],
@@ -85,8 +70,16 @@ def main():
         test_y["is_place"],
         test_y["place_payoff"]
     )
+
+    print(">> under sampling train dataset")
+    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 3)
+    train_x = train_x.drop("info_race_id",axis = 1)
+    train_x = train_x.loc[:,main_features_dropped]
+
+    print(">> under sampling train dataset")
     test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
-    test_x,test_y = dataset2.for_use(test_x,test_y,predict_type)
+    test_x = test_x.drop("info_race_id",axis = 1)
+    test_x = test_x.loc[:,main_features_dropped]
 
     datasets = {
         "train_x"      : train_x,
@@ -94,24 +87,21 @@ def main():
         "test_x"       : test_x,
         "test_y"       : test_y,
         "test_rx"      : test_rx,
-        "test_ry"      : test_ry,
         "test_r_win"   : test_r_win,
+        "test_rp_win"   : test_rp_win,
         "test_r_place" : test_r_place,
-        "test_rp_win"  : test_rp_win,
-        "test_rp_place": test_rp_place
+        "test_rp_place" : test_rp_place,
     }
+    return datasets
 
-    xgbc(train_x.columns,datasets)
-    #xgbc_wigh_bayessearch(train_x.columns,datasets)
-    #xgbc_wigh_gridsearch(train_x.columns,train_x,train_y,test_x,test_y,test_rx,test_ry)
 
 def xgbc(features,datasets):
     train_x = datasets["train_x"]
-    train_y = datasets["train_y"]
+    train_y = datasets["train_y"].loc[:,predict_type]
     test_x  = datasets["test_x"]
-    test_y  = datasets["test_y"]
+    test_y  = datasets["test_y"].loc[:,predict_type]
     test_rx = datasets["test_rx"]
-    test_ry = datasets["test_ry"]
+    #test_ry = datasets["test_ry"]
     test_r_win = datasets["test_r_win"]
     test_r_place = datasets["test_r_place"]
     test_rp_win = datasets["test_rp_win"]
@@ -199,7 +189,6 @@ def xgbc_wigh_bayessearch(features,datasets):
     test_x  = datasets["test_x"]
     test_y  = datasets["test_y"]
     test_rx = datasets["test_rx"]
-    test_ry = datasets["test_ry"]
     test_r_win = datasets["test_r_win"]
     test_r_place = datasets["test_r_place"]
     test_rp_win = datasets["test_rp_win"]
@@ -249,4 +238,7 @@ def dataset_for_pca(x,y,mean = None,std = None):
     return (x,y)
 
 if __name__=="__main__":
-    main()
+    parser = argparse.ArgumentParser(description="horse race result predictor using multilayer perceptron")
+    parser.add_argument("-c","--cache",action="store_true",default=False)
+    args = parser.parse_args()
+    main(use_cache = args.cache)

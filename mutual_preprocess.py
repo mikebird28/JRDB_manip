@@ -4,12 +4,18 @@ import dataset2
 import place2vec
 import pandas as pd
 
-def load_datasets_with_p2v(db_con,features):
+def load_datasets_with_p2v(db_con,features,past_n = 3):
     pre0_features = ["info_race_course_code","rinfo_discipline","rinfo_distance"]
-    pre1_features = ["pre1_race_course_code","pre1_discipline","pre1_distance",]
-    pre2_features = ["pre2_race_course_code","pre2_discipline","pre2_distance"]
-    pre3_features = ["pre3_race_course_code","pre3_discipline","pre3_distance"]
-    additionl_features = pre0_features + pre1_features + pre2_features + pre3_features
+    pre_i_features = []
+    additionl_features = pre0_features
+    for i in range(past_n):
+        i_features = [
+                "pre{0}_discipline".format(i+1),
+                "pre{0}_race_course_code".format(i+1),
+                "pre{0}_distance".format(i+1),
+        ]
+        pre_i_features.append(i_features)
+        additionl_features.extend(i_features)
     x,y = dataset2.load_dataset(db_con,features + additionl_features,["is_win","win_payoff","is_place","place_payoff"])
 
     con = concat(x,y)
@@ -24,14 +30,20 @@ def load_datasets_with_p2v(db_con,features):
     y = con.loc[:,y_col]
     del con
 
+    p2v_ls = []
     p2v_0 = place2vec.get_vector(x["rinfo_discipline"],x["info_race_course_code"],x["rinfo_distance"],prefix = "pre0")
-    p2v_1 = place2vec.get_vector(x["pre1_discipline"],x["pre1_race_course_code"],x["pre1_distance"],prefix = "pre1")
-    p2v_2 = place2vec.get_vector(x["pre2_discipline"],x["pre2_race_course_code"],x["pre2_distance"],prefix = "pre2")
-    p2v_3 = place2vec.get_vector(x["pre3_discipline"],x["pre3_race_course_code"],x["pre3_distance"],prefix = "pre3")
+
+    p2v_ls.append(p2v_0)
+    for i in range(past_n):
+        f = [x[col] for col in pre_i_features[i]]
+        prefix = "pre{0}".format(i+1)
+        p2v_i = place2vec.get_vector(f[0],f[1],f[2],prefix = prefix)
+        p2v_ls.append(p2v_i)
+
     for c in additionl_features:
         x = x.drop(c,axis = 1)
 
-    course_info = pd.concat([p2v_0,p2v_1,p2v_2,p2v_3],axis = 1)
+    course_info = pd.concat(p2v_ls,axis = 1)
     return (x,course_info,y)
 
 def concat(a,b):

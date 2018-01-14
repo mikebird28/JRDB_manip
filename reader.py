@@ -41,9 +41,11 @@ def to_unicode(x,illegal_value = None):
     else:
         return Maybe(UNI_SYNBOL,text)
 
-def to_nominal(x,converter = nominal.nominal_int, n = 1):
+def to_nominal(x,converter = nominal.nominal_int, n = 1,add_one = False):
     x = x.strip()
     v,n = converter(x,n)
+    if add_one:
+        v += 1
     if v > n:
         return Maybe("NOM",(0,n))
     return Maybe("NOM",(v,n))
@@ -281,6 +283,8 @@ class HorseInfoDatabase(BaseORM):
         c = Container()
         c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code) #場コード
         c.year                 = to_integer(line[2:4])
+        c.times                = to_integer(line[4:5])
+        c.race_round           = to_integer(line[6:7])
         c.race_id              = to_string(line[0:8])    #レースキー
         c.horse_number         = to_integer(line[8:10])  #馬番
         c.horse_id             = to_string(line[0:10])   #馬キー
@@ -374,7 +378,7 @@ class HorseInfoDatabase(BaseORM):
         c.oof_in_out           = to_integer(line[393])     #ゴール内外
         c.development_sign     = to_integer(line[394])     #展開記号
 
-        c.distance_fitness2    = to_nominal(line[395],n=6)     #距離適性2
+        c.distance_fitness2    = to_nominal(line[395],n=6) #距離適性2
         c.weight_afd           = to_integer(line[396:399]) #枠確定後馬体重
         c.weight_delta_afd     = to_integer(line[399:402]) #枠確定馬体重増減
 
@@ -395,8 +399,27 @@ class HorseInfoDatabase(BaseORM):
         c.jockey_place         = to_float(line[464:468])     #騎手期待３着内率
         c.transport_class      = to_integer(line[468])       #輸送区分
 
-        #c.running_style        = to_integer(line[469:477])   #走法
-        c.body_shape           = to_unicode(line[477:501])   #体型
+        #c.running_style        = to_nominal(line[469:477], n = 6)   #走法
+
+        c.body_type            = to_nominal(line[477],n = 3)
+        c.back_length          = to_nominal(line[478],n = 3)
+        c.body_length          = to_nominal(line[479],n = 3)
+        c.hip_size             = to_nominal(line[480],n = 3)
+        c.tomo_angle           = to_nominal(line[481],n = 3)
+        c.belly_size           = to_nominal(line[482],n = 3)
+        c.head_size            = to_nominal(line[483],n = 3)
+        c.neck_length          = to_nominal(line[484],n = 3)
+        c.chest_size           = to_nominal(line[485],n = 3)
+        c.shoulder_angle       = to_nominal(line[486],n = 3)
+        c.front_leg_length     = to_nominal(line[487],n = 3)
+        c.hind_leg_length      = to_nominal(line[487],n = 3)
+        c.front_step_length    = to_nominal(line[488],n = 3)
+        c.hind_step_length     = to_nominal(line[489],n = 3)
+        c.front_pastern        = to_nominal(line[490],n = 3)
+        c.hind_pastern         = to_nominal(line[491],n = 3)
+        c.tail_angle           = to_nominal(line[492],n = 3)
+        c.tail_shaking         = to_nominal(line[493],n = 3)
+
         #c.body_composite_1     = to_integer(line[501:504])   #体型総合1
         #c.body_composite_2     = to_integer(line[504:507])   #体型総合2
         #c.body_composite_3     = to_integer(line[507:510])   #体型総合3
@@ -414,16 +437,19 @@ class HorseInfoDatabase(BaseORM):
         c.downgrading_flag     = to_nominal(line[538],n=2)       #降級フラグ
         #c.hard_running_type    = to_unicode(line[539:541])   #激走タイプ
         #c.recuperation_type    = to_integer(line[541:543])   #休養理由分類コード
-        c.remarks_flag         = to_unicode(line[543:559])   #フラグ
+        c.discipline_experience = to_nominal(line[543],n = 3, add_one = True)
+        c.distance_experience   = to_nominal(line[544],n = 2, add_one = True)
+        c.class_experience      = to_nominal(line[545],n = 4, add_one = True)
+        c.change_stable         = to_nominal(line[546],n = 4, add_one = True)
+        c.do_castration         = to_nominal(line[547],n = 4, add_one = True)
+        c.change_jockey         = to_nominal(line[548],n = 2, add_one = True)
 
         c.stabling_race_count    = to_integer(line[559:561]) #入厩何走目
         #c.stabling_date          = to_string(line[561:569])  #入厩年月日
         c.stabling_elapsed_dates = to_integer(line[569:572],0) #入厩何日目
 
-
-        #c.paddock              = to_unicode(line[572:622])  #放牧先
-        c.paddock_rank         = to_string(line[622])       #放牧先ランク
-        c.stable_rank          = to_string(line[623])       #厩舎ランク
+        c.paddock_rank         = to_nominal(line[622],converter = nominal.nominal_paddock_rank)       #放牧先ランク
+        c.stable_rank          = to_nominal(line[623],n = 9)       #厩舎ランク
         return c
 
     def check_container(self,container):
@@ -451,6 +477,11 @@ class RaceInfoDatabase(BaseORM):
         c.discipline           = to_nominal(line[24],n=3)
         c.left_or_right        = to_nominal(line[25],n=3)
         c.in_or_out            = to_nominal(line[26],n=3)
+
+        c.race_kind            = to_nominal(line[27:29], converter = nominal.nominal_race_kind)
+        c.race_requirements    = to_nominal(line[29:31], converter = nominal.nominal_race_requirements)
+        c.race_weights         = to_nominal(line[34],n = 4)
+        c.race_grade           = to_nominal(line[35],n = 5)
 
         c.head_count           = to_integer(line[94:96])
         c.first_prize          = to_integer(line[125:130])
@@ -859,6 +890,66 @@ class LastInfoDatabase(BaseORM):
         return ["horse_id"]
 
 
+class CourseDetailDatabase(BaseORM):
+    def __init__(self,con):
+        super(CourseDetailDatabase,self).__init__(con,"course_detail")
+
+
+    def parse_line(self,line):
+        c = Container()
+        #this race id doesnt include horse info
+        c.race_id = to_string(line[0:6])
+        c.year    = to_integer(line[6:9])
+        c.month    = to_integer(line[11:12])
+        c.date    = to_integer(line[12:13])
+        return c
+
+    def set_indexes(self):
+        set_index(self.con,"cd_race_id_idx",self.table_name,["race_id"])
+
+    def set_unique(self):
+        return ["race_id"]
+
+class TrainDetailDatabase(BaseORM):
+    def __init__(self,con):
+        super(TrainDetailDatabase,self).__init__(con,"train_detail")
+
+
+    def parse_line(self,line):
+        c = Container()
+        #this race id doesnt include horse info
+        c.race_id = to_string(line[0:6])
+        c.year    = to_integer(line[6:9])
+        c.month    = to_integer(line[11:12])
+        c.date    = to_integer(line[12:13])
+        return c
+
+    def set_indexes(self):
+        set_index(self.con,"cd_race_id_idx",self.table_name,["race_id"])
+
+    def set_unique(self):
+        return ["race_id"]
+
+class HorseDetailDatabase(BaseORM):
+    def __init__(self,con):
+        super(HorseDetailDatabase,self).__init__(con,"horse_detail")
+
+    def parse_line(self,line):
+        c = Container()
+        #this race id doesnt include horse info
+        c.race_id = to_string(line[0:6])
+        c.year    = to_integer(line[6:9])
+        c.month    = to_integer(line[11:12])
+        c.date    = to_integer(line[12:13])
+        return c
+
+    def set_indexes(self):
+        set_index(self.con,"cd_race_id_idx",self.table_name,["race_id"])
+
+    def set_unique(self):
+        return ["race_id"]
+
+
 class TrainingInfoDatabase(BaseORM):
     def __init__(self,con):
         super(TrainingInfoDatabase,self).__init__(con,"train_info")
@@ -894,8 +985,8 @@ class TrainingInfoDatabase(BaseORM):
     def set_unique(self):
         return ["horse_id"]
 
-def create_feature_table(con,show_progress = True):
-    raw_columns,columns_dict,columns_query = fetch_columns_info(con)
+def create_feature_table(inp_con,out_con,show_progress = True):
+    raw_columns,columns_dict,columns_query = fetch_columns_info(inp_con)
 
     fixed_columns = raw_columns
     fixed_columns.append("is_win")
@@ -909,10 +1000,10 @@ def create_feature_table(con,show_progress = True):
     columns_txt = ",".join(columns_query)
 
     # check if feature table exist
-    if not table_exists(con,"feature"):
+    if not table_exists(out_con,"feature"):
         types = {k:v.typ for k,v in columns_dict.items()}
         nominals = {k:v.n for k,v in columns_dict.items()}
-        create_table(con,"feature",types,nominals,unique_ls = ["info_horse_id"])
+        create_table(out_con,"feature",types,nominals,unique_ls = ["info_horse_id"])
 
     columns = fixed_columns
 
@@ -930,13 +1021,13 @@ def create_feature_table(con,show_progress = True):
              LEFT JOIN result as p4 ON hi.pre4_result_id = p4.result_id
              LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
 
-    cur = con.execute(sql)
+    cur = inp_con.execute(sql)
     for count,row in enumerate(cur):
         if count % 100 == 0:
             if show_progress:
                 sys.stdout.write("{0} rows have finished \r".format(str(count)))
                 sys.stdout.flush()
-            con.commit()
+            out_con.commit()
         container = Container()
         for col_name,value in zip(columns,row):
             typ = columns_dict[col_name].typ
@@ -960,8 +1051,8 @@ def create_feature_table(con,show_progress = True):
         place_payoff_2 = container.payoff_place_payoff_2.value if (container.payoff_place_horse_2.value == container.info_horse_number.value) else 0
         place_payoff_3 = container.payoff_place_payoff_3.value if (container.payoff_place_horse_3.value == container.info_horse_number.value) else 0
         container["place_payoff"] = to_integer(max(place_payoff_1,place_payoff_2,place_payoff_3))
-        insert_container(con,"feature",container)
-    con.commit()
+        insert_container(out_con,"feature",container)
+    out_con.commit()
 
 def create_predict_table(con,show_progress = True):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con,for_predict = True)

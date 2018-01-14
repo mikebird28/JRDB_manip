@@ -31,7 +31,7 @@ pd.options.display.max_rows = 1000
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/config.json")
-    db_path = "db/output_v12.db"
+    db_path = "db/output_v13.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:

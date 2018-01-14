@@ -29,7 +29,7 @@ FIELD_STATUS_DICT = {
     "32":9,
     "40":10,
     "41":11,
-    "41":12
+    "42":12
 }
 def nominal_field_status(x,remarks):
     n = len(FIELD_STATUS_DICT)
@@ -226,7 +226,64 @@ def nominal_jra_course_code(x,remarks):
     except KeyError:
         return (0,n)
 
+RACE_KIND_LIST = [
+    "11",
+    "12",
+    "13",
+    "14",
+    "20",
+]
+RACE_KIND_DICT = {}
+for i,k in enumerate(RACE_KIND_LIST):
+    RACE_KIND_DICT[k] = i+1
+def nominal_race_kind(x,remarks):
+    n = len(RACE_KIND_LIST)
+    try:
+        return (RACE_KIND_DICT[x],n)
+    except KeyError:
+        return (0,n)
+
+RACE_REQUIREMENTS_LIST = [
+    "04",
+    "05",
+    "08",
+    "09",
+    "10",
+    "15",
+    "16",
+    "A1",
+    "A2",
+    "A3",
+    "OP",
+]
+RACE_REQUIREMENTS_DICT = {}
+for i,k in enumerate(RACE_REQUIREMENTS_LIST):
+    RACE_REQUIREMENTS_DICT[k] = i+1
+def nominal_race_requirements(x,remarks):
+    n = len(RACE_REQUIREMENTS_LIST)
+    try:
+        return (RACE_REQUIREMENTS_DICT[x],n)
+    except KeyError:
+        return (0,n)
+
+PADDOCK_RANK_LIST = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+]
+PADDOCK_RANK_DICT = {}
+for i,k in enumerate(PADDOCK_RANK_LIST):
+    PADDOCK_RANK_DICT[k] = i+1
+def nominal_paddock_rank(x,remarks):
+    n = len(PADDOCK_RANK_DICT)
+    try:
+        return (PADDOCK_RANK_DICT[x],n)
+    except KeyError:
+        return (0,n)
+
+
 if __name__=="__main__":
     a = nominal_jra_course_code("01",None)
     print(a)
-    pass

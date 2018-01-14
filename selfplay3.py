@@ -169,7 +169,7 @@ def generate_dataset(predict_type,db_con,config):
 def dnn(features,datasets):
     print("[*] training step")
     target_y = "place_payoff"
-    target_y = "win_payoff"
+    #target_y = "win_payoff"
     train_x = datasets["train_x"]
     #print(train_x.columns)
     train_y = datasets["train_y"].loc[:,:,[target_y]] -100

@@ -5,11 +5,10 @@ from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Reshape,Flatten,Permute,Lambda
-from keras.layers.pooling import GlobalAveragePooling2D,GlobalMaxPooling2D
 import keras.optimizers
 import numpy as np
 import pandas as pd
-import sqlite3, pickle,argparse,decimal
+import sqlite3, pickle,argparse
 import dataset2, util, evaluate
 import place2vec, course2vec,field_fitness
 import mutual_preprocess

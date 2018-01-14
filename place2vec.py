@@ -194,12 +194,12 @@ def generate_dataset(predict_type,db_con,config):
     return datasets
 
 
-def create_model(input_dim = 165,activation = "relu",dropout = 0.9,hidden_1 = 5):
+def create_model(input_dim = 165,activation = "relu",dropout = 0.2,hidden_1 = 5):
     nn = Sequential()
 
     #nn.add(Dense(units=hidden_1,input_dim = input_dim,W_regularizer = l2(0.0)))
     nn.add(Dense(units=hidden_1,input_dim = input_dim,name = "internal",W_regularizer = l2(0.0)))
-    #nn.add(Dropout(dropout))
+    nn.add(Dropout(dropout))
     #nn.add(Activation(activation,name = "internal"))
     #nn.add(BatchNormalization(name = "internal"))
 
