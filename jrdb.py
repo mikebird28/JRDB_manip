@@ -1,3 +1,4 @@
+#-*- coding:utf-8 -*- 
 
 import argparse
 import os
@@ -7,6 +8,7 @@ import reader
 import fetcher
 
 ROOT_DIR = "./raw_text"
+TRAIN_DETAIL_PATH = "train_detail"
 EXPANDED_INFO_PATH = "expanded_info"
 TRAIN_INFO_PATH = "train_info"
 RACE_INFO_PATH = "race_info"
@@ -57,41 +59,32 @@ def parse(args):
     db_con = sqlite3.connect(args.output)
     start = "031025"
     is_test = args.is_test
-
-    #process about extra horse information
-    ex_orm = reader.ExpandedInfoDatabase(db_con)
-    csv_to_db(args,EXPANDED_INFO_PATH,"KKA",ex_orm,test_mode = is_test,start = start)
-
-    #process about horse information
-    hid_orm = reader.HorseInfoDatabase(db_con)
-    csv_to_db(args,"horse_info","KYI",hid_orm,test_mode = is_test,start = start)
-
-    ti_orm = reader.TrainingInfoDatabase(db_con)
-    csv_to_db(args,TRAIN_INFO_PATH,"CYB",ti_orm,test_mode = is_test,start = start)
-
-    #process about race information
-    ri_orm = reader.RaceInfoDatabase(db_con)
-    csv_to_db(args,RACE_INFO_PATH,"BAC",ri_orm,test_mode = is_test,start = start)
-
-    #process about last inforamtion
-    li_orm = reader.LastInfoDatabase(db_con)
-    csv_to_db(args,LAST_INFO_PATH,"TYB",li_orm,test_mode = is_test,start = start)
-
-    #process about payoff
-    pd_orm = reader.PayoffDatabase(db_con)
-    csv_to_db(args,"payoff", "HJC",pd_orm,test_mode = is_test,start = start)
-
-    #process about past race result
-    rd_orm = reader.ResultDatabase(db_con)
-    csv_to_db(args,"horse_result", "SED",rd_orm,test_mode = is_test)
-
+    db_ls = [
+        (reader.ResultDatabase,"horse_result","SED"),
+        (reader.TrainDetailDatabase,TRAIN_DETAIL_PATH,"CHA"),
+        (reader.HorseDetailDatabase,"horse_detail","UKC"),
+        (reader.ExpandedInfoDatabase,EXPANDED_INFO_PATH,"kka"),
+        (reader.HorseInfoDatabase,"horse_info","KYI"),
+        (reader.TrainingInfoDatabase,TRAIN_INFO_PATH,"CYB"),
+        (reader.RaceInfoDatabase,RACE_INFO_PATH,"BAC"),
+        (reader.LastInfoDatabase,LAST_INFO_PATH,"TYB"),
+        (reader.PayoffDatabase,"payoff","HJC"),
+        (reader.ResultDatabase,"horse_result","SED")
+    ]
+    for tup in db_ls:
+        orm = tup[0]
+        path = tup[1]
+        prefix = tup[2]
+        csv_to_db(args,path,prefix,orm(db_con),test_mode = is_test, start = start)
+        print("")
     db_con.close()
-    #create feature table
-    #reader.create_feature_table(db_con)
 
 def generate(args):
     inp_con = sqlite3.connect(args.inputs)
-    out_con = sqlite3.connect(args.output)
+    if args.inputs == args.output:
+        out_con = inp_con
+    else:
+        out_con = sqlite3.connect(args.output)
     reader.create_feature_table(inp_con,out_con)
     inp_con.close()
     out_con.close()
@@ -100,8 +93,10 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
     path = os.path.join(args.directory,dir_name)
     if not os.path.exists(path):
         raise Exception("{0} directory doesn't exist".format(dir_name))
-    files = [s.lower() for s in os.listdir(path)]
-    files = filter(lambda s:s.startswith(file_prefix.lower()),files)
+    files =  os.listdir(path)
+    #files = [s.lower() for s in os.listdir(path)]
+    files = filter(lambda s:s.startswith(file_prefix),files)
+    #files = filter(lambda s:s.startswith(file_prefix.lower()),files)
 
     if start is not None:
         if start[0:2] != "99":
@@ -117,7 +112,7 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
 
     counter = 1
     for f in reversed(files):
-        if test_mode and counter > 100:
+        if test_mode and counter > 10:
             break
         sys.stdout.write("processing : {0}/{1}\r".format(counter,len(files)))
         sys.stdout.flush()
@@ -125,7 +120,6 @@ def csv_to_db(args,dir_name,file_prefix,orm,test_mode = False,start = None,end =
         with open(file_path,"r") as fp:
             orm.insert_file(fp)
         counter += 1
-    print("")
 
 if __name__=="__main__":
     main()

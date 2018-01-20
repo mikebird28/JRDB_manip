@@ -22,7 +22,7 @@ predict_type = "is_win"
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/xgbc_config.json")
-    db_path = "db/output_v13.db"
+    db_path = "db/output_v15.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:
@@ -38,8 +38,8 @@ def generate_dataset(predict_type,db_con,config):
     print(">> loading dataset")
     main_features = config.features
 
-    categorical_dic = dataset2.nominal_columns(db_con)
-    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"])
+    where = "info_year > 08 and info_year < 90"
+    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
     categorical_dic = dataset2.nominal_columns(db_con)
     dummy_col = dataset2.dummy_column(x,categorical_dic)
     x = dataset2.get_dummies(x,categorical_dic)
@@ -62,6 +62,7 @@ def generate_dataset(predict_type,db_con,config):
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = dummy_col)
 
+    test_x = test_x.loc[:,main_features]
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
         test_x,
         test_y[predict_type],
@@ -97,6 +98,7 @@ def generate_dataset(predict_type,db_con,config):
 
 def xgbc(features,datasets):
     train_x = datasets["train_x"]
+    features = train_x.columns
     train_y = datasets["train_y"].loc[:,predict_type]
     test_x  = datasets["test_x"]
     test_y  = datasets["test_y"].loc[:,predict_type]
@@ -108,7 +110,7 @@ def xgbc(features,datasets):
     test_rp_place = datasets["test_rp_place"]
     
     xgbc = xgb.XGBClassifier(
-        n_estimators = 1000,
+        n_estimators = 100,
         colsample_bytree =  0.5,
         gamma = 1.0,
         learning_rate = 0.07,
@@ -123,10 +125,12 @@ def xgbc(features,datasets):
     print("")
     print("Accuracy: {0}".format(accuracy))
 
+    """
     win_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_win,test_rp_win)
     print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
     place_eval  = evaluate.top_n_k(xgbc,test_rx,test_r_place,test_rp_place)
     print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
+    """
 
     report = classification_report(test_y,pred)
     print(report)
@@ -148,7 +152,7 @@ def xgbc_wigh_gridsearch(features,datasets):
 
 
     paramaters = [
-        {'n_estimators':[200],
+        {'n_estimators':[500],
         'learning_rate':[0.05,0.1],
         'max_depth' : [5,7],
         'subsample':[0.6,0.7],

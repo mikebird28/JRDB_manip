@@ -42,8 +42,7 @@ def to_unicode(x,illegal_value = None):
         return Maybe(UNI_SYNBOL,text)
 
 def to_nominal(x,converter = nominal.nominal_int, n = 1,add_one = False):
-    x = x.strip()
-    v,n = converter(x,n)
+    v,n = converter(x.strip(),n)
     if add_one:
         v += 1
     if v > n:
@@ -167,9 +166,7 @@ def insert_container(con,name,container):
         sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
         con.execute(sql)
     except Exception as e:
-        pass
-        #print(e)
-        #print("")
+        print(e)
 
 def set_index(con,index_name,table_name,columns):
     columns_txt = ",".join(columns)
@@ -199,8 +196,6 @@ def inference_type(containers):
 
 def inference_nominal(containers):
     nominal_dict = {}
-    is_fisrt = True
-    bef_c = None
     for col in containers[0].keys():
         if containers[0][col].typ == NOM_SYNBOL:
             nominal_dict[col] = containers[0][col].value[1]
@@ -222,7 +217,7 @@ class BaseORM(object):
 
         if not self.table_exists:
             type_dict = inference_type(containers)
-            nom_dict = inference_nominal(containers)
+            #nom_dict = inference_nominal(containers)
             nominal_dict = inference_nominal(containers)
             unique_ls = self.set_unique()
             create_table(self.con,self.table_name,type_dict,nominal_dict,unique_ls)
@@ -239,7 +234,6 @@ class BaseORM(object):
 
     def set_unique(self):
         return []
-
 
 class PayoffDatabase(BaseORM):
     def __init__(self,con):
@@ -456,9 +450,14 @@ class HorseInfoDatabase(BaseORM):
         return True
 
     def set_indexes(self):
-        set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
-        set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
         set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
+        set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        set_index(self.con,"hid_pedigree_id_idx",self.table_name,["pedigree_id"])
+        set_index(self.con,"hid_pre1_result_id_idx",self.table_name,["pre1_result_id"])
+        set_index(self.con,"hid_pre2_result_id_idx",self.table_name,["pre2_result_id"])
+        set_index(self.con,"hid_pre3_result_id_idx",self.table_name,["pre3_result_id"])
+        set_index(self.con,"hid_pre4_result_id_idx",self.table_name,["pre4_result_id"])
+        set_index(self.con,"hid_pre5_result_id_idx",self.table_name,["pre5_result_id"])
 
     def set_unique(self):
         return ["horse_id"]
@@ -490,7 +489,7 @@ class RaceInfoDatabase(BaseORM):
         return c
 
     def set_indexes(self):
-        #set_index(self.con,"hid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        set_index(self.con,"rd_race_id_idx",self.table_name,["race_id"])
         #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
         #set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
         pass
@@ -601,7 +600,9 @@ class ResultDatabase(BaseORM):
         return True
 
     def set_indexes(self):
-       set_index(self.con,"rd_result_id_idx",self.table_name,["race_id","result_id"])
+       set_index(self.con,"rd_horse_id_idx",self.table_name,["horse_id"])
+       set_index(self.con,"rd_result_race_idx",self.table_name,["horse_id","result_id"])
+       set_index(self.con,"rd_result_id_idx",self.table_name,["result_id"])
 
     def set_unique(self):
         return ["result_id"]
@@ -646,8 +647,8 @@ class ExpandedInfoDatabase(BaseORM):
         c.win                 = to_integer(c.jra_win.value + c.interleague_win.value + c.others_win.value)
         c.place               = to_integer(c.jra_place.value + c.interleague_place.value + c.others_place.value)
         c.total               = to_integer(c.jra_total.value + c.interleague_total.value + c.others_total.value)
-        c.win_per             = to_integer(divide(c.win.value,c.total.value))
-        c.place_per           = to_integer(divide(c.place.value,c.total.value))
+        c.win_per             = to_float(divide(c.win.value,c.total.value))
+        c.place_per           = to_float(divide(c.place.value,c.total.value))
 
         c.surf_win            = to_integer(line[46:49],0)
         c.surf_second         = to_integer(line[49:52],0)
@@ -835,7 +836,7 @@ class ExpandedInfoDatabase(BaseORM):
 
         c.mother_turf_quinella_per = to_float(line[296:299],0.0)
         c.mother_dirt_quinella_per = to_float(line[299:302],0.0)
-        c.mother_quinella_avg_dist = to_integer(line[302:206],0.0)
+        c.mother_quinella_avg_dist = to_integer(line[302:306],0.0)
   
         return c
 
@@ -882,8 +883,8 @@ class LastInfoDatabase(BaseORM):
         return c
 
     def set_indexes(self):
-        set_index(self.con,"lid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
-        #set_index(self.con,"hid_horse_id_idx",self.table_name,["horse_id"])
+        #set_index(self.con,"lid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        set_index(self.con,"lid_horse_id_idx",self.table_name,["horse_id"])
         #set_index(self.con,"hid_race_id_idx",self.table_name,["race_id"])
 
     def set_unique(self):
@@ -914,21 +915,41 @@ class TrainDetailDatabase(BaseORM):
     def __init__(self,con):
         super(TrainDetailDatabase,self).__init__(con,"train_detail")
 
-
     def parse_line(self,line):
         c = Container()
         #this race id doesnt include horse info
-        c.race_id = to_string(line[0:6])
-        c.year    = to_integer(line[6:9])
-        c.month    = to_integer(line[11:12])
-        c.date    = to_integer(line[12:13])
+        c.race_id        = to_string(line[0:8])
+        c.horse_id       = to_string(line[0:10])
+        c.horse_number   = to_integer(line[8:10])
+        c.day            = to_integer(line[10:12])
+        c.train_date     = to_integer(line[12:20])
+        c.train_times    = to_integer(line[20])
+        c.train_couse_code = to_integer(line[21:23])
+
+        c.train_hardness = to_integer(line[23])
+        c.train_status   = to_integer(line[24:25])
+        c.jockey_type    = to_nominal(line[26],n = 5)
+        c.train_halong   = to_integer(line[27])
+
+        c.start_halong  = to_integer(line[28:31])
+        c.middle_halong = to_integer(line[31:34])
+        c.finish_halong = to_integer(line[34:37])
+
+        c.start_halong_score  = to_integer(line[37:40])
+        c.middle_halong_score = to_integer(line[40:43])
+        c.finish_halong_score = to_integer(line[43:46])
+
+        #pair horse
+        c.pair_horse_result    = to_integer(line[49])
+        c.pair_horse_hardeness = to_integer(line[50])
+        c.pair_horse_age       = to_integer(line[51:53])
         return c
 
     def set_indexes(self):
-        set_index(self.con,"cd_race_id_idx",self.table_name,["race_id"])
+        set_index(self.con,"td_horse_id_idx",self.table_name,["horse_id"])
 
     def set_unique(self):
-        return ["race_id"]
+        return ["horse_id"]
 
 class HorseDetailDatabase(BaseORM):
     def __init__(self,con):
@@ -937,18 +958,16 @@ class HorseDetailDatabase(BaseORM):
     def parse_line(self,line):
         c = Container()
         #this race id doesnt include horse info
-        c.race_id = to_string(line[0:6])
-        c.year    = to_integer(line[6:9])
-        c.month    = to_integer(line[11:12])
-        c.date    = to_integer(line[12:13])
+        c.pedigree_id = to_string(line[0:8])
+        c.father_pedigree_type = to_nominal(line[276:280],converter = nominal.nominal_pedigree_type)
+        c.mother_pedigree_type = to_nominal(line[280:284],converter = nominal.nominal_pedigree_type)
         return c
 
     def set_indexes(self):
-        set_index(self.con,"cd_race_id_idx",self.table_name,["race_id"])
+        set_index(self.con,"hd_pedigreeid_idx",self.table_name,["pedigree_id"])
 
     def set_unique(self):
-        return ["race_id"]
-
+        return ["pedigree_id"]
 
 class TrainingInfoDatabase(BaseORM):
     def __init__(self,con):
@@ -980,7 +999,7 @@ class TrainingInfoDatabase(BaseORM):
         return c
 
     def set_indexes(self):
-        set_index(self.con,"tid_race_horse_id_idx",self.table_name,["race_id","horse_id"])
+        set_index(self.con,"tid_horse_id_idx",self.table_name,["horse_id"])
 
     def set_unique(self):
         return ["horse_id"]
@@ -1009,17 +1028,19 @@ def create_feature_table(inp_con,out_con,show_progress = True):
 
     # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
-             INNER JOIN payoff on hi.race_id = payoff.race_id
-             INNER JOIN result as p0 ON hi.horse_id = p0.horse_id
-             LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
-             LEFT JOIN last_info on hi.horse_id = last_info.horse_id
-             LEFT JOIN train_info on hi.horse_id = train_info.horse_id
-             LEFT JOIN race_info on hi.race_id = race_info.race_id
-             LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
-             LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
-             LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
-             LEFT JOIN result as p4 ON hi.pre4_result_id = p4.result_id
-             LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
+             INNER JOIN payoff       ON hi.race_id  = payoff.race_id
+             INNER JOIN result AS p0 ON hi.horse_id = p0.horse_id
+             LEFT JOIN exinfo        ON hi.horse_id = exinfo.horse_id
+             LEFT JOIN last_info     ON hi.horse_id = last_info.horse_id
+             LEFT JOIN train_info    ON hi.horse_id = train_info.horse_id
+             LEFT JOIN train_detail  ON hi.horse_id = train_detail.horse_id
+             LEFT JOIN horse_detail  ON hi.pedigree_id = horse_detail.pedigree_id
+             LEFT JOIN race_info     ON hi.race_id = race_info.race_id
+             LEFT JOIN result as p1  ON hi.pre1_result_id = p1.result_id
+             LEFT JOIN result as p2  ON hi.pre2_result_id = p2.result_id
+             LEFT JOIN result as p3  ON hi.pre3_result_id = p3.result_id
+             LEFT JOIN result as p4  ON hi.pre4_result_id = p4.result_id
+             LEFT JOIN result as p5  ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
 
     cur = inp_con.execute(sql)
     for count,row in enumerate(cur):
@@ -1069,10 +1090,12 @@ def create_predict_table(con,show_progress = True):
 
     # add the optional column
     sql = """SELECT {0} FROM horse_info as hi
-             LEFT JOIN exinfo on hi.horse_id = exinfo.horse_id
-             LEFT JOIN last_info on hi.horse_id = last_info.horse_id
-             LEFT JOIN train_info on hi.horse_id = train_info.horse_id
-             LEFT JOIN race_info on hi.race_id = race_info.race_id
+             LEFT JOIN exinfo       ON hi.horse_id = exinfo.horse_id
+             LEFT JOIN last_info    ON hi.horse_id = last_info.horse_id
+             LEFT JOIN train_info   ON hi.horse_id = train_info.horse_id
+             LEFT JOIN train_detail ON hi.horse_id = train_detail.horse_id
+             LEFT JOIN race_info    ON hi.race_id  = race_info.race_id
+             LEFT JOIN horse_detail ON hi.pedigree_id    = horse_detail.pedigree_id
              LEFT JOIN result as p1 ON hi.pre1_result_id = p1.result_id
              LEFT JOIN result as p2 ON hi.pre2_result_id = p2.result_id
              LEFT JOIN result as p3 ON hi.pre3_result_id = p3.result_id
@@ -1104,63 +1127,31 @@ def fetch_columns_info(con,for_predict = False):
     columns_list = []
     columns_dict = {}
     columns_query = []
-    ci_orm = ColumnInfoORM(con)
 
-    #create target columns list and dictionary
-    hi_raw_col = column_list(con,"horse_info")
-    for c in hi_raw_col:
-        columns_list.append("info_{0}".format(c))
-        columns_query.append("hi.{0} as 'info_{0}'".format(c))
-    hi_fixed = fixed_column_dict(con,"horse_info","info")
-    columns_dict.update(hi_fixed)
-
-    if not for_predict:
-        po_raw_col = column_list(con,"payoff")
-        for c in po_raw_col:
-            columns_list.append("payoff_{0}".format(c))
-            columns_query.append("payoff.{0} as 'payoff_{0}'".format(c))
-        po_fixed = fixed_column_dict(con,"payoff","payoff")
-        columns_dict.update(po_fixed)
-
-    res_raw_col = column_list(con,"result")
-    for i in range(6):
-        for c in res_raw_col:
-            columns_list.append("pre{0}_{1}".format(i,c))
-            columns_query.append("p{0}.{1} as 'pre{0}_{1}'".format(i,c))
-        res_fixed = fixed_column_dict(con,"result","pre{0}".format(i))
-        columns_dict.update(res_fixed)
-
-    ex_raw_col = column_list(con,"exinfo")
-    for c in ex_raw_col:
-        columns_list.append("exinfo_{0}".format(c))
-        columns_query.append("exinfo.{0} as 'exinfo_{0}'".format(c))
-    ex_fixed = fixed_column_dict(con,"exinfo","exinfo")
-    columns_dict.update(ex_fixed)
-
-    ri_raw_col = column_list(con,"race_info")
-    for c in ri_raw_col:
-        columns_list.append("rinfo_{0}".format(c))
-        columns_query.append("race_info.{0} as 'rinfo_{0}'".format(c))
-    ri_fixed = fixed_column_dict(con,"race_info","rinfo")
-    columns_dict.update(ri_fixed)
-
-    li_raw_col = column_list(con,"last_info")
-    for c in li_raw_col:
-        columns_list.append("linfo_{0}".format(c))
-        columns_query.append("last_info.{0} as 'linfo_{0}'".format(c))
-    li_fixed = fixed_column_dict(con,"last_info","linfo")
-    columns_dict.update(li_fixed)
-
-    ti_raw_col = column_list(con,"train_info")
-    for c in ti_raw_col:
-        columns_list.append("tinfo_{0}".format(c))
-        columns_query.append("train_info.{0} as 'tinfo_{0}'".format(c))
-    ti_fixed = fixed_column_dict(con,"train_info","tinfo")
-    columns_dict.update(ti_fixed)
-
+    table_ls = [
+        ("horse_info","hi","info"),
+        ("payoff",      "payoff","payoff"),
+        ("exinfo",      "exinfo","exinfo"),
+        ("race_info",   "race_info","rinfo"),
+        ("train_info",  "train_info","tinfo"),
+        ("last_info",   "last_info","linfo"),
+        ("horse_detail","horse_detail","hdetail"),
+        ("train_detail","train_detail","tdetail"),
+        ("result","p0","pre0"),
+        ("result","p1","pre1"),
+        ("result","p2","pre2"),
+        ("result","p3","pre3"),
+        ("result","p4","pre4"),
+        ("result","p5","pre5"),
+    ]
+    for name,alias,prefix in table_ls:
+        raw_col = column_list(con,name)
+        for c in raw_col:
+            columns_list.append("{0}_{1}".format(prefix,c))
+            columns_query.append("{1}.{0} as '{2}_{0}'".format(c,alias,prefix))
+        fixed = fixed_column_dict(con,name,prefix)
+        columns_dict.update(fixed)
     return (columns_list,columns_dict,columns_query)
-
-
 
 def fixed_column_dict(con,table_name,prefix):
     ci_orm = ColumnInfoORM(con)

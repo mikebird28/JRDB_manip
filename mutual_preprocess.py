@@ -16,7 +16,8 @@ def load_datasets_with_p2v(db_con,features,past_n = 3):
         ]
         pre_i_features.append(i_features)
         additionl_features.extend(i_features)
-    x,y = dataset2.load_dataset(db_con,features + additionl_features,["is_win","win_payoff","is_place","place_payoff"])
+    where = "info_year > 08 and info_year < 90"
+    x,y = dataset2.load_dataset(db_con,features + additionl_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
 
     con = concat(x,y)
     x_col = x.columns

@@ -34,8 +34,8 @@ np.set_printoptions(threshold=np.nan)
 def main(use_cache = False):
     #predict_type = "place_payoff"
     predict_type = PREDICT_TYPE
-    config = util.get_config("config/config.json")
-    db_path = "db/output_v12.db"
+    config = util.get_config("config/xgbc_config.json")
+    db_path = "db/output_v14.db"
 
     db_con = sqlite3.connect(db_path)
     if use_cache:
@@ -95,10 +95,12 @@ def generate_dataset(predict_type,db_con,config):
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
     print(">> adding extra information to datasets")
+    """
     train_x,train_y = add_c2v(train_x,train_y,main_features_dropped,nom_col)
     test_x,test_y = add_c2v(test_x,test_y,main_features_dropped,nom_col)
     train_x,train_y = add_ff(train_x,train_y,main_features_dropped,nom_col)
     test_x,test_y = add_ff(test_x,test_y,main_features_dropped,nom_col)
+    """
 
     print(">> generating target variable")
     train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
@@ -172,7 +174,7 @@ def dnn(features,datasets):
 
 
 def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
-    feature_size = 287
+    feature_size = 360
     l2_coef = 0.0
     bn_axis = -1
     momentum = 0
@@ -181,7 +183,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
     x = GaussianNoise(0.01)(x)
 
-    depth = 32
+    depth = 40
     x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)

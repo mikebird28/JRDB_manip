@@ -10,7 +10,7 @@ import reader
 import pickle
 from sklearn.preprocessing import OneHotEncoder
 
-def load_dataset(db_con, features, y_col = ["is_win"],limit = None):
+def load_dataset(db_con, features, y_col = ["is_win"],limit = None, where = ""):
     x_col = ["info_race_id"] + features
     dataset_x = []
     dataset_y = []
@@ -18,7 +18,7 @@ def load_dataset(db_con, features, y_col = ["is_win"],limit = None):
     #db_con = sqlite3.connect(db_path)
     f_orm = feature.Feature(db_con)
     count = 0
-    for x,y in f_orm.fetch_xy(x_col,y_col):
+    for x,y in f_orm.fetch_xy(x_col,y_col,where = where):
         if (limit is not None) and (count > limit):
             break
         dataset_x.append(x)
@@ -309,6 +309,19 @@ def fillna_zero(df):
         except Exception:
             pass
     return df
+
+def standardize(dataset,mx = None, mn = None, remove = []):
+    if mx is None:
+        mx = dataset.max()
+    if mn is None:
+        mn = dataset.min()
+    for col in mx.index:
+        if (col in remove) or (col == "info_race_id"):
+            continue
+        mx_c = mx[col]
+        mn_c = mn[col]
+        dataset[col] = (dataset[col]-mn_c)/(mx_c-mn_c)
+    return dataset
 
 def normalize(dataset,typ="horse",mean = None,std = None,remove = []):
     if typ == "horse":

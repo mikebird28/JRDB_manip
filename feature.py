@@ -35,7 +35,6 @@ class Feature(object):
             where_query = "WHERE {0}".format(where)
         else:
             where_query = ""
-        #where_query = "WHERE info_year > 5 and info_year < 90"
         sql = "SELECT {0} FROM feature {1}".format(columns_query,where_query)
         cur = self.con.execute(sql)
         for row in cur:

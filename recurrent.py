@@ -24,8 +24,8 @@ past_n = 3
 
 def main(use_cache = False):
     predict_type = "is_win"
-    config = util.get_config("config/recurrent_config.json")
-    db_path = "db/output_v12.db"
+    config = util.get_config("config/xgbc_config.json")
+    db_path = "db/output_v15.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:
@@ -39,7 +39,8 @@ def main(use_cache = False):
 def generate_dataset(predict_type,db_con,config):
     print(">> loading dataset")
     main_features = config.features
-    additional_features = ["linfo_win_odds","linfo_place_odds"]
+    #additional_features = ["linfo_win_odds","linfo_place_odds"]
+    additional_features = []
     load_features = main_features + additional_features
     x,p2v,y = mutual_preprocess.load_datasets_with_p2v(db_con,load_features)
     x = concat(x,p2v)
@@ -110,6 +111,8 @@ def dnn(features,datasets):
     """
  
     model = create_model()
+    model.fit([train_x_c,train_x_p],train_y,epochs = 100,batch_size = 4096,validation_data = ([test_x_c,test_x_p],test_y))
+    """
     for i in range(1000):
         print(i)
         model.fit([train_x_c,train_x_p],train_y,epochs = 1,batch_size = 4096)
@@ -118,13 +121,12 @@ def dnn(features,datasets):
         print("")
         print("test loss : {0}".format(score[0]))
         print("test acc : {0}".format(score[1]))
-        """
         win_eval  = top_n_k(model,test_rx,test_r_win,test_rp_win)
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = top_n_k(model,test_rx,test_r_place,test_rp_place)
         print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
-        """
         save_model(model,MODEL_PATH)
+    """
 
 def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,hidden_3 = 80):
     #def create_model(activation = "relu",dropout = 0.3,hidden_1 = 200,hidden_2 =250,hidden_3 = 135):
@@ -135,27 +137,21 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
 
     past_inputs = Input(shape = (3,33,))
     px = GaussianNoise(0.001)(past_inputs)
-    """
-    px = Reshape([3,33,1])(px)
-    px = LocallyConnected2D(4,(3,1))(px)
-    px = Activation(activation)(px)
-    px = Flatten()(px)
-    px = Dense(units=40, kernel_regularizer = l1(l2_lambda))(px)
-    px = Activation(activation)(px)
-    print(px.shape)
-    """
-    px = TimeDistributed(Dense(units = 20))(px)
+
+    px = TimeDistributed(Dense(units = 40,kernel_regularizer = l1(l2_lambda)))(px)
     px = TimeDistributed(Activation(activation))(px)
     px = TimeDistributed(BatchNormalization())(px)
     px = TimeDistributed(Dropout(dropout))(px)
 
     px = LSTM(units = 40,go_backwards = True)(px)
+    """
     px = Dense(units=40, kernel_regularizer = l1(l2_lambda))(px)
     px = Activation(activation)(px)
     px = BatchNormalization()(px)
     px = Dropout(dropout)(px)
+    """
 
-    current_inputs = Input(shape = (147,))
+    current_inputs = Input(shape = (284,))
     x = GaussianNoise(0.001)(current_inputs)
     x = Dense(units=40, kernel_regularizer = l1(l2_lambda))(x)
     x = Activation(activation)(x)
@@ -163,7 +159,7 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
     x = Dropout(dropout)(x)
 
     x = Concatenate()([x,px])
-    x = Dense(units=hidden_1, kernel_regularizer = l1(l2_lambda))(x)
+    x = Dense(units=hidden_1, kernel_regularizer = l2(l2_lambda))(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
@@ -171,11 +167,11 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
     depth = 2
     for i in range(depth):
         residual = x
-        x = Dense(units=hidden_3,kernel_regularizer = l1(l2_lambda))(x)
+        x = Dense(units=hidden_3,kernel_regularizer = l2(l2_lambda))(x)
         x = Activation(activation)(x)
         x = BatchNormalization()(x)
 
-        x = Dense(units=hidden_3,kernel_regularizer = l1(l2_lambda))(x)
+        x = Dense(units=hidden_3,kernel_regularizer = l2(l2_lambda))(x)
         x = BatchNormalization()(x)
         x = Add()([x,residual])
         x = Dropout(dropout)(x)
@@ -184,7 +180,7 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
     x = Dense(units=1)(x)
     x = Activation('sigmoid')(x)
     model = Model(inputs = [current_inputs,past_inputs],outputs = x)
-    opt = keras.optimizers.Adam(lr=0.01,epsilon = 1e-3)
+    opt = keras.optimizers.Adam(lr=0.01,epsilon = 1e-2)
     model.compile(loss = "binary_crossentropy",optimizer=opt,metrics=["accuracy"])
     return model 
 
