@@ -24,7 +24,7 @@ past_n = 3
 
 def main(use_cache = False):
     predict_type = "is_win"
-    config = util.get_config("config/xgbc_config.json")
+    config = util.get_config("config/xgbc_config2.json")
     db_path = "db/output_v15.db"
     db_con = sqlite3.connect(db_path)
 
@@ -40,10 +40,11 @@ def generate_dataset(predict_type,db_con,config):
     print(">> loading dataset")
     main_features = config.features
     #additional_features = ["linfo_win_odds","linfo_place_odds"]
-    additional_features = []
-    load_features = main_features + additional_features
-    x,p2v,y = mutual_preprocess.load_datasets_with_p2v(db_con,load_features)
-    x = concat(x,p2v)
+    #additional_features = []
+    #load_features = main_features + additional_features
+
+    where = "info_year > 08 and info_year < 90"
+    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
@@ -135,7 +136,7 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
     l2_lambda = 0.000
     hidden_1 = hidden_3 = 60
 
-    past_inputs = Input(shape = (3,33,))
+    past_inputs = Input(shape = (3,22,))
     px = GaussianNoise(0.001)(past_inputs)
 
     px = TimeDistributed(Dense(units = 40,kernel_regularizer = l1(l2_lambda)))(px)
@@ -151,7 +152,7 @@ def create_model(activation = "relu",dropout = 0.5,hidden_1 = 80,hidden_2 =250,h
     px = Dropout(dropout)(px)
     """
 
-    current_inputs = Input(shape = (284,))
+    current_inputs = Input(shape = (301,))
     x = GaussianNoise(0.001)(current_inputs)
     x = Dense(units=40, kernel_regularizer = l1(l2_lambda))(x)
     x = Activation(activation)(x)

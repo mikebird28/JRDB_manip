@@ -21,7 +21,7 @@ predict_type = "is_win"
 
 def main(use_cache = False):
     predict_type = "is_win"
-    config = util.get_config("config/xgbc_config.json")
+    config = util.get_config("config/xgbc_config2.json")
     db_path = "db/output_v15.db"
     db_con = sqlite3.connect(db_path)
 
@@ -32,6 +32,7 @@ def main(use_cache = False):
         datasets = generate_dataset(predict_type,db_con,config)
         dataset2.save_cache(datasets,CACHE_PATH)
     xgbc(config.features,datasets)
+    #xgbc_wigh_bayessearch(config.features,datasets)
 
 
 def generate_dataset(predict_type,db_con,config):
@@ -40,10 +41,11 @@ def generate_dataset(predict_type,db_con,config):
 
     where = "info_year > 08 and info_year < 90"
     x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
+    """
     categorical_dic = dataset2.nominal_columns(db_con)
     dummy_col = dataset2.dummy_column(x,categorical_dic)
     x = dataset2.get_dummies(x,categorical_dic)
-
+    """
     main_features = sorted(x.columns.values.tolist())
     main_features_dropped = sorted(x.columns.drop("info_race_id").values.tolist())
 
@@ -51,6 +53,7 @@ def generate_dataset(predict_type,db_con,config):
     train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
     train_x = dataset2.downcast(train_x)
     test_x = dataset2.downcast(test_x)
+    """
 
     print(">> filling none value of train dataset")
     train_x = dataset2.fillna_mean(train_x,"horse")
@@ -61,6 +64,7 @@ def generate_dataset(predict_type,db_con,config):
     print(">> filling none value of test dataset")
     test_x = dataset2.fillna_mean(test_x,"horse")
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = dummy_col)
+    """
 
     test_x = test_x.loc[:,main_features]
     test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
@@ -110,14 +114,26 @@ def xgbc(features,datasets):
     test_rp_place = datasets["test_rp_place"]
     
     xgbc = xgb.XGBClassifier(
+        n_estimators = 300,
+        colsample_bytree =  0.869719614599,
+        learning_rate =  0.001,
+        min_child_weight = 0.42206733097,
+        subsample = 0.99637221573,
+        max_depth = 10,
+        gamma =  0.90110124545,
+    )
+    """
+    xgbc = xgb.XGBClassifier(
         n_estimators = 100,
-        colsample_bytree =  0.5,
-        gamma = 1.0,
-        learning_rate = 0.07,
-        max_depth = 3,
-        min_child_weight = 2.0,
-        subsample = 1.0
-        )
+        colsample_bytree =  0.8,
+        learning_rate =  0.001,
+        min_child_weight = 1.55,
+        subsample = 0.66,
+        max_depth = 10,
+        gamma =  0.71,
+    )
+    """
+ 
     xgbc.fit(train_x,train_y)
 
     pred = xgbc.predict(test_x)
@@ -189,27 +205,28 @@ def xgbc_wigh_gridsearch(features,datasets):
 
 def xgbc_wigh_bayessearch(features,datasets):
     train_x = datasets["train_x"]
-    train_y = datasets["train_y"]
+    features = train_x.columns
+    train_y = datasets["train_y"].loc[:,predict_type]
     test_x  = datasets["test_x"]
-    test_y  = datasets["test_y"]
+    test_y  = datasets["test_y"].loc[:,predict_type]
     test_rx = datasets["test_rx"]
+    #test_ry = datasets["test_ry"]
     test_r_win = datasets["test_r_win"]
     test_r_place = datasets["test_r_place"]
     test_rp_win = datasets["test_rp_win"]
     test_rp_place = datasets["test_rp_place"]
-
+ 
     paramaters = [
         {
-        'learning_rate': (0.001,0.5),
         'max_depth' : (3,10),
         'subsample':(0.1,1.0),
-        'min_child_weight':(0.5,2.0),
-        'colsample_bytree':(0.5,1.0),
+        'min_child_weight':(0.3,2.0),
+        'colsample_bytree':(0.3,1.0),
         'gamma':(0,1.0)}
     ]
 
-    xgbc = xgb.XGBClassifier(n_estimators = 300)
-    cv = BayesSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',n_iter = 60,verbose = 2)
+    xgbc = xgb.XGBClassifier(n_estimators = 100,learning_rate = 0.001)
+    cv = BayesSearchCV(xgbc,paramaters,cv = 3,scoring='accuracy',n_iter = 30,verbose = 3)
     cv.fit(train_x,train_y)
     pred = cv.predict(test_x)
 
@@ -217,10 +234,12 @@ def xgbc_wigh_bayessearch(features,datasets):
     print("")
     print("Accuracy: {0}".format(accuracy))
 
+    """
     win_eval  = evaluate.top_n_k(cv,test_rx,test_r_win,test_rp_win)
     place_eval  = evaluate.top_n_k(cv,test_rx,test_r_place,test_rp_place)
     print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
     print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
+    """
 
     print("Paramaters")
     #best_parameters, score, _ = max(cv.grid_scores_, key=lambda x: x[1])    

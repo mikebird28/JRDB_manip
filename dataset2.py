@@ -370,7 +370,7 @@ def under_sampling(x,y,key = "is_win",magnif = 1):
     under_sampled_records = other_records.sample(len(low_frequent_records))
 
     con = pd.concat([low_frequent_records,under_sampled_records])
-    con.sample(frac=1.0).reset_index(drop=True)
+    con = con.sample(frac=1.0).reset_index(drop=True)
     con_x = con.loc[:,x_col]
     con_y = con.loc[:,y_col]
     return con_x,con_y
