@@ -60,16 +60,15 @@ def parse(args):
     start = "031025"
     is_test = args.is_test
     db_ls = [
+        (reader.PayoffDatabase,"payoff","HJC"),
         (reader.ResultDatabase,"horse_result","SED"),
-        (reader.TrainDetailDatabase,TRAIN_DETAIL_PATH,"CHA"),
+        (reader.RaceInfoDatabase,RACE_INFO_PATH,"BAC"),
         (reader.HorseDetailDatabase,"horse_detail","UKC"),
-        (reader.ExpandedInfoDatabase,EXPANDED_INFO_PATH,"kka"),
         (reader.HorseInfoDatabase,"horse_info","KYI"),
         (reader.TrainingInfoDatabase,TRAIN_INFO_PATH,"CYB"),
-        (reader.RaceInfoDatabase,RACE_INFO_PATH,"BAC"),
+        (reader.TrainDetailDatabase,TRAIN_DETAIL_PATH,"CHA"),
         (reader.LastInfoDatabase,LAST_INFO_PATH,"TYB"),
-        (reader.PayoffDatabase,"payoff","HJC"),
-        (reader.ResultDatabase,"horse_result","SED")
+        (reader.ExpandedInfoDatabase,EXPANDED_INFO_PATH,"kka"),
     ]
     for tup in db_ls:
         orm = tup[0]

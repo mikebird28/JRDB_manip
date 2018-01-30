@@ -27,7 +27,7 @@ predict_type = "is_win"
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/xgbc_config2.json")
-    db_path = "db/output_v15.db"
+    db_path = "db/output_v18.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:
@@ -121,7 +121,7 @@ def dnn(features,db_con,datasets):
 
     train_x = [raw_train_x.loc[:,col].as_matrix() for col in sorted_columns]
     test_x = [raw_test_x.loc[:,col].as_matrix() for col in sorted_columns]
-
+    new_test_rx = []
     try:
         for i in range(300):
             model.fit(train_x,train_y,epochs = 10,batch_size = 8192,validation_data = (test_x,test_y))
@@ -173,7 +173,7 @@ def create_model(sorted_columns,categorical_dic,activation = "relu",dropout = 0.
             inputs.append(x)
             inp_dim = categorical_dic[col]+1
             out_dim = max(inp_dim//10,1)
-            x = Lambda(lambda a : K.clip(a,0,inp_dim))(x)
+            #x = Lambda(lambda a : K.clip(a,0,inp_dim))(x)
             x = Embedding(inp_dim,out_dim,input_length = 1)(x)
             x = SpatialDropout1D(0.5)(x)
             x = Flatten()(x)
@@ -189,7 +189,12 @@ def create_model(sorted_columns,categorical_dic,activation = "relu",dropout = 0.
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)
 
-    x = Dense(units=hidden_2)(x)
+    x = Dense(units=hidden_1)(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization()(x)
+    x = Dropout(dropout)(x)
+
+    x = Dense(units=hidden_1)(x)
     x = Activation(activation)(x)
     x = BatchNormalization()(x)
     x = Dropout(dropout)(x)

@@ -22,7 +22,7 @@ predict_type = "is_win"
 def main(use_cache = False):
     predict_type = "is_win"
     config = util.get_config("config/xgbc_config2.json")
-    db_path = "db/output_v15.db"
+    db_path = "db/output_v18.db"
     db_con = sqlite3.connect(db_path)
 
     if use_cache:

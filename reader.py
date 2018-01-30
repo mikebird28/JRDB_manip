@@ -2,6 +2,7 @@
 import sqlite3
 import sys
 import nominal
+from datetime import datetime
 from util import *
 
 #functions which convert data to appropriate type
@@ -140,7 +141,7 @@ def create_table(con,name,type_dict,nominal_dict,unique_ls = []):
     sql = """CREATE TABLE {name}({columns});""".format(name = name,columns = columns)
     con.execute(sql)
 
-def insert_container(con,name,container):
+def insert_container(con,name,container,is_silence = True):
     """insert container to the table
     Args:
         con       : database connection
@@ -166,7 +167,8 @@ def insert_container(con,name,container):
         sql = u"insert into {0}({1}) values({2});".format(name,keys_text,values_text)
         con.execute(sql)
     except Exception as e:
-        print(e)
+        if not is_silence:
+            print(e)
 
 def set_index(con,index_name,table_name,columns):
     columns_txt = ",".join(columns)
@@ -261,6 +263,74 @@ class PayoffDatabase(BaseORM):
         c.place_payoff_4  = to_integer(line[64:71])
         c.place_horse_5   = to_integer(line[71:73])
         c.place_payoff_5  = to_integer(line[73:80])
+        
+        #馬連
+        c.quinella_horse_a_1  = to_integer(line[107:109])
+        c.quinella_horse_b_1  = to_integer(line[109:111])
+        c.quinella_payoff_1   = to_integer(line[111:119])
+        c.quinella_horse_a_2  = to_integer(line[119:121])
+        c.quinella_horse_b_2  = to_integer(line[121:123])
+        c.quinella_payoff_2   = to_integer(line[123:131])
+        c.quinella_horse_a_3  = to_integer(line[131:133])
+        c.quinella_horse_b_3  = to_integer(line[133:135])
+        c.quinella_payoff_3   = to_integer(line[135:143])
+
+        #ワイド
+        c.quinella_place_horse_a_1  = to_integer(line[143:145])
+        c.quinella_place_horse_b_1  = to_integer(line[145:147])
+        c.quinella_place_payoff_1   = to_integer(line[147:155])
+        c.quinella_place_horse_a_2  = to_integer(line[155:157])
+        c.quinella_place_horse_b_2  = to_integer(line[157:159])
+        c.quinella_place_payoff_2   = to_integer(line[159:167])
+        c.quinella_place_horse_a_3  = to_integer(line[167:169])
+        c.quinella_place_horse_b_3  = to_integer(line[169:171])
+        c.quinella_place_payoff_3   = to_integer(line[171:179])
+        c.quinella_place_horse_a_4  = to_integer(line[179:181])
+        c.quinella_place_horse_b_4  = to_integer(line[181:183])
+        c.quinella_place_payoff_4   = to_integer(line[183:191])
+        c.quinella_place_horse_a_5  = to_integer(line[191:193])
+        c.quinella_place_horse_b_5  = to_integer(line[193:195])
+        c.quinella_place_payoff_5   = to_integer(line[195:203])
+
+        #馬単
+        c.exacta_horse_a_1  = to_integer(line[227:229])
+        c.exacta_horse_b_1  = to_integer(line[229:231])
+        c.exacta_payoff_1   = to_integer(line[231:239])
+        c.exacta_horse_a_2  = to_integer(line[239:241])
+        c.exacta_horse_b_2  = to_integer(line[241:243])
+        c.exacta_payoff_2   = to_integer(line[243:251])
+        c.exacta_horse_a_3  = to_integer(line[251:253])
+        c.exacta_horse_b_3  = to_integer(line[253:255])
+        c.exacta_payoff_3   = to_integer(line[255:263])
+
+        #３連複
+        c.trio_horse_a_1 = to_integer(line[299:301])
+        c.trio_horse_b_1 = to_integer(line[301:303])
+        c.trio_horse_c_1 = to_integer(line[303:305])
+        c.trio_payoff_1  = to_integer(line[305:313])
+        c.trio_horse_a_2 = to_integer(line[313:315])
+        c.trio_horse_b_2 = to_integer(line[315:317])
+        c.trio_horse_c_2 = to_integer(line[317:319])
+        c.trio_payoff_2  = to_integer(line[319:327])
+        c.trio_horse_a_3 = to_integer(line[327:329])
+        c.trio_horse_b_3 = to_integer(line[329:331])
+        c.trio_horse_c_3 = to_integer(line[331:333])
+        c.trio_payoff_3  = to_integer(line[333:341])
+
+
+        #3連単
+        c.trifecta_horse_a_1 = to_integer(line[341:343])
+        c.trifecta_horse_b_1 = to_integer(line[343:345])
+        c.trifecta_horse_b_1 = to_integer(line[345:347])
+        c.trifecta_payoff_1  = to_integer(line[347:356])
+        c.trifecta_horse_a_2 = to_integer(line[356:358])
+        c.trifecta_horse_b_2 = to_integer(line[358:360])
+        c.trifecta_horse_b_2 = to_integer(line[360:362])
+        c.trifecta_payoff_2  = to_integer(line[362:371])
+        c.trifecta_horse_a_3 = to_integer(line[371:373])
+        c.trifecta_horse_b_3 = to_integer(line[373:375])
+        c.trifecta_horse_b_3 = to_integer(line[375:377])
+        c.trifecta_payoff_3  = to_integer(line[377:386])
         return c
 
     def set_indexes(self):
@@ -470,7 +540,10 @@ class RaceInfoDatabase(BaseORM):
         c = Container()
         c.race_course_code     = to_nominal(line[0:2],converter = nominal.nominal_jra_course_code)
         c.race_id              = to_string(line[0:8])
-        c.date                 = to_string(line[8:16])
+        c.datetime             = to_string(line[8:16])
+        c.year                 = to_integer(line[8:12])
+        c.month                = to_integer(line[12:14])
+        c.date                 = to_integer(line[14:16]) 
         c.time                 = to_string(line[16:20])
         c.distance             = to_integer(line[20:24])
         c.discipline           = to_nominal(line[24],n=3)
@@ -515,9 +588,9 @@ class ResultDatabase(BaseORM):
 
         c.result_id            = to_string(line[10:26])
         c.pedigree_id          = to_string(line[10:18])  #血統登録番号
-        c.registered_date      = to_string(line[18:26])  #登録日
+        #c.registered_date      = to_string(line[18:26])  #登録日
 
-        c.horse_name           = to_unicode(line[26:62]) #名前
+        #c.horse_name           = to_unicode(line[26:62]) #名前
         c.distance             = to_integer(line[62:66]) #距離
         c.discipline           = to_nominal(line[66],n = 3)    #芝ダ障害コード
         c.left_or_right        = to_nominal(line[67],n = 3)    #右左
@@ -525,11 +598,11 @@ class ResultDatabase(BaseORM):
         c.field_status         = to_integer(line[69:71]) #馬場状態
 
         c.race_category        = to_integer(line[71:73])   #種別
-        c.race_condition       = to_string(line[73:75])    #条件
+        #c.race_condition       = to_string(line[73:75])    #条件
         c.race_remarks         = to_integer(line[75:78])   #記号
         c.race_weights         = to_integer(line[78])      #重量
         c.race_grade           = to_integer(line[79])      #グレード
-        c.race_name            = to_unicode(line[80:130])  #レース名
+        #c.race_name            = to_unicode(line[80:130])  #レース名
         c.race_headcount       = to_integer(line[130:132]) #頭数
         #c.race_alias           = to_unicode(line[132:140]) #レース名略称
 
@@ -568,7 +641,7 @@ class ResultDatabase(BaseORM):
         c.time_delta           = to_float(line[255:258])   #一着とのタイム差
         c.first_3f_time        = to_float(line[258:261])   #前3Fタイム
         c.last_3f_time         = to_float(line[261:264])   #後3Fタイム
-        c.jrdb_remarks         = to_unicode(line[264:288]) #備考(地方競馬場名等)
+        #c.jrdb_remarks         = to_unicode(line[264:288]) #備考(地方競馬場名等)
 
         c.place_odds           = to_float(line[290:296])   #複勝確定オッズ
         c.morning_odds         = to_float(line[296:302])   #朝の時点での単勝オッズ
@@ -579,8 +652,8 @@ class ResultDatabase(BaseORM):
         c.pass_4               = to_integer(line[314:316]) #コーナー順位4
         c.first_3f_delta       = to_float(line[316:319])   #前3F地点での先頭とのタイム差
         c.last_3f_delta        = to_float(line[319:322])   #後3F地点での先頭とのタイム差
-        c.jockey_id            = to_string(line[322:327])  #騎手コード
-        c.trainer_id           = to_string(line[327:332])  #調教師コード
+        #c.jockey_id            = to_string(line[322:327])  #騎手コード
+        #c.trainer_id           = to_string(line[327:332])  #調教師コード
         c.weight               = to_integer(line[332:335]) #馬重量
         c.weight_delta         = to_integer(line[335:338]) #馬体重増減
         c.weather_code         = to_integer(line[338:339]) #天候コード
@@ -869,7 +942,7 @@ class LastInfoDatabase(BaseORM):
 
         c.equipment_change     = to_nominal(line[45],n=2)
         c.leg_info             = to_nominal(line[46],n=3)
-        c.basis_weight         = to_integer(line[65:68])
+        c.basis_weight         = to_float(line[65:68])
         c.field_status         = to_integer(line[69:71])
         c.field_code           = to_nominal(line[69:71], converter = nominal.nominal_field_status)
         c.weather_code         = to_nominal(line[71], n=6)
@@ -957,8 +1030,8 @@ class HorseDetailDatabase(BaseORM):
 
     def parse_line(self,line):
         c = Container()
-        #this race id doesnt include horse info
         c.pedigree_id = to_string(line[0:8])
+        c.birthday    = to_string(line[157:165])
         c.father_pedigree_type = to_nominal(line[276:280],converter = nominal.nominal_pedigree_type)
         c.mother_pedigree_type = to_nominal(line[280:284],converter = nominal.nominal_pedigree_type)
         return c
@@ -1008,14 +1081,27 @@ def create_feature_table(inp_con,out_con,show_progress = True):
     raw_columns,columns_dict,columns_query = fetch_columns_info(inp_con)
 
     fixed_columns = raw_columns
-    fixed_columns.append("is_win")
-    fixed_columns.append("is_place")
-    fixed_columns.append("win_payoff")
-    fixed_columns.append("place_payoff")
-    columns_dict["is_win"] = ColumnInfo("is_win","feature",INT_SYNBOL)
-    columns_dict["is_place"] = ColumnInfo("is_place","feature",INT_SYNBOL)
-    columns_dict["win_payoff"] = ColumnInfo("win_payoff","feature",FLO_SYNBOL)
-    columns_dict["place_payoff"] = ColumnInfo("place_payoff","feature",FLO_SYNBOL)
+    additional_features = ["is_win","is_place","win_payoff","place_payoff","addinfo_age","addinfo_age_month"]
+    fixed_columns.extend(additional_features)
+
+    columns_dict["is_win"]             = ColumnInfo("is_win","feature",INT_SYNBOL)
+    columns_dict["is_place"]           = ColumnInfo("is_place","feature",INT_SYNBOL)
+    columns_dict["is_quinella"]        = ColumnInfo("is_quinella","feature",INT_SYNBOL)
+    columns_dict["is_exacta"]          = ColumnInfo("is_exacta","feature",INT_SYNBOL)
+    columns_dict["is_quinella_place"] = ColumnInfo("is_trio","feature",INT_SYNBOL)
+    columns_dict["is_trio"]            = ColumnInfo("is_quinellra_place","feature",INT_SYNBOL)
+    columns_dict["is_trifecta"]        = ColumnInfo("is_trifecta","feature",INT_SYNBOL)
+
+    columns_dict["win_payoff"]        = ColumnInfo("win_payoff","feature",FLO_SYNBOL)
+    columns_dict["place_payoff"]      = ColumnInfo("place_payoff","feature",FLO_SYNBOL)
+    columns_dict["quinella_payoff"]   = ColumnInfo("quinella_payoff","feature",FLO_SYNBOL)
+    columns_dict["exacta_payoff"]      = ColumnInfo("exacta_payoff","feature",FLO_SYNBOL)
+    columns_dict["quinella_place_payoff"]      = ColumnInfo("quinella_place_payoff","feature",FLO_SYNBOL)
+    columns_dict["trio_payoff"]                = ColumnInfo("trio_payoff","feature",FLO_SYNBOL)
+    columns_dict["trifecta_payoff"]            = ColumnInfo("trifecta_payoff","feature",FLO_SYNBOL)
+
+    columns_dict["addinfo_age"] = ColumnInfo("age","feature",INT_SYNBOL)
+    columns_dict["addinfo_age_month"] = ColumnInfo("age_month","feature",INT_SYNBOL)
     columns_txt = ",".join(columns_query)
 
     # check if feature table exist
@@ -1036,17 +1122,19 @@ def create_feature_table(inp_con,out_con,show_progress = True):
              LEFT JOIN train_detail  ON hi.horse_id = train_detail.horse_id
              LEFT JOIN horse_detail  ON hi.pedigree_id = horse_detail.pedigree_id
              LEFT JOIN race_info     ON hi.race_id = race_info.race_id
-             LEFT JOIN result as p1  ON hi.pre1_result_id = p1.result_id
-             LEFT JOIN result as p2  ON hi.pre2_result_id = p2.result_id
-             LEFT JOIN result as p3  ON hi.pre3_result_id = p3.result_id
-             LEFT JOIN result as p4  ON hi.pre4_result_id = p4.result_id
-             LEFT JOIN result as p5  ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
+             LEFT JOIN result AS p1  ON hi.pre1_result_id = p1.result_id
+             LEFT JOIN result AS p2  ON hi.pre2_result_id = p2.result_id
+             LEFT JOIN result AS p3  ON hi.pre3_result_id = p3.result_id
+             LEFT JOIN exinfo AS ep1 ON p1.horse_id =  ep1.horse_id
+             LEFT JOIN exinfo AS ep2 ON p2.horse_id = ep2.horse_id
+             LEFT JOIN exinfo AS ep3 ON p3.horse_id = ep3.horse_id;""".format(columns_txt)
 
     cur = inp_con.execute(sql)
+    print("")
     for count,row in enumerate(cur):
         if count % 100 == 0:
             if show_progress:
-                sys.stdout.write("{0} rows have finished \r".format(str(count)))
+                sys.stdout.write("\r{0} rows have finished".format(str(count)))
                 sys.stdout.flush()
             out_con.commit()
         container = Container()
@@ -1057,23 +1145,68 @@ def create_feature_table(inp_con,out_con,show_progress = True):
             else:
                 maybe = Maybe(typ,value)
             container[col_name] = maybe
-
-        container["is_win"] = to_integer(container.payoff_win_horse_1.value == container.info_horse_number.value)
-
-        is_place_1 = container.payoff_place_horse_1.value == container.info_horse_number.value
-        is_place_2 = container.payoff_place_horse_2.value == container.info_horse_number.value
-        is_place_3 = container.payoff_place_horse_3.value == container.info_horse_number.value
-        container["is_place"] = to_integer(is_place_1 or is_place_2 or is_place_3)
-
-        win_payoff = container.payoff_win_payoff_1.value if (container.payoff_win_horse_1.value == container.info_horse_number.value) else 0
-        container["win_payoff"] = to_integer(win_payoff)
-
-        place_payoff_1 = container.payoff_place_payoff_1.value if (container.payoff_place_horse_1.value == container.info_horse_number.value) else 0
-        place_payoff_2 = container.payoff_place_payoff_2.value if (container.payoff_place_horse_2.value == container.info_horse_number.value) else 0
-        place_payoff_3 = container.payoff_place_payoff_3.value if (container.payoff_place_horse_3.value == container.info_horse_number.value) else 0
-        container["place_payoff"] = to_integer(max(place_payoff_1,place_payoff_2,place_payoff_3))
+        set_additional_features(container)
         insert_container(out_con,"feature",container)
+    print("")
     out_con.commit()
+
+def set_additional_features(c):
+    #add is_win is_place
+    c["is_win"] = to_integer(c.payoff_win_horse_1.value == c.info_horse_number.value)
+    is_place_1 = c.payoff_place_horse_1.value == c.info_horse_number.value
+    is_place_2 = c.payoff_place_horse_2.value == c.info_horse_number.value
+    is_place_3 = c.payoff_place_horse_3.value == c.info_horse_number.value
+    c["is_place"] = to_integer(is_place_1 or is_place_2 or is_place_3)
+
+    #add win_payoff place_payoff
+    win_payoff = c.payoff_win_payoff_1.value if (c.payoff_win_horse_1.value == c.info_horse_number.value) else 0
+    c["win_payoff"] = to_integer(win_payoff)
+    place_payoff_1 = c.payoff_place_payoff_1.value if (c.payoff_place_horse_1.value == c.info_horse_number.value) else 0
+    place_payoff_2 = c.payoff_place_payoff_2.value if (c.payoff_place_horse_2.value == c.info_horse_number.value) else 0
+    place_payoff_3 = c.payoff_place_payoff_3.value if (c.payoff_place_horse_3.value == c.info_horse_number.value) else 0
+    c["place_payoff"] = to_integer(max(place_payoff_1,place_payoff_2,place_payoff_3))
+
+    c = add_is_exacta(c)
+    c = add_is_quinella(c)
+
+    birth = datetime.strptime(c.hdetail_birthday.value,"%Y%m%d")
+    date  = datetime.strptime(c.rinfo_datetime.value,"%Y%m%d")
+    age_month   = (date - birth).days//30
+    age   = (date - birth).days//365
+    c["addinfo_age"] = to_integer(age)
+    c["addinfo_age_month"] = to_integer(age_month)
+    return c
+
+def add_is_exacta(c):
+    is_exacta_a = c.payoff_quinella_horse_a_1.value == c.info_horse_number.value
+    is_exacta_b = c.payoff_quinella_horse_b_1.value == c.info_horse_number.value
+    if is_exacta_a:
+        is_exacta = 1
+    elif is_exacta_b:
+        is_exacta = 2
+    else:
+        is_exacta = 0
+    c["is_exacta"] = to_integer(is_exacta)
+    return c
+
+def add_is_quinella(c):
+    is_quinella_a = c.payoff_quinella_horse_a_1.value == c.info_horse_number.value
+    is_quinella_b = c.payoff_quinella_horse_b_1.value == c.info_horse_number.value
+    c["is_quinella"] = to_integer(is_quinella_a or is_quinella_b)
+    return c
+
+def add_is_quinella_place(c):
+    columns_dict["is_quinella"]        = ColumnInfo("is_quinella","feature",INT_SYNBOL)
+
+def add_is_trio(c):
+    is_trio_a = c.payoff_is_trio_a_1.value = c.info_horse_number.value
+    is_trio_b = c.payoff_is_trio_b_1.value = c.info_horse_number.value
+    is_trio_c = c.payoff_is_trio_c_1.value = c.info_horse_number.value
+    c["is_trio"] = to_integer(is_trio_a or is_trio_b or is_trio_c)
+    return c
+
+def add_is_trifecta(c):
+    pass
 
 def create_predict_table(con,show_progress = True):
     raw_columns,columns_dict,columns_query = fetch_columns_info(con,for_predict = True)
@@ -1103,10 +1236,11 @@ def create_predict_table(con,show_progress = True):
              LEFT JOIN result as p5 ON hi.pre5_result_id = p5.result_id;""".format(columns_txt)
 
     cur = con.execute(sql)
+    print()
     for count,row in enumerate(cur):
         if count % 100 == 0:
             if show_progress:
-                sys.stdout.write("{0} rows have finished \r".format(str(count)))
+                sys.stdout.write("\r{0} rows have finished ".format(str(count)))
                 sys.stdout.flush()
             con.commit()
         container = Container()
@@ -1119,8 +1253,7 @@ def create_predict_table(con,show_progress = True):
             container[col_name] = maybe
 
         insert_container(con,"feature",container)
-    if show_progress:
-        print("")
+    print()
     con.commit()
 
 def fetch_columns_info(con,for_predict = False):
@@ -1137,12 +1270,13 @@ def fetch_columns_info(con,for_predict = False):
         ("last_info",   "last_info","linfo"),
         ("horse_detail","horse_detail","hdetail"),
         ("train_detail","train_detail","tdetail"),
+        ("exinfo","ep1","epre1"),
+        ("exinfo","ep2","epre2"),
+        ("exinfo","ep3","epre3"),
         ("result","p0","pre0"),
         ("result","p1","pre1"),
         ("result","p2","pre2"),
         ("result","p3","pre3"),
-        ("result","p4","pre4"),
-        ("result","p5","pre5"),
     ]
     for name,alias,prefix in table_ls:
         raw_col = column_list(con,name)

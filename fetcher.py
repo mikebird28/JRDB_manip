@@ -1,5 +1,6 @@
 #-*- coding:utf-8 -*-
 
+import re
 import os
 import sys
 import time
@@ -163,10 +164,10 @@ def create_directory(path):
 
 def extract(dir_path,unzipped_path):
     ls = os.listdir(dir_path)
-    ls = [os.path.join(dir_path,name) for name in ls]
+    path_ls = [os.path.join(dir_path,name) for name in ls]
     create_directory(unzipped_path)
 
-    for path in ls:
+    for path in path_ls:
         print(path)
         if path.endswith("zip"):
             unzip(path,unzipped_path)
@@ -182,6 +183,11 @@ def unlzh(file_path,unzipped_path):
     command = "lhasa xqw={0} {1}".format(unzipped_path,file_path)
     subprocess.call(command,shell=True)
 """
+
+def remove_extension(s):
+    s = re.sub(r"\..+","",s)
+    print(s)
+    return s
 
 def unlzh(file_path,unzipped_path):
     command = "lha e -q -w {0} {1}".format(unzipped_path,file_path)

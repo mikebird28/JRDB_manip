@@ -3,8 +3,6 @@
     },
 
     "features" : [
-        "addinfo_age_month",
-
         "info_jockey_win",
         "info_jockey_place",
         "info_jockey_quinella",
@@ -23,19 +21,21 @@
         "info_start_score",
         "info_paddock_rank",
         "info_stable_rank",
+        "info_discipline_experience",
+        "info_distance_experience",
+        "info_class_experience",
+        "info_change_stable",
         "info_front_leg_length",
         "info_front_step_length",
         "info_front_pastern",
         "info_race_course_code",
-        "info_sex_code",
 
-        "linfo_horse_weight",
-        "linfo_weight_delta",
-        "linfo_basis_weight",
-        "linfo_paddock_score",
-        "linfo_jockey_score",
+        "lifno_horse_weight",
+        "lifno_weight_delta",
+        "lifno_basis_weight",
+        "lifno_paddock_score",
+        "lifno_jockey_score",
 
-        "rinfo_month",
         "rinfo_first_prize",
         "rinfo_distance",
         "rinfo_discipline",
@@ -77,8 +77,9 @@
         "exinfo_jockey_dist_place_per",
         "exinfo_jockey_dist_total",
 
+        "exinfo_jockey_dist_track_win_per",
         "exinfo_jockey_dist_track_place_per",
-        "exinfo_jockey_dist_track_total",
+        "exinfo_jockey_owner_win_per",
         "exinfo_jockey_owner_place_per",
         "exinfo_jockey_owner_total",
         "exinfo_trainer_owner_place_per",
@@ -134,6 +135,8 @@
         "pre2_horse_number",
         "pre3_horse_number",
 
+        "pre1_late_start",
+
         "pre1_field_status",
         "pre2_field_status",
         "pre3_field_status",
@@ -154,12 +157,6 @@
         "pre3_race_headcount",
         "pre1_position_at_corner",
         "pre2_position_at_corner",
-        "pre3_position_at_corner",
-        "epre1_jockey_total",
-        "epre2_jockey_total",
-        "epre3_jockey_total",
-        "epre1_jockey_place_per",
-        "epre2_jockey_place_per",
-        "epre3_jockey_place_per"
+        "pre3_position_at_corner"
     ]
 }

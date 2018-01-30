@@ -108,12 +108,6 @@ def generate_dataset(predict_type,db_con,config):
     train_add_x = (train_add_x/100.0).clip(upper = 50)
     test_add_x = (test_add_x/100.0).clip(upper = 50)
 
-    print(">> adding extra information to datasets")
-    train_x,train_y = add_c2v(train_x,train_y,main_features_dropped,nom_col)
-    test_x,test_y = add_c2v(test_x,test_y,main_features_dropped,nom_col)
-    train_x,train_y = add_ff(train_x,train_y,main_features_dropped,nom_col)
-    test_x,test_y = add_ff(test_x,test_y,main_features_dropped,nom_col)
-
     print(">> generating target variable")
     train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
     train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)

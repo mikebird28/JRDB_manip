@@ -2,9 +2,11 @@
 
 from keras.regularizers import l1,l2
 from keras.models import Sequential,Model,load_model
-from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
+from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise,SpatialDropout1D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Reshape,Flatten,Permute,Lambda
+from keras.layers.embeddings import Embedding
+import keras.backend as K
 import keras.optimizers
 import numpy as np
 import pandas as pd
@@ -35,7 +37,7 @@ def main(use_cache = False):
     #predict_type = "place_payoff"
     predict_type = PREDICT_TYPE
     config = util.get_config("config/xgbc_config2.json")
-    db_path = "db/output_v15.db"
+    db_path = "db/output_v17.db"
 
     db_con = sqlite3.connect(db_path)
     if use_cache:
@@ -43,14 +45,15 @@ def main(use_cache = False):
         datasets = dataset2.load_cache(CACHE_PATH)
     else:
         datasets = generate_dataset(predict_type,db_con,config)
-    dnn(config.features,datasets)
+    dnn(config.features,db_con,datasets)
 
 def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
     main_features = config.features
+    remove_columns = ["info_prize","rinfo_month",]
     #main_features = main_features + ["info_race_id"]
-    where = "info_year > 08 and info_year < 90"
+    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3"
     x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
 
     #additional_x = x.loc[:,additional_features]
@@ -58,7 +61,7 @@ def generate_dataset(predict_type,db_con,config):
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
-    x = dataset2.get_dummies(x,col_dic)
+    #x = dataset2.get_dummies(x,col_dic)
 
     main_features = sorted(x.columns.values.tolist())
 
@@ -112,28 +115,41 @@ def generate_dataset(predict_type,db_con,config):
     dataset2.save_cache(datasets,CACHE_PATH)
     return datasets
 
-def dnn(features,datasets):
+def dnn(features,db_con,datasets):
     print("[*] training step")
     target_y = "is_win"
     #target_y = "is_place"
-    #train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0).as_matrix()
     train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0)
-    train_x = train_x.as_matrix()
-    #train_add_x = datasets["train_add_x"].as_matrix()
-    test_x = datasets["test_x"].as_matrix()
+    test_x = datasets["test_x"]
     train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     #test_add_x = datasets["test_add_x"].loc[:,:,"linfo_place_odds"].as_matrix().T
     test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
     test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
 
-    model =  create_model()
+    sorted_columns = sorted(train_x.axes[2].values.tolist())
+    categorical_dic = dataset2.nominal_columns(db_con)
+
+    print(train_x.shape)
+    train_x = [train_x.loc[:,:,col].T.as_matrix() for col in sorted_columns]
+    test_x = [test_x.loc[:,:,col].T.as_matrix() for col in sorted_columns]
+    """
+    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3 and rinfo_race_requirements != 8 and rinfo_race_requirements != 9"
+    for idx in test_rx.axes[0]:
+        tmp = test_rx.ix[idx,:,:]
+        col_ls = [tmp.loc[:,col].as_matrix() for col in sorted_columns]
+        new_test_rx.append(col_ls)
+    test_rx = new_test_rx
+    """
+
+    model =  create_model(categorical_dic,sorted_columns)
     for i in range(1000):
         print("Epoch : {0}".format(i))
         model.fit(train_x,train_y,epochs = 1,batch_size = 2000)
         loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
         print(loss)
         print(accuracy)
+        """
         win_eval  = evaluate.top_n_k_keras(model,test_x,test_y,test_r_win)
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
         place_eval  = evaluate.top_n_k_keras(model,test_x,test_r_place,test_r_place)
@@ -142,30 +158,56 @@ def dnn(features,datasets):
         train_x,train_y = shuffle_dataset(train_x,train_y)
 
         #index_simulator(model,test_x,test_r_win,test_add_x)
+        """
     print("")
     print("Accuracy: {0}".format(accuracy))
 
 
-def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
+def create_model(categorical_dic,sorted_columns,activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
     feature_size = 368
     l2_coef = 0.0
     bn_axis = -1
     momentum = 0
+    """
     inputs = Input(shape = (18,feature_size,))
     x = inputs
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
     x = GaussianNoise(0.01)(x)
+    """
+    inputs = []
+    flatten_layers = []
+    for i,col in enumerate(sorted_columns):
 
-    depth = 40
-    x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+         if col in categorical_dic.keys():
+             x = Input(shape = (18,))
+             inputs.append(x)
+             inp_dim = categorical_dic[col] + 1
+             out_dim = max(inp_dim//10,1)
+             x = Lambda(lambda a : K.clip(a,0,inp_dim))(x)
+             x = Embedding(inp_dim+1,out_dim,input_length = 18)(x)
+             x = SpatialDropout1D(0.5)(x)
+             #x = Flatten()(x)
+             #x = Reshape([18,out_dim,1])(x)
+         else:
+             x = Input(shape = (18,))
+             inputs.append(x)
+             x = Reshape([18,1])(x)
+         flatten_layers.append(x)
+    x = Concatenate(axis = 2)(flatten_layers)
+    print(x.shape[1])
+    x = Reshape([x.shape[1].value,x.shape[2].value,1])(x)
+    #x = Reshape([x.shape[0],x.shape[1],1])(x)
+    depth = 60
+
+    x = Conv2D(depth,(1,x.shape[2].value),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
     x = Dropout(dropout)(x)
 
     for i in range(2):
         res = x
-
-        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
+        x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
         x = Activation(activation)(x)
 
@@ -209,24 +251,6 @@ def concat(a,b):
     a.reset_index(inplace = True,drop = True)
     b.reset_index(inplace = True,drop = True)
     return pd.concat([a,b],axis = 1)
-
-def add_c2v(x,y,features,nom_col):
-    c2v_x = x.loc[:,features]
-    c2v_df = course2vec.get_vector(c2v_x,nom_col)
-    x = concat(x,c2v_df)
-    y.reset_index(inplace = True,drop = True)
-    del c2v_x
-    del c2v_df
-    return (x,y)
-
-def add_ff(x,y,features,nom_col):
-    ff_x = x.loc[:,features]
-    ff_df = field_fitness.get_vector(ff_x,nom_col)
-    x = concat(x,ff_df)
-    y.reset_index(drop = True,inplace = True)
-    del ff_x
-    del ff_df
-    return (x,y)
 
 def fillna_mean(df,mean = None):
     if type(mean) == type(None):

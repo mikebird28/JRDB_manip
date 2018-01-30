@@ -34,8 +34,8 @@ np.set_printoptions(threshold=np.nan)
 def main(use_cache = False):
     #predict_type = "place_payoff"
     predict_type = PREDICT_TYPE
-    config = util.get_config("config/xgbc_config.json")
-    db_path = "db/output_v14.db"
+    config = util.get_config("config/xgbc_config2.json")
+    db_path = "db/output_v15.db"
 
     db_con = sqlite3.connect(db_path)
     if use_cache:
@@ -49,38 +49,25 @@ def generate_dataset(predict_type,db_con,config):
     print("[*] preprocessing step")
     print(">> loading dataset")
     main_features = config.features
-    additional_features = ["linfo_win_odds","linfo_place_odds"]
-    load_features = main_features + additional_features
-    x,p2v,y = mutual_preprocess.load_datasets_with_p2v(db_con,load_features)
-    main_features = main_features + ["info_race_id"]
+    #main_features = main_features + ["info_race_id"]
+    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3 and rinfo_race_requirements != 8 and rinfo_race_requirements != 9"
+    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3"
+    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
 
-    additional_x = x.loc[:,additional_features]
-    x = x.loc[:,main_features]
+    #additional_x = x.loc[:,additional_features]
+    #x = x.loc[:,main_features]
 
     col_dic = dataset2.nominal_columns(db_con)
     nom_col = dataset2.dummy_column(x,col_dic)
     x = dataset2.get_dummies(x,col_dic)
 
     main_features = sorted(x.columns.values.tolist())
-    main_features_dropped = sorted(x.columns.drop("info_race_id").values.tolist())
-    additional_features = sorted(additional_x.columns)
-    p2v_features = sorted(p2v.columns.values.tolist())
-
-    x = concat(x,p2v)
-    x = dataset2.downcast(x)
-    del p2v
 
     print(">> separating dataset")
-    con = concat(x,additional_x)
-    train_con,test_con,train_y,test_y = dataset2.split_with_race(con,y,test_nums = 1000)
-    train_x = train_con.loc[:,x.columns]
-    train_add_x = train_con.loc[:,additional_x.columns]
-    test_x = test_con.loc[:,x.columns]
-    test_add_x = test_con.loc[:,additional_x.columns]
+    train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y,test_nums = 1000)
     train_x = dataset2.downcast(train_x)
-
     test_x = dataset2.downcast(test_x)
-    del x,y,con,train_con,test_con
+    del x,y
     
     print(">> filling none value of datasets")
     mean = train_x.mean(numeric_only = True)
@@ -94,14 +81,6 @@ def generate_dataset(predict_type,db_con,config):
     train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
     test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
 
-    print(">> adding extra information to datasets")
-    """
-    train_x,train_y = add_c2v(train_x,train_y,main_features_dropped,nom_col)
-    test_x,test_y = add_c2v(test_x,test_y,main_features_dropped,nom_col)
-    train_x,train_y = add_ff(train_x,train_y,main_features_dropped,nom_col)
-    test_x,test_y = add_ff(test_x,test_y,main_features_dropped,nom_col)
-    """
-
     print(">> generating target variable")
     train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
     train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)
@@ -110,29 +89,25 @@ def generate_dataset(predict_type,db_con,config):
 
     print(">> converting train dataset to race panel")
     features = sorted(train_x.columns.drop("info_race_id").values.tolist())
-    train_x,train_y,train_add_x = dataset2.pad_race(train_x,train_y,train_add_x)
-    test_x,test_y,test_add_x = dataset2.pad_race(test_x,test_y,test_add_x)
+    train_x,train_y = dataset2.pad_race(train_x,train_y)
+    test_x,test_y = dataset2.pad_race(test_x,test_y)
     train_x = dataset2.downcast(train_x)
     train_y = dataset2.downcast(train_y)
-    train_x,train_y,train_add_x = dataset2.to_race_panel(train_x,train_y,train_add_x)
-    test_x,test_y,test_add_x = dataset2.to_race_panel(test_x,test_y,test_add_x)
+    train_x,train_y = dataset2.to_race_panel(train_x,train_y)
+    test_x,test_y = dataset2.to_race_panel(test_x,test_y)
 
     train_x1 = train_x.ix[:20000,:,features]
     train_x2 = train_x.ix[20000:,:,features]
-    train_add_x = train_add_x.loc[:,:,additional_features]
     train_y = train_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
     test_x = test_x.loc[:,:,features]
-    test_add_x = test_add_x.loc[:,:,additional_features]
     test_y = test_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
     del train_x
 
     datasets = {
         "train_x1" : train_x1,
         "train_x2" : train_x2,
-        "train_add_x" : train_add_x,
         "train_y" : train_y,
         "test_x"  : test_x,
-        "test_add_x" : test_add_x,
         "test_y"  : test_y,
     }
     dataset2.save_cache(datasets,CACHE_PATH)
@@ -149,7 +124,6 @@ def dnn(features,datasets):
     test_x = datasets["test_x"].as_matrix()
     train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     #test_add_x = datasets["test_add_x"].loc[:,:,"linfo_place_odds"].as_matrix().T
-    test_add_x = datasets["test_add_x"].loc[:,:,"linfo_win_odds"].as_matrix().T
     test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
     test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
@@ -174,7 +148,7 @@ def dnn(features,datasets):
 
 
 def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
-    feature_size = 360
+    feature_size = 368
     l2_coef = 0.0
     bn_axis = -1
     momentum = 0
@@ -189,28 +163,14 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
     x = Dropout(dropout)(x)
 
-    """
-    race_depth = 8
-    tmp = Permute((2,3,1),input_shape = (1,18,depth))(x)
-    tmp = Conv2D(race_depth,(1,depth),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Activation(activation)(tmp)
-    tmp = Conv2D(race_depth,(1,1),padding = "valid",kernel_regularizer = l2(l2_coef))(tmp)
-    tmp = Dropout(0.8)(tmp)
-    tmp = Lambda(lambda x : K.tile(x,(1,18,1,1)))(tmp)
-    x = Concatenate(axis = 3)([x,tmp])
-    depth = depth + race_depth
-    """
-
     for i in range(2):
         res = x
-
         x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
         x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
         x = Activation(activation)(x)
 
-        x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
-        x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+        x = Conv2D(depth,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
         #x = Activation(activation)(x)
         x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
         x = Dropout(dropout)(x)
@@ -220,8 +180,6 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     x = BatchNormalization(axis = 1,momentum = momentum)(x)
     x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
-    #x = Dense(units = 18)(x)
-    #x = GlobalMaxPooling2D(data_format = "channels_first")(x)
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)

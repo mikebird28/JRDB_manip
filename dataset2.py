@@ -337,8 +337,11 @@ def __normalize_horse(dataset,mean = None,std = None,remove = []):
     if type(std) == type(None):
         std = dataset.std(numeric_only = True).clip(1e-3)
     dataset = dataset.copy()
-    for col in mean.index:
+    #for col in mean.index:
+    for col in dataset.columns:
         if col in remove:
+            continue
+        if (not col in mean) or (not col in std):
             continue
         m = mean[col]
         s = std[col]
@@ -444,7 +447,13 @@ def to_race_panel(*args):
         dataset.reset_index(inplace = True,drop = True)
 
     df = pd.concat(args,axis = 1)
-    columns = [dataset.columns for dataset in args]
+    #columns = [dataset.columns for dataset in args]
+    columns = []
+    for dataset in args:
+        c = dataset.columns
+        if "info_race_id" in c:
+            c = c.drop("info_race_id")
+        columns.append(c)
     del args
 
     #delete duplicate columns
