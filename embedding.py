@@ -14,9 +14,8 @@ import keras.optimizers
 import argparse
 import numpy as np
 import pandas as pd
-import sqlite3
-import dataset2
 import util
+import data_processor
 
 CACHE_PATH = "./cache/emb_classify"
 MODEL_PATH = "./models/emb_classify"
@@ -25,85 +24,34 @@ past_n = 3
 predict_type = "is_win"
 
 def main(use_cache = False):
-    predict_type = "is_win"
     config = util.get_config("config/xgbc_config2.json")
     db_path = "db/output_v18.db"
-    db_con = sqlite3.connect(db_path)
-
     if use_cache:
         print("[*] load dataset from cache")
-        datasets = dataset2.load_cache(CACHE_PATH)
+        dp = data_processor.load_from_cache(CACHE_PATH)
     else:
-        datasets = generate_dataset(predict_type,db_con,config)
-        dataset2.save_cache(datasets,CACHE_PATH)
-    dnn(config.features,db_con, datasets)
+        dp = generate_dataset(db_path,config)
+        dp.save(CACHE_PATH)
+    dnn(config.features,dp)
 
 
-def generate_dataset(predict_type,db_con,config):
-    print(">> loading dataset")
-    main_features = config.features
-    #additional_features = ["linfo_win_odds","linfo_place_odds"]
-    #load_features = main_features + additional_features
+def generate_dataset(predict_type,db_path,config):
+    x_columns = config.features
+    y_columns = ["is_win","is_place","win_payoff","place_payoff"]
+    odds_columns = ["linfo_win_odds","linfo_place_odds"]
+    where = "rinfo_year > 11"
 
-    categorical_dic = dataset2.nominal_columns(db_con)
-    where = "info_year > 08 and info_year < 90"
-    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
-
-    main_features = sorted(x.columns.values.tolist())
-    main_features_dropped = sorted(x.columns.drop("info_race_id").values.tolist())
-
-    print(">> separating dataset")
-    train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y)
-    train_x = dataset2.downcast(train_x)
-    test_x = dataset2.downcast(test_x)
-
-    print(">> filling none value of train dataset")
-    train_x = dataset2.fillna_mean(train_x,"horse")
-    #mean = train_x.mean(numeric_only = True)
-    #std = train_x.std(numeric_only = True).clip(lower = 1e-4)
-    mx = train_x.max()
-    mn = train_x.min()
-    train_x = dataset2.standardize(train_x, mx = mx, mn = mn, remove = categorical_dic)
-    #train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = categorical_dic)
-
-    print(">> filling none value of test dataset")
-    test_x = dataset2.fillna_mean(test_x,"horse")
-    test_x = dataset2.standardize(test_x, mx = mx, mn = mn, remove = categorical_dic)
-    #test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = categorical_dic)
-
-    test_rx,test_ry,test_r_win,test_rp_win,test_r_place,test_rp_place = dataset2.to_races(
-        test_x,
-        test_y[predict_type],
-        test_y["is_win"],
-        test_y["win_payoff"],
-        test_y["is_place"],
-        test_y["place_payoff"]
-    )
-
-    print(">> under sampling train dataset")
-    train_x,train_y = dataset2.under_sampling(train_x,train_y,key = predict_type,magnif = 5)
-    train_x = train_x.drop("info_race_id",axis = 1)
-    train_x = train_x.loc[:,main_features_dropped]
-
-    print(">> under sampling train dataset")
-    test_x,test_y = dataset2.under_sampling(test_x,test_y,key = predict_type)
-    test_x = test_x.drop("info_race_id",axis = 1)
-    test_x = test_x.loc[:,main_features_dropped]
-
-    datasets = {
-        "train_x"      : train_x,
-        "train_y"      : train_y,
-        "test_x"       : test_x,
-        "test_y"       : test_y,
-        "test_rx"      : test_rx,
-        "test_r_win"   : test_r_win,
-        "test_r_place" : test_r_place,
-        "test_rp_win"  : test_rp_win,
-        "test_rp_place": test_rp_place,
-    }
-    return datasets
+    dp = data_processor.load_from_database(db_path,x_columns,y_columns,odds_columns,where = where)
+    dp.dummy()
+    dp.fillna_mean()
+    dp.normalize()
+    #dp.standardize()
+    dp.keep_separate_race_df()
+    dp.under_sampling(key = "is_win")
+    return dp
 
 def dnn(features,db_con,datasets):
+    """
     raw_train_x = datasets["train_x"]
     train_y = datasets["train_y"][predict_type].as_matrix()
     raw_test_x  = datasets["test_x"]
@@ -113,9 +61,22 @@ def dnn(features,db_con,datasets):
     test_rp_win = datasets["test_rp_win"]
     test_r_place = datasets["test_r_place"]
     test_rp_place = datasets["test_rp_place"]
- 
-    sorted_columns = sorted(datasets["train_x"].columns.values.tolist())
-    categorical_dic = dataset2.nominal_columns(db_con)
+    """
+    train_x = datasets.get(data_processor.KEY_TRAIN_X)
+    train_y = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,"is_win"]
+    test_x  = datasets.get(data_processor.KEY_TEST_X)
+    test_y  = datasets.get(data_processor.KEY_TEST_Y).loc[:,"is_win"]
+
+    test_rx = datasets.get(data_processor.KEY_TEST_RACE_X)
+    test_ry = datasets.get(data_processor.KEY_TEST_RACE_Y)
+    test_r_win = test_ry.loc[:,:,"is_win"]
+    test_r_place = test_ry.loc[:,:,"is_place"]
+    test_rp_win = test_ry.loc[:,:,"win_payoff"]
+    test_rp_place = test_ry.loc[:,:,"place_payoff"]
+    categorical_dic = datasets.categorical_dic
+    sorted_columns = sorted(train_x.columns.values.tolist())
+
+    train_y = train_y.as_matrix()
 
     model = create_model(sorted_columns,categorical_dic)
 

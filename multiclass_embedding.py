@@ -10,10 +10,8 @@ import keras.backend as K
 import keras.optimizers
 import numpy as np
 import pandas as pd
-import sqlite3, pickle,argparse
-import dataset2, util, evaluate
-import place2vec, course2vec,field_fitness
-import mutual_preprocess
+import pickle,argparse
+import util, data_processor, evaluate
 
 
 EVALUATE_INTERVAL = 10
@@ -34,137 +32,75 @@ pd.set_option('display.max_columns', 1000)
 np.set_printoptions(threshold=np.nan)
  
 def main(use_cache = False):
-    #predict_type = "place_payoff"
-    predict_type = PREDICT_TYPE
     config = util.get_config("config/xgbc_config2.json")
-    db_path = "db/output_v17.db"
+    db_path = "db/output_v18.db"
 
-    db_con = sqlite3.connect(db_path)
     if use_cache:
         print("[*] load dataset from cache")
-        datasets = dataset2.load_cache(CACHE_PATH)
+        datasets = data_processor.load_from_cache(CACHE_PATH)
     else:
-        datasets = generate_dataset(predict_type,db_con,config)
-    dnn(config.features,db_con,datasets)
-
-def generate_dataset(predict_type,db_con,config):
-    print("[*] preprocessing step")
-    print(">> loading dataset")
-    main_features = config.features
-    remove_columns = ["info_prize","rinfo_month",]
-    #main_features = main_features + ["info_race_id"]
-    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3"
-    x,y = dataset2.load_dataset(db_con,main_features,["is_win","win_payoff","is_place","place_payoff"],where = where)
-
-    #additional_x = x.loc[:,additional_features]
-    #x = x.loc[:,main_features]
-
-    col_dic = dataset2.nominal_columns(db_con)
-    nom_col = dataset2.dummy_column(x,col_dic)
-    #x = dataset2.get_dummies(x,col_dic)
-
-    main_features = sorted(x.columns.values.tolist())
-
-    print(">> separating dataset")
-    train_x,test_x,train_y,test_y = dataset2.split_with_race(x,y,test_nums = 1000)
-    train_x = dataset2.downcast(train_x)
-    test_x = dataset2.downcast(test_x)
-    del x,y
-    
-    print(">> filling none value of datasets")
-    mean = train_x.mean(numeric_only = True)
-    std = train_x.std(numeric_only = True).clip(lower = 1e-4)
-    save_value(mean,MEAN_PATH)
-    save_value(std,STD_PATH)
-    train_x = fillna_mean(train_x,mean)
-    test_x = fillna_mean(test_x,mean)
-
-    print(">> normalizing datasets")
-    train_x = dataset2.normalize(train_x,mean = mean,std = std,remove = nom_col)
-    test_x = dataset2.normalize(test_x,mean = mean,std = std,remove = nom_col)
-
-    print(">> generating target variable")
-    train_y["is_win"] = train_y["win_payoff"].clip(lower = 0,upper = 1)
-    train_y["is_place"] = train_y["place_payoff"].clip(lower = 0,upper = 1)
-    test_y["is_win"] = test_y["win_payoff"].clip(lower = 0,upper = 1)
-    test_y["is_place"] = test_y["place_payoff"].clip(lower = 0,upper = 1)
-
-    print(">> converting train dataset to race panel")
-    features = sorted(train_x.columns.drop("info_race_id").values.tolist())
-    train_x,train_y = dataset2.pad_race(train_x,train_y)
-    test_x,test_y = dataset2.pad_race(test_x,test_y)
-    train_x = dataset2.downcast(train_x)
-    train_y = dataset2.downcast(train_y)
-    train_x,train_y = dataset2.to_race_panel(train_x,train_y)
-    test_x,test_y = dataset2.to_race_panel(test_x,test_y)
-
-    train_x1 = train_x.ix[:20000,:,features]
-    train_x2 = train_x.ix[20000:,:,features]
-    train_y = train_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
-    test_x = test_x.loc[:,:,features]
-    test_y = test_y.loc[:,:,["place_payoff","win_payoff","is_win","is_place"]]
-    del train_x
-
-    datasets = {
-        "train_x1" : train_x1,
-        "train_x2" : train_x2,
-        "train_y" : train_y,
-        "test_x"  : test_x,
-        "test_y"  : test_y,
-    }
-    dataset2.save_cache(datasets,CACHE_PATH)
-    return datasets
-
-def dnn(features,db_con,datasets):
+        print("[*] load dataset from database")
+        datasets = generate_dataset(db_path,config)
+        datasets.save(CACHE_PATH)
     print("[*] training step")
+    dnn(config.features,datasets)
+
+def generate_dataset(db_path,config):
+    print(">> loading dataset")
+    x_columns = config.features
+    y_columns = [
+        "is_win","win_payoff",
+        "is_place","place_payoff",
+#        "is_exacta","exacta_payoff",
+#        "is_quinella","quinella_payoff",
+        ]
+    odds_columns = ["linfo_win_odds","linfo_place_odds"]
+    where = "rinfo_year > 2011"
+    dp = data_processor.load_from_database(db_path,x_columns,y_columns,odds_columns,where = where)
+    dp.fillna_mean(typ = "race")
+    dp.normalize()
+    dp.to_race_panel()
+    return dp
+
+def dnn(features,datasets):
+
     target_y = "is_win"
     #target_y = "is_place"
-    train_x = pd.concat([datasets["train_x1"],datasets["train_x2"]],axis = 0)
-    test_x = datasets["test_x"]
-    train_y = datasets["train_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
-    #test_add_x = datasets["test_add_x"].loc[:,:,"linfo_place_odds"].as_matrix().T
-    test_y = datasets["test_y"].loc[:,:,target_y].as_matrix().reshape([18,-1]).T
-    test_r_win = datasets["test_y"].loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
-    test_r_place = datasets["test_y"].loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
+    train_x = datasets.get(data_processor.KEY_TRAIN_X)
+    train_y = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,:,target_y].as_matrix().reshape([18,-1]).T
+    test_x  = datasets.get(data_processor.KEY_TEST_X)
+    test_y  = datasets.get(data_processor.KEY_TEST_Y).loc[:,:,target_y].as_matrix().reshape([18,-1]).T
+    test_r_win  = datasets.get(data_processor.KEY_TEST_Y).loc[:,:,"is_win"].as_matrix().reshape([18,-1]).T
+    test_rp_win  = datasets.get(data_processor.KEY_TEST_Y).loc[:,:,"win_payoff"].as_matrix().reshape([18,-1]).T
+    test_r_place  = datasets.get(data_processor.KEY_TEST_Y).loc[:,:,"is_place"].as_matrix().reshape([18,-1]).T
+    test_rp_place  = datasets.get(data_processor.KEY_TEST_Y).loc[:,:,"place_payoff"].as_matrix().reshape([18,-1]).T
 
+    categorical_dic = datasets.categorical_columns
     sorted_columns = sorted(train_x.axes[2].values.tolist())
-    categorical_dic = dataset2.nominal_columns(db_con)
-
-    print(train_x.shape)
     train_x = [train_x.loc[:,:,col].T.as_matrix() for col in sorted_columns]
-    test_x = [test_x.loc[:,:,col].T.as_matrix() for col in sorted_columns]
-    """
-    where = "info_year > 08 and info_year < 90 and rinfo_discipline != 3 and rinfo_race_requirements != 8 and rinfo_race_requirements != 9"
-    for idx in test_rx.axes[0]:
-        tmp = test_rx.ix[idx,:,:]
-        col_ls = [tmp.loc[:,col].as_matrix() for col in sorted_columns]
-        new_test_rx.append(col_ls)
-    test_rx = new_test_rx
-    """
+    test_x_s = [test_x.loc[:,:,col].T.as_matrix() for col in sorted_columns]
 
     model =  create_model(categorical_dic,sorted_columns)
     for i in range(1000):
         print("Epoch : {0}".format(i))
         model.fit(train_x,train_y,epochs = 1,batch_size = 2000)
-        loss,accuracy = model.evaluate(test_x,test_y,verbose = 0)
+        loss,accuracy = model.evaluate(test_x_s,test_y,verbose = 0)
         print(loss)
         print(accuracy)
+        wrapper = evaluate.KerasMultiEmbbedWrapper(model)
         """
-        win_eval  = evaluate.top_n_k_keras(model,test_x,test_y,test_r_win)
+        win_eval  = evaluate.top_n_k(wrapper,test_x,test_r_win,test_rp_win)
         print("[win]   accuracy : {0}, payoff : {1}".format(*win_eval))
-        place_eval  = evaluate.top_n_k_keras(model,test_x,test_r_place,test_r_place)
+        place_eval  = evaluate.top_n_k(wrapper,test_x,test_r_place,test_rp_place)
         print("[place] accuracy : {0}, payoff : {1}".format(*place_eval))
-        save_model(model,MODEL_PATH)
-        train_x,train_y = shuffle_dataset(train_x,train_y)
-
-        #index_simulator(model,test_x,test_r_win,test_add_x)
         """
+        save_model(model,MODEL_PATH)
+
     print("")
     print("Accuracy: {0}".format(accuracy))
 
 
 def create_model(categorical_dic,sorted_columns,activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,hidden_3 = 80):
-    feature_size = 368
     l2_coef = 0.0
     bn_axis = -1
     momentum = 0
@@ -194,7 +130,6 @@ def create_model(categorical_dic,sorted_columns,activation = "relu",dropout = 0.
              x = Reshape([18,1])(x)
          flatten_layers.append(x)
     x = Concatenate(axis = 2)(flatten_layers)
-    print(x.shape[1])
     x = Reshape([x.shape[1].value,x.shape[2].value,1])(x)
     #x = Reshape([x.shape[0],x.shape[1],1])(x)
     depth = 60
@@ -241,24 +176,6 @@ def load_value(path):
         v = pickle.load(fp)
         return v
     raise Exception ("File does not exist")
-
-def to_descrete(array):
-    res = np.zeros_like(array)
-    res[array.argmax(1)] = 1
-    return res
-
-def concat(a,b):
-    a.reset_index(inplace = True,drop = True)
-    b.reset_index(inplace = True,drop = True)
-    return pd.concat([a,b],axis = 1)
-
-def fillna_mean(df,mean = None):
-    if type(mean) == type(None):
-        mean = df.mean(numeric_only = True)
-        df = df.fillna(mean)
-    else:
-        df = df.fillna(mean)
-    return df
 
 def index_simulator(model,x,y,odds):
     index = mk_index(model,x,odds)

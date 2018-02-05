@@ -1,10 +1,128 @@
 #-*- coding:utf-8 -*-
 
-from keras.wrappers.scikit_learn import KerasClassifier,KerasRegressor
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
-import dataset2
+
+class KerasWrapper():
+    def __init__(self,model):
+        self.model = model
+
+    def predict_one(self,x):
+        pred = self.model.predict(x,verbose = 0)
+        return pred
+
+class KerasMultiWrapper():
+    def __init__(self,model):
+        self.model = model
+
+    def predict_one(self,x):
+        horse_size = x.shape[0]
+        feature_size = x.shape[1]
+        x = x.reshape([1,horse_size,feature_size])
+        pred = self.model.predict(x,verbose = 0)
+        pred = pred.reshape([horse_size])
+        return pred
+
+class KerasMultiEmbbedWrapper():
+    def __init__(self,model):
+        self.model = model
+
+    def predict_one(self,x):
+        pred = self.model.predict(x,verbose = 0)
+        return pred
+
+class ScikitWrapper():
+    def __init__(self, model):
+        self.model = model
+
+    def predict_one(self,x):
+        pred = self.model.predict_proba(x)[:,1].ravel()
+        return pred
+
+class RegressionWrapper():
+    def __init__(self, model):
+        self.model = model
+
+    def predict_one(self,x):
+        pass
+def top_n_k(wrapper,race_x,race_y,payoff,n = 1):
+    buy_num = 0
+    race_num = 0
+    correct = 0
+    rewards = 0
+
+    for x,y,p in zip(race_x,race_y,payoff):
+        pred = wrapper.predict_one(x)
+        binary_pred = to_descrete(pred,top_n = n)
+
+        y = np.array(y).ravel()
+        p = np.array(p).ravel()
+        c = np.dot(y,binary_pred)
+        ret = np.dot(p,binary_pred)
+        if c > 0:
+            correct += c
+            rewards += ret
+        race_num += 1
+        buy_num += np.sum(binary_pred)
+    return (float(correct)/race_num,float(rewards)/buy_num)
+
+def top_n_k_remove_first(model,race_x,race_y,payoff,odds,n = 1):
+    buy_num = 0
+    race_num = 0
+    correct = 0
+    rewards = 0
+
+    for x,y,p,odds in zip(race_x,race_y,payoff,odds):
+        odds = odds.loc[:,"linfo_win_odds"].values
+        pred = model.predict_one(x)
+        first_pop = 1 - np.clip(to_descrete(odds,mode = "min",top_n = 1),0,1)
+        binary_pred = first_pop * to_descrete(pred,top_n = n)
+
+        bn = np.sum(binary_pred)
+
+        y = np.array(y).ravel()
+        p = np.array(p).ravel()
+        c = np.dot(y,binary_pred)
+        ret = np.dot(p,binary_pred)
+        if c > 0:
+            correct += c
+            rewards += ret
+        race_num += 1
+        buy_num += bn
+    return (buy_num,float(correct)/buy_num,float(rewards)/buy_num)
+
+def to_descrete(array,mode = "max",top_n = 1):
+    res = np.zeros_like(array)
+    if mode == "min":
+        rank = array.argsort()
+        res = np.zeros_like(rank)
+        rank = rank[:top_n]
+        res[rank] = 1
+    elif mode == "max":
+        rank = array.argsort()[::-1]
+        res = np.zeros_like(rank)
+        rank = rank[:top_n]
+        res[rank] = 1
+    return res
+
+def plot_importance(column,importance):
+    x = range(len(column))
+    plt.barh(x,importance)
+    plt.yticks(x,column)
+    plt.show()
+    return
+
+def show_importance(column,importance,sort = True,top_n = None):
+    zipped = zip(column,importance)
+    if sort:
+        zipped = sorted(zipped,key = lambda x : x[1],reverse = True)
+
+    counter = 0
+    for f,i in zipped:
+        if (top_n is not None) and (not counter < 20):
+            break
+        print("{0:<25} : {1:.5f}".format(f,i))
+        counter += 1
 
 def show_similarity(target_idx,vectors):
     columns_name = []
@@ -27,99 +145,6 @@ def cos_similarity(x1,x2):
     cs = np.dot(x1,x2)/(np.linalg.norm(x1) * np.linalg.norm(x2))
     return cs
 
-def top_n_k_keras(model,race_x,race_y,payoff,mode = "max"):
-    counter = 0
-    correct = 0
-    rewards = 0
-    for x,y,p in zip(race_x,race_y,payoff):
-        x = x.reshape([1,x.shape[0],x.shape[1]])
-        pred = model.predict(x,verbose = 0)
-        #print(pred)
-        binary_pred = to_descrete(pred,mode = mode)
-        #print(binary_pred)
-        b = np.array(binary_pred).ravel()
-        y = np.array(y).ravel()
-        p = np.array(p).ravel()
-        c = np.dot(y,b)
-        ret = np.dot(p,b)
-        if c > 0:
-            correct +=1
-            rewards += ret
-        counter += 1
-    return (float(correct)/counter,float(rewards)/counter)
-
-
-def top_n_k(model,race_x,race_y,payoff):
-    counter = 0
-    correct = 0
-    rewards = 0
-    for x,y,p in zip(race_x,race_y,payoff):
-        if type(model) == KerasClassifier:
-            pred = model.predict_proba(x,verbose = 0)[:,1].ravel()
-        else:
-            pred = model.predict_proba(x)[:,1].ravel()
-        binary_pred = to_descrete(pred)
-
-        y = np.array(y).ravel()
-        p = np.array(p).ravel()
-        c = np.dot(y,binary_pred)
-        ret = np.dot(p,binary_pred)
-        if c > 0:
-            correct +=1
-            rewards += ret
-        counter += 1
-    return (float(correct)/counter,float(rewards)/counter)
-
-def top_n_k_regress(model,race_x,race_y,payoff):
-    counter = 0
-    correct = 0
-    rewards = 0
-    for x,y,p in zip(race_x,race_y,payoff):
-        if type(model) == KerasRegressor:
-            pred = model.predict(x,verbose = 0).ravel()
-        else:
-            pred = model.predict(x).ravel()
-        binary_pred = to_descrete(pred)
-
-        y = np.array(y).ravel()
-        p = np.array(p).ravel()
-        c = np.dot(y,binary_pred)
-        ret = np.dot(p,binary_pred)
-        if c > 0:
-            correct +=1
-            rewards += ret
-        counter += 1
-    return (float(correct)/counter,float(rewards)/counter)
-
-
-def to_descrete(array,mode = "max"):
-    res = np.zeros_like(array)
-    if mode == "min":
-        res[array.argmin(0)] = 1
-        #res[array.argmin(1)] = 1
-    elif mode == "max":
-        #res[array.argmax(0)] = 1
-        res[0,array.argmax(1)] = 1
-    return res
-
-def plot_importance(column,importance):
-    x = range(len(column))
-    plt.barh(x,importance)
-    plt.yticks(x,column)
-    plt.show()
-    return
-
-def show_importance(column,importance,sort = True,top_n = None):
-    zipped = zip(column,importance)
-    if sort:
-        zipped = sorted(zipped,key = lambda x : x[1],reverse = True)
-
-    counter = 0
-    for f,i in zipped:
-        if (top_n is not None) and (not counter < 20):
-            break
-        print("{0:<25} : {1:.5f}".format(f,i))
-        counter += 1
 
 if __name__ =="__main__":
     array = np.array([[1,2,3],[4,5,6],[7,8,9]])

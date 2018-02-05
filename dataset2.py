@@ -112,11 +112,14 @@ def pad_race(x,y,*additional):
 
     del mean
     del size
+    #total_mean = x.mean()
+    #print(total_mean)
 
     ls = []
     for i,row in merged.iterrows():
         pad_num = n - row["counts"]
         new_row = row[columns]
+        #new_row = total_mean
         ls.extend([new_row for i in range(pad_num)])
     con = con.append(pd.DataFrame(ls))
     del ls
@@ -352,7 +355,7 @@ def __normalize_horse(dataset,mean = None,std = None,remove = []):
 def __normalize_race(dataset,mean = None,std = None):
     pass
 
-def under_sampling(x,y,key = "is_win",magnif = 1):
+def under_sampling(x,y,key,magnif = 1):
     if type(x) == pd.Series:
         x = x.to_frame()
     if type(y) == pd.Series:
@@ -413,7 +416,6 @@ def to_races(*args):
             dataset["info_race_id"] = dataset["info_race_id"].astype(str)
 
     races = [[] for dataset in args]
-    #races = [np.zeros(len(dataset),18,columns)]
     for dataset in args:
         dataset.reset_index(inplace = True,drop = True)
 
@@ -436,8 +438,6 @@ def to_races(*args):
             #race = group[columns].as_matrix()
             race = group[columns]
             races[i].append(race)
-    #for i,v in enumerate(races):
-    #    races[i] = pd.DataFrame(races[i])
     return races
 
 def to_race_panel(*args):

@@ -366,8 +366,6 @@ def save_model(model,path):
     print("Save model")
     model.save(path)
 
-
-
 def dataset_for_pca(x,y,mean = None,std = None):
     #x = dataset2.normalize(x,mean = mean,std = std)
     x,y = dataset2.pad_race(x,y)
