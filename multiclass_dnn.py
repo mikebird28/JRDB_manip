@@ -8,7 +8,7 @@ from keras.layers.core import Reshape,Flatten,Permute,Lambda
 import keras.optimizers
 import numpy as np
 import pandas as pd
-import sqlite3, pickle,argparse
+import pickle,argparse
 import data_processor, util, evaluate
 
 
@@ -51,18 +51,21 @@ def generate_dataset(db_path,config):
 #       "is_quinella","quinella_payoff",
     ]
     odds_columns = ["linfo_win_odds","linfo_place_odds"]
-    where = "rinfo_year > 2011"
+    where = "rinfo_year >= 2009"
 
     dp = data_processor.load_from_database(db_path,x_columns,y_columns,odds_columns,where = where)
     dp.dummy()
+    dp.none_filter(0.95,mode = "race")
     dp.fillna_mean(typ = "race")
     dp.normalize()
     dp.to_race_panel()
+    dp.summary()
     return dp
 
 def dnn(features,datasets):
     target_y = "is_win"
     #target_y = "is_place"
+    print(datasets.get(data_processor.KEY_TRAIN_Y).ix[-1,:,target_y])
     train_x = datasets.get(data_processor.KEY_TRAIN_X).as_matrix()
     train_y = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,:,target_y].as_matrix().reshape([18,-1]).T
     test_x  = datasets.get(data_processor.KEY_TEST_X).as_matrix()
@@ -100,13 +103,13 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     x = Reshape([18,feature_size,1],input_shape = (feature_size*18,))(x)
     x = GaussianNoise(0.01)(x)
 
-    depth = 40
+    depth = 120
     x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Activation(activation)(x)
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
     x = Dropout(dropout)(x)
 
-    for i in range(2):
+    for i in range(1):
         res = x
         x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
         x = Conv2D(depth,(2,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
@@ -120,8 +123,11 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
         x = Activation(activation)(x)
 
     x = BatchNormalization(axis = 1,momentum = momentum)(x)
-    x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Conv2D(60,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    #x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
+
+    x = Dense(units = 18)(x)
     outputs = Activation("softmax")(x)
 
     model = Model(inputs = inputs,outputs = outputs)

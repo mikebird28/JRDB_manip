@@ -32,7 +32,9 @@ class DataProcessor():
         self.mean = None
         self.std  = None
         self.train_x = None
+        self.train_past = None
         self.train_y = None
+        self.test_past = None
         self.train_odds = None
         self.test_x = None
         self.test_y = None
@@ -64,7 +66,7 @@ class DataProcessor():
         self.test_x  = test_df.loc[:,x_columns]
         self.test_y = test_df.loc[:,y_columns]
         self.test_odds = test_df.loc[:,odds_columns]
-        check_duplicates(self.train_x.columns.values.tolist())
+        #check_duplicates(self.train_x.columns.values.tolist())
 
     def dummy(self):
         print(">> adding dummy variables to datasets")
@@ -99,12 +101,16 @@ class DataProcessor():
 
     def fillna_mean(self,typ = "horse"):
         print(">> filling none value of datasets")
+        if self.is_dummied:
+            categorical = self.dummy_columns
+        else:
+            categorical = self.categorical_columns
         if typ == "horse":
-            self.train_x = fillna_mean_horse(self.train_x,self.mean,categorical = self.categorical_columns)
-            self.test_x = fillna_mean_horse(self.test_x,self.mean,categorical = self.categorical_columns)
+            self.train_x = fillna_mean_horse(self.train_x,self.mean,categorical = categorical)
+            self.test_x = fillna_mean_horse(self.test_x,self.mean,categorical = categorical)
         elif typ == "race":
-            self.train_x = fillna_mean_race(self.train_x,categorical = self.categorical_columns)
-            self.test_x = fillna_mean_race(self.test_x,categorical = self.categorical_columns)
+            self.train_x = fillna_mean_race(self.train_x,categorical = categorical)
+            self.test_x = fillna_mean_race(self.test_x,categorical = categorical)
         self.train_x = dataset2.downcast(self.train_x)
         self.test_x = dataset2.downcast(self.test_x)
 
@@ -112,8 +118,8 @@ class DataProcessor():
         print(">> converting to race panel")
         if self.race_mode:
             return
-        self.train_x,self.train_y,self.train_odds = self.__get_race_panel(self.train_x,self.train_y,self.train_odds)
-        self.test_x,self.test_y,self.test_odds = self.__get_race_panel(self.test_x,self.test_y,self.test_odds)
+        self.train_x,self.train_y,self.train_odds = get_race_panel(self.train_x,self.train_y,self.train_odds)
+        self.test_x,self.test_y,self.test_odds = get_race_panel(self.test_x,self.test_y,self.test_odds)
         self.race_mode = True
 
     def keep_separate_race_df(self,test_only = True):
@@ -128,19 +134,37 @@ class DataProcessor():
         for k,v in zip(labels,outputs):
             self.test_race_df[k] = v
 
-        #if not test_only:
-        #    self.train_rx,self.train_ry,self.train_rodds = self.__get_race_panel(self.train_x,self.train_y,self.train_odds)
+    def none_filter(self,threhold,mode = "horse"):
+        print(">> filtering dataset by nan value threhold = {0} ".format(threhold))
+        if mode == "race":
+            self.__reset_index()
+            self.train_x,self.train_y,self.train_odds = none_filter_race(self.train_x,self.train_y,self.train_odds,threhold)
+            self.test_x,self.test_y,self.test_odds = none_filter_race(self.test_x,self.test_y,self.test_odds,threhold)
+            self.__reset_index()
+        else:
+            self.__reset_index()
+            con = pd.concat([self.train_x,self.train_y,self.train_odds],axis = 1)
+            nr = 1 - con.isnull().sum(axis = 1)/len(con.columns)
+            con = con[nr > threhold]
+            self.train_x = con.loc[:,self.train_x.columns]
+            self.train_y = con.loc[:,self.train_y.columns]
+            self.train_odds = con.loc[:,self.train_odds.columns]
 
-    def __get_race_panel(self,x,y,odds):
-        x,y,odds = dataset2.pad_race(x,y,odds)
-        x = dataset2.downcast(x)
-        y = dataset2.downcast(y)
-        odds = dataset2.downcast(odds)
-        return dataset2.to_race_panel(x,y,odds)
+            con = pd.concat([self.test_x,self.test_y,self.test_odds],axis = 1)
+            nr = 1 - con.isnull().sum(axis = 1)/len(con.columns)
+            self.test_x = con.loc[:,self.test_x.columns]
+            self.test_y = con.loc[:,self.test_y.columns]
+            self.test_odds = con.loc[:,self.test_odds.columns]
+            self.__reset_index()
 
     def __reset_index(self):
-        self.train_x.reset_index(inplace = True)
-        self.train_y.reset_index(inplace = True)
+        self.train_x.reset_index(inplace = True,drop = True)
+        self.train_y.reset_index(inplace = True,drop = True)
+        self.train_odds.reset_index(inplace = True,drop = True)
+
+        self.test_x.reset_index(inplace = True,drop = True)
+        self.test_y.reset_index(inplace = True,drop = True)
+        self.test_odds.reset_index(inplace = True,drop = True)
 
     def get(self,df_key,remove_race_id = True):
         dic = {
@@ -164,28 +188,30 @@ class DataProcessor():
         return ret
 
     def save(self,path):
-        """
-        gb = pow(2,30)
-        print(gb)
-        for var_name in self.__dict__.keys():
-            var = self.__dict__[var_name]
-            divide = sys.getsizeof // gb
-            if divide == 0:
-                pass
-            else:
-                chunk_num = divide + 1
-            print(var_name)
-            print(sys.getsizeof(var))
-
-        """
         with open(path,"w") as fp:
             pickle.dump(self,fp)
 
-    def summay(self):
+    def summary(self):
         train_total_size =  len(self.train_x)
         test_total_size =  len(self.test_x)
-        print("[*]total train data size : {0}".format(train_total_size))
-        print("[*]total test data size  : {0}".format(test_total_size))
+        nan_rate = self.__nan_rate()
+
+        print("-Dataset Summary--------------------------")
+        if self.race_mode:
+            print("[*] running on race mode")
+        else:
+            print("[*] running on horse mode")
+        print("[*] total train data size : {0}".format(train_total_size))
+        print("[*] total test data size  : {0}".format(test_total_size))
+        print("[*] nan value rate        : {0}".format(nan_rate))
+        print("------------------------------------------")
+
+    def __nan_rate(self):
+        if self.race_mode:
+            nan_rate = self.train_x.isnull().sum().sum().sum()/float(self.train_x.size)
+        else:
+            nan_rate = self.train_x.isnull().sum().sum()/float(self.train_x.size)
+        return nan_rate
 
 def split_with_race(df,test_nums = 1000):
     race_id = pd.DataFrame(df["info_race_id"].unique(),columns = ["info_race_id"])
@@ -217,22 +243,50 @@ def fillna_mean_horse(df,mean = None,categorical = []):
     return df
 
 def fillna_mean_race(df,mean = None,categorical = []):
-    means_stds = df.groupby("info_race_id").agg(["mean"]).reset_index()
+    means_stds = df.groupby("info_race_id").mean()
+    print(means_stds.columns)
     for col in df.columns:
         if col is "info_race_id":
             continue
         if col in categorical:
-            mean[col] = 0
-        ms = means_stds[col]
+            means_stds[col] = 0
+        ms = means_stds.loc[:,col].to_frame()
+        ms.columns = ["mean"]
         df = df.join(ms,on = "info_race_id")
-        df = df.fillna(df["mean"])
+
+        df.loc[:,col]  = df.loc[:,col].fillna(df.loc[:,"mean"])
         df = df.drop("mean",axis=1)
     fillna_mean_horse(df,mean,categorical)
     return df
 
+def none_filter_race(x,y,odds,threhold):
+    con = pd.concat([x,y,odds],axis = 1)
+    nan_rate = con.groupby("info_race_id").apply(lambda df: 1 - df.isnull().sum().sum()/float(df.size)).to_frame()
+    nan_rate.columns = ["__nan_rate"]
+    con = con.join(nan_rate, on="info_race_id")
+    con = con[con["__nan_rate"] >= threhold]
+    x = con.loc[:,x.columns]
+    y = con.loc[:,y.columns]
+    odds = con.loc[:,odds.columns]
+    return (x,y,odds)
+
+def none_filter_horse(x,y,odds,threhold):
+    return (x,y,odds)
+
+def get_race_panel(x,y,odds):
+    x.reset_index(inplace = True,drop = True)
+    y.reset_index(inplace = True,drop = True)
+    odds.reset_index(inplace = True,drop = True)
+ 
+    x,y,odds = dataset2.pad_race(x,y,odds)
+    x = dataset2.downcast(x)
+    y = dataset2.downcast(y)
+    odds = dataset2.downcast(odds)
+    return dataset2.to_race_panel(x,y,odds)
+
+
 def check_duplicates(columns):
     print(set([x for x in columns if columns.count(x) > 1]))
-
 
 if __name__ == "__main__":
     x_columns = ["addinfo_age_month","info_sex_code","info_sex_code"]

@@ -37,7 +37,7 @@ pd.set_option('display.max_columns', 1000)
 np.set_printoptions(threshold=np.nan)
  
 def main(use_cache = False):
-    config = util.get_config("config/config.json")
+    config = util.get_config("config/xgbc_config2.json")
     db_path = "db/output_v18.db"
 
     if use_cache:
@@ -67,12 +67,13 @@ def generate_dataset(db_path,config):
     dp.fillna_mean()
     dp.normalize()
     dp.to_race_panel()
-    #train_add_x = (train_add_x/100.0).clip(upper = 50)
-    #test_add_x = (test_add_x/100.0).clip(upper = 50)
     return dp
 
 def dnn(features,datasets):
+    pred_model = load_model("./models/mlp_model3.h5")
     train_x = datasets.get(data_processor.KEY_TRAIN_X).as_matrix()
+    train_pred = pred_model.predict(train_x)
+
     train_y = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,"is_win"]
     train_payoff = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,"win_payoff"]
 
@@ -80,8 +81,6 @@ def dnn(features,datasets):
     test_y  = datasets.get(data_processor.KEY_TEST_Y).loc[:,"is_place"]
     test_payoff = datasets.get(data_processor.KEY_TRAIN_Y).loc[:,"place_payoff"]
 
-    pred_model = ""
-   
     max_iterate = 300000
     log_interval = 2
     model_swap_interval = 10

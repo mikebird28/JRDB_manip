@@ -131,44 +131,6 @@ def pad_race(x,y,*additional):
         ret_add.append(con.loc[:,cols])
     return [ret_x,ret_y] + ret_add
 
-
-"""
-def pad_race(x,y):
-    n = 18
-    x_col = x.columns.tolist()
-    y_col = y.columns.tolist()
-    columns = y_col + x_col
-    x.reset_index(inplace = True,drop = True)
-    y.reset_index(inplace = True,drop = True)
-
-    df = pd.concat([y,x],axis = 1)
-    df = df.sort_values(by = "info_race_id",ascending = True)
-    df = df.groupby("info_race_id").filter(lambda x:len(x) <= 18)
-
-    size = df.groupby("info_race_id").size().reset_index(name = "counts")
-    mean = df.groupby("info_race_id").mean().reset_index()
-    mean.loc[:,y_col] = 0.0
-    target_columns = columns
-
-    merged = mean.merge(size,on = "info_race_id",how="inner")
-    for col in merged.columns:
-        if col != "info_race_id" and col != "counts":
-            merged[col] = merged[col].astype(np.float32)
-
-    del mean
-    del size
-
-    ls = []
-    for i,row in merged.iterrows():
-        pad_num = n - row["counts"]
-        new_row = row[target_columns]
-        ls.extend([new_row for i in range(pad_num)])
-    df = df.append(pd.DataFrame(ls))
-    del ls
-    df = df.sort_values(by = "info_race_id")
-    return (df.loc[:,x_col],df.loc[:,y_col])
-"""
-
 def pad_race_x(df,n = 18):
     x_col = df.columns.tolist()
     df = df.sort_values(by = "info_race_id",ascending = True)

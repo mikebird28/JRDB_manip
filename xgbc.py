@@ -39,9 +39,11 @@ def generate_dataset(db_path,config):
         "is_quinella","quinella_payoff",
     ]
     odds_columns = ["linfo_win_odds","linfo_place_odds"]
-    where = "rinfo_year > 2011"
+    where = "rinfo_year > 2010"
     dp = data_processor.load_from_database(db_path,x_columns,y_columns,odds_columns,where = where)
     dp.keep_separate_race_df()
+    dp.none_filter(0.95)
+    dp.none_rate()
     dp.under_sampling(predict_type,train_magnif = 3)
     return dp
 

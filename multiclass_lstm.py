@@ -5,7 +5,7 @@ from keras.models import Sequential,Model,load_model
 from keras.layers import Dense,Activation,Input,Dropout,Concatenate,Conv2D,Add,ZeroPadding2D,GaussianNoise
 from keras.layers.recurrent import LSTM
 from keras.layers.normalization import BatchNormalization
-from keras.layers.core import Reshape,Flatten,Permute,Lambda
+from keras.layers.core import Reshape,Flatten,Permute,Lambda,RepeatVector
 import keras.optimizers
 import numpy as np
 import pandas as pd
@@ -107,6 +107,20 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
     x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
     x = Dropout(dropout)(x)
 
+    lstm = Permute((1,3,2))(x)
+    lstm = Reshape([18,40])(lstm)
+    lstm = LSTM(units = 20,return_sequences = False)(lstm)
+    lstm = RepeatVector(18)(lstm)
+    lstm = Reshape([18,20,1])(lstm)
+    x = Reshape([18,40,1])(x)
+    x = Concatenate(axis = 2)([x,lstm])
+    print(x)
+
+    x = Conv2D(depth,(1,feature_size),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Activation(activation)(x)
+    x = BatchNormalization(axis = bn_axis,momentum = momentum)(x)
+    x = Dropout(dropout)(x)
+ 
     for i in range(1):
         res = x
         x = ZeroPadding2D(padding = ((0,1),(0,0)))(x)
@@ -121,12 +135,7 @@ def create_model(activation = "relu",dropout = 0.3,hidden_1 = 80,hidden_2 = 80,h
         x = Activation(activation)(x)
 
     x = BatchNormalization(axis = 1,momentum = momentum)(x)
-    x = Permute((1,3,2))(x)
-    x = Reshape([18,40])(x)
-    x = LSTM(units = 10,return_sequences = True)(x)
-    x = Reshape([18,10,1])(x)
-    x = BatchNormalization(axis = 1,momentum = momentum)(x)
-    x = Conv2D(1,(1,10),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
+    x = Conv2D(1,(1,1),padding = "valid",kernel_initializer="he_normal",kernel_regularizer = l2(l2_coef))(x)
     x = Flatten()(x)
     outputs = Activation("softmax")(x)
 
